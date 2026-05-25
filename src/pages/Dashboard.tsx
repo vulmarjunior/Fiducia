@@ -88,7 +88,7 @@ export function Dashboard() {
       Seja motivador e direto em Português.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         contents: prompt,
       });
       setAiTip(response.text || '');

@@ -87,7 +87,7 @@ export function Reports() {
       Responda em Português usando Markdown básico (bullets, negrito). Seja empático e profissional.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         contents: prompt,
       });
 
