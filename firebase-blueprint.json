@@ -1,0 +1,290 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the financial control system.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Account": {
+      "title": "Account",
+      "description": "A bank account or wallet.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["checking", "savings", "wallet", "investment"] },
+        "balance": { "type": "number" },
+        "agency": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "bankCode": { "type": "string" },
+        "bankName": { "type": "string" },
+        "bankLogo": { "type": "string" },
+        "excludeFromCashFlow": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "type", "balance", "createdAt"]
+    },
+    "CreditCard": {
+      "title": "Credit Card",
+      "description": "A credit card.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "limit": { "type": "number" },
+        "closingDay": { "type": "number" },
+        "dueDay": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "limit", "closingDay", "dueDay", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "A category for transactions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "icon": { "type": "string", "description": "Lucide icon name." },
+        "isDefault": { "type": "boolean" },
+        "parentId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "type", "isDefault", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A financial transaction.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense", "transfer", "receita", "despesa", "transferencia"] },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "destinationAccountId": { "type": "string" },
+        "creditCardId": { "type": "string" },
+        "invoicePeriod": { "type": "string", "description": "Format YYYY-MM, represents which credit card invoice this transaction belongs to." },
+        "status": { "type": "string", "enum": ["paid", "pending", "cancelled", "pago", "pendente", "cancelado", "realizado"] },
+        "installmentId": { "type": "string" },
+        "isRecurring": { "type": "boolean" },
+        "frequency": { "type": "string", "enum": ["mensal", "semanal", "anual"] },
+        "installmentNumber": { "type": "number" },
+        "totalInstallments": { "type": "number" },
+        "parentId": { "type": "string", "description": "ID of the parent transaction for recurring or installments." },
+        "ccRecurrenceType": { "type": "string", "enum": ["avulso", "parcelado", "fixo"] },
+        "ofxId": { "type": "string", "description": "Unique ID from OFX file to prevent duplicates." },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "observation": { "type": "string" },
+        "reconciliationStatus": { "type": "string", "enum": ["conciliado", "nao_conciliado", "ignorado"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "amount", "date", "description", "status", "createdAt"]
+    },
+    "RecurrenceRule": {
+      "title": "Recurrence Rule",
+      "description": "A rule for generating recurring transactions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "frequency": { "type": "string", "enum": ["mensal", "semanal", "anual"] },
+        "billingDay": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "type": { "type": "string", "enum": ["income", "expense", "receita", "despesa"] },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "observation": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "accountId", "amount", "description", "frequency", "status", "type", "createdAt", "startDate"]
+    },
+    "Installment": {
+      "title": "Installment",
+      "description": "An installment plan for a transaction.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "totalAmount": { "type": "number" },
+        "numberOfInstallments": { "type": "number" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "creditCardId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "totalAmount", "numberOfInstallments", "startDate", "description", "createdAt"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "A credit card invoice.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "cardId": { "type": "string" },
+        "period": { "type": "string", "description": "Format YYYY-MM" },
+        "status": { "type": "string", "enum": ["aberta", "fechada", "paga"] },
+        "totalAmount": { "type": "number" },
+        "closedAt": { "type": "string", "format": "date-time" },
+        "paymentTransactionId": { "type": "string" }
+      },
+      "required": ["userId", "cardId", "period", "status"]
+    },
+    "ReconciliationHistory": {
+      "title": "Reconciliation History",
+      "description": "History of reconciliation actions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "period": { "type": "string" },
+        "reconciledAt": { "type": "string", "format": "date-time" },
+        "totalReconciled": { "type": "number" },
+        "totalUnreconciled": { "type": "number" },
+        "type": { "type": "string", "enum": ["account", "credit_card"] }
+      },
+      "required": ["userId", "accountId", "period", "reconciledAt", "type"]
+    },
+    "ClosedPeriod": {
+      "title": "Closed Period",
+      "description": "A closed financial period (month/year) for a specific account.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "period": { "type": "string", "description": "Format YYYY-MM" },
+        "closedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "accountId", "period", "closedAt"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "A budget for a specific category.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "amount": { "type": "number" },
+        "period": { "type": "string", "enum": ["monthly"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "categoryId", "amount", "period", "createdAt"]
+    },
+    "Goal": {
+      "title": "Goal",
+      "description": "A financial savings goal.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "targetAmount": { "type": "number" },
+        "currentAmount": { "type": "number" },
+        "deadline": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "targetAmount", "currentAmount", "createdAt"]
+    },
+    "Tag": {
+      "title": "Tag",
+      "description": "A tag that can be attached to transactions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "color", "createdAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "A record of an activity/audit log.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "action": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "description": { "type": "string" },
+        "dataBefore": { "type": "object" },
+        "dataAfter": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "action", "entityType", "entityId", "description", "createdAt"]
+    }
+  },
+  "firestore": {
+    "closedPeriods/{periodId}": {
+      "schema": { "$ref": "#/entities/ClosedPeriod" },
+      "description": "Closed financial periods."
+    },
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles."
+    },
+    "accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/Account" },
+      "description": "Bank accounts and wallets."
+    },
+    "creditCards/{cardId}": {
+      "schema": { "$ref": "#/entities/CreditCard" },
+      "description": "Credit cards."
+    },
+    "tags/{tagId}": {
+      "schema": { "$ref": "#/entities/Tag" },
+      "description": "Transaction tags."
+    },
+    "categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Transaction categories."
+    },
+    "transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Financial transactions."
+    },
+    "recurrenceRules/{ruleId}": {
+      "schema": { "$ref": "#/entities/RecurrenceRule" },
+      "description": "Rules for generating recurring transactions."
+    },
+    "installments/{installmentId}": {
+      "schema": { "$ref": "#/entities/Installment" },
+      "description": "Installment plans."
+    },
+    "budgets/{budgetId}": {
+      "schema": { "$ref": "#/entities/Budget" },
+      "description": "Budgets for categories."
+    },
+    "goals/{goalId}": {
+      "schema": { "$ref": "#/entities/Goal" },
+      "description": "Financial savings goals."
+    },
+    "invoices/{invoiceId}": {
+      "schema": { "$ref": "#/entities/Invoice" },
+      "description": "Credit card invoices."
+    },
+    "reconciliationHistory/{historyId}": {
+      "schema": { "$ref": "#/entities/ReconciliationHistory" },
+      "description": "History of reconciliation actions."
+    },
+    "activityLogs/{logId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "Audit logs for user activities."
+    }
+  }
+}

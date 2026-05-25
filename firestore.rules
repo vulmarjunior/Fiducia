@@ -1,0 +1,327 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDate(date) {
+      return date is timestamp || (date is string && (
+        date.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$") ||
+        date.matches("^\\d{4}-\\d{2}-\\d{2}$")
+      ));
+    }
+
+    function isPositive(field) {
+      return request.resource.data[field] is number && request.resource.data[field] >= 0;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['email', 'createdAt', 'role']) &&
+             isValidEmail(data.email) &&
+             isValidDate(data.createdAt) &&
+             data.role in ['admin', 'client'] &&
+             (!('name' in data) || (data.name is string && data.name.size() < 100));
+    }
+
+    function isValidAccount(data) {
+      return hasRequiredFields(['userId', 'name', 'type', 'balance', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.type in ['checking', 'savings', 'wallet', 'corrente', 'poupanca', 'carteira', 'investment', 'investimento'] &&
+             data.balance is number &&
+             isValidDate(data.createdAt) &&
+             (!('agency' in data) || (data.agency is string && data.agency.size() <= 20)) &&
+             (!('accountNumber' in data) || (data.accountNumber is string && data.accountNumber.size() <= 30)) &&
+             (!('bankCode' in data) || data.bankCode is string) &&
+             (!('bankName' in data) || data.bankName is string) &&
+             (!('excludeFromCashFlow' in data) || data.excludeFromCashFlow is bool);
+    }
+
+    function isValidCreditCard(data) {
+      return hasRequiredFields(['userId', 'name', 'limit', 'closingDay', 'dueDay', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.limit is number && data.limit >= 0 &&
+             data.closingDay is number && data.closingDay >= 1 && data.closingDay <= 31 &&
+             data.dueDay is number && data.dueDay >= 1 && data.dueDay <= 31 &&
+             isValidDate(data.createdAt);
+    }
+
+    function isValidCategory(data) {
+      return hasRequiredFields(['userId', 'name', 'type', 'isDefault', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.type in ['income', 'expense', 'receita', 'despesa'] &&
+             data.isDefault is bool &&
+             isValidDate(data.createdAt) &&
+             (!('parentId' in data) || data.parentId == null || data.parentId is string);
+    }
+
+    function isValidTag(data) {
+      return hasRequiredFields(['userId', 'name', 'color', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 50 &&
+             data.color is string && data.color.matches("^#[0-9a-fA-F]{6}$") &&
+             isValidDate(data.createdAt);
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "vulmarjunior@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidTransaction(data) {
+      return hasRequiredFields(['userId', 'type', 'amount', 'date', 'description', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.type in ['income', 'expense', 'transfer', 'receita', 'despesa', 'transferencia'] &&
+             data.amount is number && data.amount > 0 &&
+             isValidDate(data.date) &&
+             data.description is string && data.description.size() < 500 &&
+             data.status in ['paid', 'pending', 'cancelled', 'pago', 'pendente', 'cancelado', 'realizado'] &&
+             isValidDate(data.createdAt) &&
+             (!('categoryId' in data) || data.categoryId is string || data.categoryId == null) &&
+             (!('accountId' in data) || data.accountId is string || data.accountId == null) &&
+             (!('destinationAccountId' in data) || data.destinationAccountId is string || data.destinationAccountId == null) &&
+             (!('creditCardId' in data) || data.creditCardId is string || data.creditCardId == null) &&
+             (!('invoicePeriod' in data) || data.invoicePeriod == null || (data.invoicePeriod is string && data.invoicePeriod.matches("^\\d{4}-\\d{2}$"))) &&
+             (!('installmentId' in data) || data.installmentId is string || data.installmentId == null) &&
+             (!('isRecurring' in data) || data.isRecurring is bool) &&
+             (!('frequency' in data) || data.frequency in ['mensal', 'semanal', 'anual']) &&
+             (!('installmentNumber' in data) || data.installmentNumber is number) &&
+             (!('totalInstallments' in data) || data.totalInstallments is number) &&
+             (!('parentId' in data) || data.parentId is string || data.parentId == null) &&
+             (!('ccRecurrenceType' in data) || data.ccRecurrenceType in ['avulso', 'parcelado', 'fixo']) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 20)) &&
+             (!('observation' in data) || (data.observation is string && data.observation.size() <= 1000)) &&
+             (!('reconciliationStatus' in data) || data.reconciliationStatus in ['conciliado', 'nao_conciliado', 'ignorado']) &&
+             (!('updatedAt' in data) || data.updatedAt == null || isValidDate(data.updatedAt));
+    }
+
+    function isValidRecurrenceRule(data) {
+      return hasRequiredFields(['userId', 'accountId', 'amount', 'description', 'frequency', 'status', 'type', 'createdAt', 'startDate']) &&
+             data.userId == request.auth.uid &&
+             data.accountId is string &&
+             data.amount is number && data.amount > 0 &&
+             data.description is string && data.description.size() < 500 &&
+             data.frequency in ['mensal', 'semanal', 'anual'] &&
+             data.status in ['active', 'inactive'] &&
+             data.type in ['income', 'expense', 'receita', 'despesa'] &&
+             isValidDate(data.createdAt) &&
+             isValidDate(data.startDate) &&
+             (!('categoryId' in data) || data.categoryId is string || data.categoryId == null) &&
+             (!('billingDay' in data) || (data.billingDay is number && data.billingDay >= 1 && data.billingDay <= 31)) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 20)) &&
+             (!('observation' in data) || (data.observation is string && data.observation.size() <= 1000)) &&
+             (!('endDate' in data) || data.endDate == null || isValidDate(data.endDate));
+    }
+
+    function isValidInstallment(data) {
+      return hasRequiredFields(['userId', 'type', 'totalAmount', 'numberOfInstallments', 'startDate', 'description', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.type in ['income', 'expense', 'receita', 'despesa'] &&
+             data.totalAmount is number && data.totalAmount > 0 &&
+             data.numberOfInstallments is number && data.numberOfInstallments > 0 &&
+             isValidDate(data.startDate) &&
+             data.description is string && data.description.size() < 500 &&
+             isValidDate(data.createdAt) &&
+             (!('categoryId' in data) || data.categoryId is string || data.categoryId == null) &&
+             (!('accountId' in data) || data.accountId is string || data.accountId == null) &&
+             (!('creditCardId' in data) || data.creditCardId is string || data.creditCardId == null);
+    }
+
+    function isValidClosedPeriod(data) {
+      return hasRequiredFields(['userId', 'period', 'accountId', 'closedAt']) &&
+             data.userId == request.auth.uid &&
+             data.accountId is string &&
+             data.period is string && data.period.matches("^\\d{4}-\\d{2}$") &&
+             isValidDate(data.closedAt);
+    }
+
+    function isValidBudget(data) {
+      return hasRequiredFields(['userId', 'categoryId', 'amount', 'period', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.categoryId is string &&
+             data.amount is number && data.amount > 0 &&
+             data.period in ['monthly'] &&
+             isValidDate(data.createdAt);
+    }
+
+    function isValidGoal(data) {
+      return hasRequiredFields(['userId', 'name', 'targetAmount', 'currentAmount', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.targetAmount is number && data.targetAmount > 0 &&
+             data.currentAmount is number && data.currentAmount >= 0 &&
+             (!('deadline' in data) || data.deadline == '' || data.deadline is string) &&
+             isValidDate(data.createdAt);
+    }
+
+    function isValidInvoice(data) {
+      return hasRequiredFields(['userId', 'cardId', 'period', 'status']) &&
+             data.userId == request.auth.uid &&
+             data.cardId is string &&
+             data.period is string && data.period.matches("^\\d{4}-\\d{2}$") &&
+             data.status in ['aberta', 'fechada', 'paga'] &&
+             (!('totalAmount' in data) || data.totalAmount is number) &&
+             (!('closedAt' in data) || isValidDate(data.closedAt)) &&
+             (!('paymentTransactionId' in data) || data.paymentTransactionId is string);
+    }
+
+    function isValidReconciliationHistory(data) {
+      return hasRequiredFields(['userId', 'accountId', 'period', 'reconciledAt', 'type']) &&
+             data.userId == request.auth.uid &&
+             data.accountId is string &&
+             data.period is string &&
+             isValidDate(data.reconciledAt) &&
+             data.type in ['account', 'credit_card'] &&
+             (!('totalReconciled' in data) || data.totalReconciled is number) &&
+             (!('totalUnreconciled' in data) || data.totalUnreconciled is number);
+    }
+
+    function isValidActivityLog(data) {
+      return hasRequiredFields(['userId', 'action', 'entityType', 'entityId', 'description', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.action is string && data.action.size() < 50 &&
+             data.entityType is string && data.entityType.size() < 50 &&
+             data.entityId is string &&
+             data.description is string && data.description.size() < 500 &&
+             isValidDate(data.createdAt);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && ((isOwner(userId) && request.resource.data.role == 'client') || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /accounts/{accountId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidAccount(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidAccount(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
+
+    match /creditCards/{cardId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidCreditCard(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidCreditCard(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidCategory(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidCategory(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
+
+    match /tags/{tagId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidTag(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidTag(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidTransaction(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidTransaction(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
+
+    match /recurrenceRules/{ruleId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidRecurrenceRule(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidRecurrenceRule(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
+
+    match /installments/{installmentId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidInstallment(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidInstallment(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
+
+    match /closedPeriods/{periodId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidClosedPeriod(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidClosedPeriod(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /budgets/{budgetId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidBudget(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidBudget(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
+
+    match /goals/{goalId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidGoal(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidGoal(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
+    match /invoices/{invoiceId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidInvoice(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidInvoice(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /reconciliationHistory/{historyId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidReconciliationHistory(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidReconciliationHistory(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /activityLogs/{logId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidActivityLog(request.resource.data) && uidUnchanged();
+      allow update: false;
+      allow delete: if isDocOwner();
+    }
+  }
+}
