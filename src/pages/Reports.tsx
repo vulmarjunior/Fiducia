@@ -225,8 +225,8 @@ export function Reports() {
               <CardDescription>Receitas vs Despesas nos últimos 6 meses</CardDescription>
             </CardHeader>
             <CardContent className="p-5">
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="w-full">
+                <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 500 }} dy={10} />
@@ -252,8 +252,8 @@ export function Reports() {
               <CardDescription>Evolução cumulativa das despesas no mês atual</CardDescription>
             </CardHeader>
             <CardContent className="p-5">
-              <div className="h-[250px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="w-full">
+                <ResponsiveContainer width="100%" height={250}>
                   <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorAmt" x1="0" y1="0" x2="0" y2="1">
@@ -317,9 +317,9 @@ export function Reports() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4">
-              <div className="h-[220px] w-full">
+              <div className="w-full" style={{ minHeight: 220 }}>
                 {categoryData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
                       <Pie
                         data={categoryData}
