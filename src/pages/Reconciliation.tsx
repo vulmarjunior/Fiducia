@@ -11,8 +11,9 @@ import { parseOFX, ImportedTransaction } from '../lib/ofxParser';
 import Papa from 'papaparse';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Check, X, Link as LinkIcon, Plus, CheckCircle2, AlertCircle, LayoutDashboard, Download, FileText } from 'lucide-react';
+import { Check, X, Link as LinkIcon, Plus, CheckCircle2, AlertCircle, LayoutDashboard, Download, FileText, Sparkles, Loader2 } from 'lucide-react';
 import { calculateInvoicePeriod, resolveAccountName } from '../lib/utils';
+import { callGroq } from '../services/groqService';
 
 export function Reconciliation() {
   const { user, isAuthReady } = useAuth();
@@ -22,6 +23,9 @@ export function Reconciliation() {
   const [systemTransactions, setSystemTransactions] = useState<any[]>([]);
   const [importedTransactions, setImportedTransactions] = useState<ImportedTransaction[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAiMatching, setIsAiMatching] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   
   const [selectedImportedId, setSelectedImportedId] = useState<string | null>(null);
   const [selectedSystemId, setSelectedSystemId] = useState<string | null>(null);
@@ -182,6 +186,107 @@ export function Reconciliation() {
 
     setImportedTransactions(newImported);
     toast.success(`${matchCount} transações conciliadas automaticamente.`);
+  };
+
+  const handleAiAutoMatch = async () => {
+    if (importedTransactions.length === 0 || systemTransactions.length === 0) return;
+    setIsAiMatching(true);
+    try {
+      const pendingImported = importedTransactions.filter(t => t.status === 'pending');
+      const matchedIds = new Set(importedTransactions.filter(t => t.matchedWithSystemId).map(t => t.matchedWithSystemId));
+      const unmatchedSystem = systemTransactions.filter(t => !matchedIds.has(t.id));
+
+      if (pendingImported.length === 0) {
+        toast.info('Nenhuma transação pendente para conciliar.');
+        return;
+      }
+
+      const prompt = `Você é um assistente de conciliação financeira. Faça o match entre as transações do banco (importadas) e as transações do sistema.
+
+Regras:
+- Mesmo valor é evidência forte, mas diferenças de centavos podem existir
+- Similaridade de descrição é evidência forte (ex: "UBER TRIP" ≈ "Uber")
+- Proximidade de data (até 5 dias) ajuda
+- Cada transação só pode ter um match
+- NÃO invente matches — se não houver correspondência, não inclua
+
+Responda APENAS com um array JSON válido, sem formatação markdown:
+[{"importedId": "id", "systemId": "id", "confidence": 0.95}]
+
+Transações importadas (banco):
+${JSON.stringify(pendingImported.map(t => ({ id: t.id, desc: t.description, amount: t.amount, date: t.date.split('T')[0], type: t.type })))}
+
+Transações do sistema:
+${JSON.stringify(unmatchedSystem.map(t => ({ id: t.id, desc: t.description, amount: t.amount, date: t.date.split('T')[0], type: t.type })))}`;
+
+      const result = await callGroq([{ role: 'user', content: prompt }], { maxTokens: 1000, temperature: 0.1 });
+      const matches = JSON.parse(result);
+      let appliedCount = 0;
+      const newImported = [...importedTransactions];
+      const usedSystemIds = new Set<string>();
+
+      for (const match of matches) {
+        if (match.confidence >= 0.7 && !usedSystemIds.has(match.systemId)) {
+          const idx = newImported.findIndex(t => t.id === match.importedId);
+          if (idx !== -1 && newImported[idx].status === 'pending') {
+            newImported[idx] = { ...newImported[idx], status: 'matched', matchedWithSystemId: match.systemId };
+            usedSystemIds.add(match.systemId);
+            appliedCount++;
+          }
+        }
+      }
+
+      setImportedTransactions(newImported);
+      toast.success(`IA encontrou ${matches.length} match(es). ${appliedCount} aplicado(s) automaticamente.`);
+      if (matches.length > appliedCount) {
+        toast.info(`${matches.length - appliedCount} match(es) com confiança baixa — verifique manualmente.`);
+      }
+    } catch (error) {
+      console.error('AI Auto-Match error:', error);
+      toast.error('Erro no auto-match com IA. Tente o auto-match padrão.');
+    } finally {
+      setIsAiMatching(false);
+    }
+  };
+
+  const handleAiAnalysis = async () => {
+    if (importedTransactions.length === 0 && systemTransactions.length === 0) return;
+    setIsAiAnalyzing(true);
+    try {
+      const unmatchedImported = importedTransactions.filter(t => t.status !== 'matched' && t.status !== 'added');
+      const matchedIds = new Set(importedTransactions.filter(t => t.matchedWithSystemId).map(t => t.matchedWithSystemId));
+      const unmatchedSystem = systemTransactions.filter(t => !matchedIds.has(t.id));
+
+      const bankTotal = unmatchedImported.reduce((s, t) => s + t.amount, 0);
+      const sysTotal = unmatchedSystem.reduce((s, t) => s + t.amount, 0);
+
+      const prompt = `Você é um auditor financeiro. Analise as divergências abaixo após uma conciliação.
+
+Transações no EXTRATO BANCÁRIO sem match no sistema:
+${JSON.stringify(unmatchedImported.map(t => ({ desc: t.description, amount: t.amount, date: t.date.split('T')[0] })))}
+
+Total no extrato sem match: R$ ${bankTotal.toFixed(2)}
+
+Transações no SISTEMA sem match no extrato:
+${JSON.stringify(unmatchedSystem.map(t => ({ desc: t.description, amount: t.amount, date: t.date.split('T')[0] })))}
+
+Total no sistema sem match: R$ ${sysTotal.toFixed(2)}
+
+Forneça:
+1. Possíveis explicações para cada divergência
+2. Comparação dos totais
+3. Recomendação curta
+
+Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
+
+      const analysis = await callGroq([{ role: 'user', content: prompt }], { maxTokens: 500 });
+      setAiAnalysis(analysis);
+    } catch (error) {
+      console.error('AI Analysis error:', error);
+      toast.error('Erro ao gerar análise de divergências.');
+    } finally {
+      setIsAiAnalyzing(false);
+    }
   };
 
   const manualMatch = () => {
@@ -396,9 +501,16 @@ export function Reconciliation() {
             </div>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex gap-2 flex-wrap">
             <Button variant="outline" onClick={autoReconcile} disabled={pendingImported.length === 0}>
-              Conciliar Automaticamente
+              Conciliar Autom.
+            </Button>
+            <Button variant="outline" onClick={handleAiAutoMatch} disabled={isAiMatching || pendingImported.length === 0} className="gap-2">
+              {isAiMatching ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Buscando...</>
+              ) : (
+                <><Sparkles className="w-4 h-4" /> Auto-Conciliar com IA</>
+              )}
             </Button>
             <Button onClick={finalizeReconciliation} disabled={matchedImported.length === 0} className="bg-fiducia-blue hover:bg-fiducia-blue/90">
               Finalizar Conciliação
@@ -408,7 +520,7 @@ export function Reconciliation() {
       )}
 
       {importedTransactions.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <><div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column: Imported Transactions */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -529,7 +641,41 @@ export function Reconciliation() {
             </div>
           </div>
         </div>
-      ) : (
+
+        {/* AI Actions */}
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            onClick={handleAiAnalysis}
+            disabled={isAiAnalyzing || matchedImported.length === 0}
+            className="gap-2"
+          >
+            {isAiAnalyzing ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Analisando...</>
+            ) : (
+              <><Sparkles className="w-4 h-4" /> Analisar Divergências com IA</>
+            )}
+          </Button>
+        </div>
+
+        {aiAnalysis && (
+          <div className="bg-gradient-to-br from-fiducia-blue/5 via-transparent to-emerald-500/5 border border-border/60 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 via-cyan-400 to-blue-500 flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4 text-white" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                  Análise de Divergências IA
+                </div>
+                <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                  {aiAnalysis}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        </>) : (
         <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center flex flex-col items-center justify-center min-h-[400px]">
           <div className="h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
             <FileText className="h-10 w-10 text-gray-400" />
