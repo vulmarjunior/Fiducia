@@ -291,7 +291,7 @@ export function Dashboard() {
           </div>
           <div className="text-[28px] font-bold tracking-tight text-foreground">Visão Geral</div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <button 
             onClick={() => setShowValues(!showValues)}
             className="p-2 rounded-lg border border-border bg-card hover:bg-secondary transition-colors text-muted-foreground"
@@ -305,7 +305,7 @@ export function Dashboard() {
             <button className="px-4 py-1.5 rounded-lg text-[12px] font-semibold text-muted-foreground hover:text-foreground transition-colors">Ano</button>
           </div>
           <Button nativeButton={false} className="h-10 px-4 text-sm font-semibold rounded-xl gap-2 bg-primary text-primary-foreground hover:opacity-90 transition-opacity" render={<Link to="/transactions" />}>
-            <Plus className="w-4 h-4" /> Novo lançamento
+            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo lançamento</span>
           </Button>
         </div>
       </div>
