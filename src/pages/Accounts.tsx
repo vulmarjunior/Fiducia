@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
-import { Wallet, Landmark, PiggyBank, Plus, Trash2, Edit, Building, ChevronDown, Search, TrendingUp } from 'lucide-react';
+import { Wallet, Landmark, PiggyBank, Plus, Trash2, Edit, Building, ChevronDown, Search, TrendingUp, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 
@@ -30,6 +30,8 @@ export function Accounts() {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [resetConfirmId, setResetConfirmId] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   const [banks, setBanks] = useState<BankInfo[]>([]);
   const [bankSearch, setBankSearch] = useState('');
@@ -143,6 +145,90 @@ export function Accounts() {
       toast.error('Falha ao excluir conta');
     } finally {
       setDeleteConfirmId(null);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!resetConfirmId || !user) return;
+    setIsResetting(true);
+    try {
+      const batch = writeBatch(db);
+      const affectedAccounts: Record<string, number> = {};
+      let opCount = 0;
+      const MAX_BATCH = 450;
+
+      const commitBatch = async () => {
+        if (opCount > 0) {
+          await batch.commit();
+        }
+      };
+
+      const tQuery = query(
+        collection(db, 'transactions'),
+        where('userId', '==', user.uid),
+        where('accountId', '==', resetConfirmId)
+      );
+      const tSnap = await getDocs(tQuery);
+
+      const destQuery = query(
+        collection(db, 'transactions'),
+        where('userId', '==', user.uid),
+        where('destinationAccountId', '==', resetConfirmId)
+      );
+      const destSnap = await getDocs(destQuery);
+
+      const allDocs = [...tSnap.docs, ...destSnap.docs];
+      const seenIds = new Set<string>();
+
+      for (const docSnap of allDocs) {
+        if (seenIds.has(docSnap.id)) continue;
+        seenIds.add(docSnap.id);
+        const data = docSnap.data();
+
+        if (data.type === 'transferencia') {
+          if (data.accountId === resetConfirmId && data.destinationAccountId) {
+            const destId = data.destinationAccountId;
+            affectedAccounts[destId] = (affectedAccounts[destId] || 0) - data.amount;
+          }
+          if (data.destinationAccountId === resetConfirmId && data.accountId) {
+            const srcId = data.accountId;
+            affectedAccounts[srcId] = (affectedAccounts[srcId] || 0) + data.amount;
+          }
+        }
+
+        batch.delete(docSnap.ref);
+        opCount++;
+
+        if (opCount >= MAX_BATCH) {
+          await commitBatch();
+        }
+      }
+
+      for (const [accId, change] of Object.entries(affectedAccounts)) {
+        const accRef = doc(db, 'accounts', accId);
+        const acc = accounts.find(a => a.id === accId);
+        if (acc) {
+          batch.update(accRef, { balance: (acc.balance || 0) + change });
+          opCount++;
+          if (opCount >= MAX_BATCH) {
+            await commitBatch();
+          }
+        }
+      }
+
+      const accountRef = doc(db, 'accounts', resetConfirmId);
+      batch.update(accountRef, { balance: 0 });
+      opCount++;
+
+      await commitBatch();
+
+      toast.success('Conta zerada com sucesso');
+      setResetConfirmId(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `accounts/${resetConfirmId}`);
+      toast.error('Erro ao zerar conta');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -359,11 +445,14 @@ export function Accounts() {
                   </Badge>
                 )}
               </CardTitle>
-              <div className="flex gap-2">
-                <button onClick={() => openEdit(account)} className="text-muted-foreground hover:text-fiducia-blue min-w-[44px] min-h-[44px] flex items-center justify-center">
+              <div className="flex gap-0.5">
+                <button onClick={() => openEdit(account)} className="text-muted-foreground hover:text-fiducia-blue min-w-[44px] min-h-[44px] flex items-center justify-center" title="Editar">
                   <Edit className="h-4 w-4" />
                 </button>
-                <button onClick={() => setDeleteConfirmId(account.id)} className="text-muted-foreground hover:text-fiducia-red min-w-[44px] min-h-[44px] flex items-center justify-center">
+                <button onClick={() => setResetConfirmId(account.id)} className="text-muted-foreground hover:text-amber-500 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Zerar saldo">
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+                <button onClick={() => setDeleteConfirmId(account.id)} className="text-muted-foreground hover:text-fiducia-red min-w-[44px] min-h-[44px] flex items-center justify-center" title="Excluir">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -408,6 +497,31 @@ export function Accounts() {
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete}>Excluir</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!resetConfirmId} onOpenChange={(open) => !open && setResetConfirmId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Zerar Conta</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              Isso vai <strong>excluir TODAS as transações</strong> desta conta e <strong>zerar o saldo</strong> para R$ 0,00.
+            </p>
+            <p className="text-muted-foreground">
+              Transferências envolvendo esta conta também serão removidas, e os saldos das contas de origem/destino serão ajustados.
+            </p>
+            <p className="text-amber-600 dark:text-amber-400 font-medium">
+              Esta ação não pode ser desfeita.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setResetConfirmId(null)} disabled={isResetting}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleReset} disabled={isResetting}>
+              {isResetting ? 'Zerando...' : 'Zerar e Apagar Transações'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, getPreviousPeriod, resolveAccountName } from '../lib/utils';
+import { callGroq } from '../services/groqService';
  
 export function Dashboard() {
   const { user, isAuthReady } = useAuth();
@@ -75,30 +76,65 @@ export function Dashboard() {
     if (!user || transactions.length < 5 || isLoadingAi) return;
     setIsLoadingAi(true);
     try {
-      const summary = {
-        balance: accounts.reduce((sum, a) => sum + (a.balance || 0), 0),
-        expenses: transactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && t.date.startsWith(currentMonthStr)).reduce((sum, t) => sum + t.amount, 0),
-        income: transactions.filter(t => (t.type === 'receita' || t.type === 'income') && t.date.startsWith(currentMonthStr)).reduce((sum, t) => sum + t.amount, 0),
-      };
-      
-      const prompt = `Como seu assistente financeiro Fiducia, dê uma dica curta (máximo 150 caracteres) baseada nestes dados do mês:
-      Gasto: R$ ${summary.expenses.toFixed(2)}, Ganho: R$ ${summary.income.toFixed(2)}, Saldo: R$ ${summary.balance.toFixed(2)}.
-      Seja motivador e direto em Português.`;
+      const prevMonthStr = getPreviousPeriod(currentMonthStr);
 
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 200
-        })
-      });
-      const data = await response.json();
-      setAiTip(data.choices?.[0]?.message?.content || '');
+      const monthExpenses = transactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && t.date.startsWith(currentMonthStr));
+      const monthIncome = transactions.filter(t => (t.type === 'receita' || t.type === 'income') && t.date.startsWith(currentMonthStr));
+      const prevExpenses = transactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && t.date.startsWith(prevMonthStr));
+      const prevIncome = transactions.filter(t => (t.type === 'receita' || t.type === 'income') && t.date.startsWith(prevMonthStr));
+
+      const totalExpense = monthExpenses.reduce((sum, t) => sum + t.amount, 0);
+      const totalIncome = monthIncome.reduce((sum, t) => sum + t.amount, 0);
+      const prevExpenseTotal = prevExpenses.reduce((sum, t) => sum + t.amount, 0);
+      const prevIncomeTotal = prevIncome.reduce((sum, t) => sum + t.amount, 0);
+
+      const topCategories = monthExpenses.reduce<Record<string, number>>((acc, t) => {
+        const catName = categories.find(c => c.id === t.categoryId)?.name || 'Geral';
+        acc[catName] = (acc[catName] || 0) + t.amount;
+        return acc;
+      }, {});
+      const sortedCategories = Object.entries(topCategories)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([name, amount]) => `${name}: R$ ${amount.toFixed(2)}`)
+        .join('\n');
+
+      const expenseTrend = prevExpenseTotal > 0 ? ((totalExpense - prevExpenseTotal) / prevExpenseTotal * 100).toFixed(0) : null;
+      const incomeTrend = prevIncomeTotal > 0 ? ((totalIncome - prevIncomeTotal) / prevIncomeTotal * 100).toFixed(0) : null;
+
+      const invoiceAlerts = creditCards.map(card => {
+        const cardExpenses = transactions.filter(t =>
+          t.creditCardId === card.id && t.invoicePeriod === currentMonthStr && (t.type === 'despesa' || t.type === 'expense')
+        );
+        const total = cardExpenses.reduce((s, t) => s + t.amount, 0);
+        const usagePct = card.limit > 0 ? (total / card.limit * 100).toFixed(0) : '0';
+        return `${card.name}: R$ ${total.toFixed(2)} (${usagePct}% do limite)`;
+      }).join('\n');
+
+      const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+
+      const prompt = `Você é o assistente financeiro Fiducia. Analise os dados abaixo e gere 2 alertas curtos (máximo 80 caracteres cada, bullet points) em Português.
+
+Mês atual: ${currentMonthStr}
+Receitas: R$ ${totalIncome.toFixed(2)}
+Despesas: R$ ${totalExpense.toFixed(2)}
+Saldo total: R$ ${totalBalance.toFixed(2)}
+${expenseTrend ? `Tendência despesas: ${expenseTrend}% vs mês anterior` : ''}
+${incomeTrend ? `Tendência receitas: ${incomeTrend}% vs mês anterior` : ''}
+
+Top 3 categorias de gasto:
+${sortedCategories || 'Nenhuma'}
+
+Faturas de cartão:
+${invoiceAlerts || 'Nenhuma'}
+
+Regras:
+- Se houver alerta relevante (gasto alto, tendência preocupante, fatura perto do limite), destaque-o
+- Se estiver tudo sob controle, seja motivador
+- Responda APENAS com os 2 bullets, um por linha, sem introdução`;
+
+      const tip = await callGroq([{ role: "user", content: prompt }], { maxTokens: 300 });
+      setAiTip(tip);
     } catch (error) {
       console.error("Dashboard AI Tip error:", error);
     } finally {

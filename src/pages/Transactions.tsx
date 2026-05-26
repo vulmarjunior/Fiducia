@@ -13,11 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Switch } from '../components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from '../components/ui/popover';
-import { Plus, Trash2, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Lock, FileUp, Check, X, AlertCircle, HelpCircle, CalendarIcon, Tag, Wallet, CheckCircle, AlignLeft, CreditCard, ChevronLeft, ChevronRight, Search, Repeat, MessageSquare, Paperclip, ThumbsUp, ThumbsDown, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Lock, FileUp, Check, X, AlertCircle, HelpCircle, CalendarIcon, Tag, Wallet, CheckCircle, AlignLeft, CreditCard, ChevronLeft, ChevronRight, Search, Repeat, MessageSquare, Paperclip, ThumbsUp, ThumbsDown, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 import { parseOfx, OfxTransaction } from '../services/ofxService';
 import { parseCsvOrExcel } from '../services/importService';
+import { callGroq } from '../services/groqService';
 import Select, { MultiValue } from 'react-select';
 import { getCategoryIcon, suggestIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, resolveAccountName } from '../lib/utils';
@@ -125,7 +126,10 @@ export function Transactions() {
   const [startDate, setStartDate] = useState(`${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`);
   const [endDate, setEndDate] = useState(new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('en-CA'));
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [aiSearchMode, setAiSearchMode] = useState(false);
+  const [isAiSearching, setIsAiSearching] = useState(false);
+  const [aiSearchResultIds, setAiSearchResultIds] = useState<Set<string> | null>(null);
+
   const [formData, setFormData] = useState({ 
     type: 'despesa', 
     amount: 0, 
@@ -1045,6 +1049,48 @@ export function Transactions() {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
+  const handleAiSearch = async () => {
+    if (!searchTerm.trim() || isAiSearching) return;
+    setIsAiSearching(true);
+    try {
+      const sample = transactions
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 200);
+
+      const prompt = `Você é um assistente de busca financeira. O usuário quer encontrar transações com esta descrição natural:
+
+"${searchTerm}"
+
+Abaixo está uma lista de transações recentes no formato "ID | data | descrição | valor | tipo | categoria". 
+Analise a intenção da busca e retorne APENAS os IDs das transações que correspondem, separados por vírgula.
+Se nenhuma corresponder, retorne apenas "NENHUMA".
+
+Transações:
+${sample.map(t =>
+  `${t.id} | ${t.date?.split('T')[0] || t.date} | ${t.description} | R$ ${t.amount.toFixed(2)} | ${t.type} | ${categories.find(c => c.id === t.categoryId)?.name || ''}`
+).join('\n')}`;
+
+      const result = await callGroq(
+        [{ role: "user", content: prompt }],
+        { maxTokens: 500, temperature: 0.1 }
+      );
+
+      if (result.trim() === "NENHUMA" || !result.trim()) {
+        setAiSearchResultIds(new Set());
+        toast.info('Nenhuma transação encontrada para esta busca.');
+      } else {
+        const ids = result.split(',').map(id => id.trim()).filter(Boolean);
+        setAiSearchResultIds(new Set(ids));
+      }
+    } catch (error) {
+      console.error("AI Search error:", error);
+      toast.error('Erro na busca inteligente. Tente o modo texto.');
+      setAiSearchResultIds(null);
+    } finally {
+      setIsAiSearching(false);
+    }
+  };
+
   const processedTransactions = React.useMemo(() => {
     let result = [...transactions];
 
@@ -1115,7 +1161,9 @@ export function Transactions() {
 
       // Search filter
       let matchesSearch = true;
-      if (searchTerm) {
+      if (aiSearchResultIds) {
+        matchesSearch = aiSearchResultIds.has(t.id);
+      } else if (searchTerm) {
         const term = searchTerm.toLowerCase();
         matchesSearch = 
           (t.description && t.description.toLowerCase().includes(term)) ||
@@ -1124,7 +1172,7 @@ export function Transactions() {
       
       return matchesTags && matchesAccount && matchesDate && matchesSearch;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Final sort descending
-  }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, accounts, creditCards]);
+  }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, accounts, creditCards, aiSearchResultIds]);
 
   const summary = React.useMemo(() => {
     return processedTransactions.reduce((acc, t) => {
@@ -1325,14 +1373,57 @@ export function Transactions() {
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Busca & Tags</Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  {aiSearchMode ? (
+                    <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500" />
+                  ) : (
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  )}
                   <Input 
-                    placeholder="Buscar..." 
+                    placeholder={aiSearchMode ? "Descreva o que procura..." : "Buscar..."}
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 h-11 bg-white shadow-sm border-secondary/30 rounded-xl"
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      if (aiSearchResultIds) setAiSearchResultIds(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && aiSearchMode) {
+                        e.preventDefault();
+                        handleAiSearch();
+                      }
+                    }}
+                    className={`pl-9 h-11 bg-white shadow-sm border-secondary/30 rounded-xl ${aiSearchMode ? 'ring-2 ring-amber-400/50' : ''}`}
                   />
+                  {aiSearchMode && searchTerm && (
+                    <button
+                      type="button"
+                      onClick={handleAiSearch}
+                      disabled={isAiSearching}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 min-w-[32px] min-h-[32px] flex items-center justify-center text-amber-600 hover:text-amber-700 disabled:opacity-50"
+                    >
+                      {isAiSearching ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <span className="text-xs font-bold">IR</span>
+                      )}
+                    </button>
+                  )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiSearchMode(!aiSearchMode);
+                    setAiSearchResultIds(null);
+                    setSearchTerm('');
+                  }}
+                  className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border transition-colors ${
+                    aiSearchMode
+                      ? 'bg-amber-50 border-amber-300 text-amber-600 dark:bg-amber-950 dark:border-amber-700 dark:text-amber-400'
+                      : 'bg-white border-secondary/30 text-muted-foreground hover:bg-accent'
+                  }`}
+                  title={aiSearchMode ? 'Modo texto' : 'Busca inteligente'}
+                >
+                  {aiSearchMode ? <Search className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                </button>
                 <div className="w-full md:w-[150px]">
                   <Select
                     isMulti
