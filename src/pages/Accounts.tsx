@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 
 interface BankInfo {
-  code: string;
+  code: number;
   name: string;
   fullName: string;
 }
@@ -67,13 +67,13 @@ export function Accounts() {
   }, [user, isAuthReady]);
 
   const filteredBanks = banks.filter(b =>
-    !bankSearch || b.name.toLowerCase().includes(bankSearch.toLowerCase()) || b.code.includes(bankSearch)
+    !bankSearch || b.name.toLowerCase().includes(bankSearch.toLowerCase()) || String(b.code).includes(bankSearch)
   ).slice(0, 50);
 
   const handleBankSelect = (bank: BankInfo) => {
     setFormData(prev => ({
       ...prev,
-      bankCode: bank.code,
+      bankCode: String(bank.code),
       bankName: bank.fullName || bank.name
     }));
     setBankSearch(bank.name);
@@ -281,7 +281,7 @@ export function Accounts() {
                               type="button"
                               onClick={() => handleBankSelect(bank)}
                               className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left ${
-                                formData.bankCode === bank.code ? 'bg-primary/10 text-primary' : ''
+                                 formData.bankCode === String(bank.code) ? 'bg-primary/10 text-primary' : ''
                               }`}
                             >
                               <Building className="w-4 h-4 shrink-0 text-muted-foreground" />
