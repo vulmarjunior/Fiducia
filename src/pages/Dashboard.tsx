@@ -143,7 +143,7 @@ Regras:
   };
 
   useEffect(() => {
-    if (transactions.length > 5 && !aiTip) {
+    if (transactions.length >= 1 && !aiTip) {
       fetchAiTip();
     }
   }, [transactions.length]);
@@ -318,11 +318,6 @@ Regras:
         <div>
           <div className="text-[13px] text-muted-foreground font-medium mb-1 flex items-center gap-2">
             {greetingEmoji} {greeting}, {user?.displayName?.split(' ')[0] || 'Usuário'}
-            {aiTip && (
-              <span className="flex items-center gap-1 text-fiducia-blue bg-fiducia-blue/5 px-2 py-0.5 rounded-full text-[10px] animate-in fade-in slide-in-from-left-1">
-                <Sparkles className="w-3 h-3" /> {aiTip}
-              </span>
-            )}
             {isLoadingAi && !aiTip && <Loader2 className="w-3 h-3 animate-spin text-fiducia-blue" />}
           </div>
           <div className="text-[28px] font-bold tracking-tight text-foreground">Visão Geral</div>
@@ -345,6 +340,29 @@ Regras:
           </Button>
         </div>
       </div>
+
+      {/* AI Tip Card */}
+      {(aiTip || isLoadingAi) && (
+        <div className="bg-gradient-to-br from-fiducia-blue/5 via-transparent to-emerald-500/5 border border-border/60 rounded-2xl p-4 mb-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 via-cyan-400 to-blue-500 flex items-center justify-center shrink-0 mt-0.5">
+              {isLoadingAi ? (
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              ) : (
+                <Sparkles className="w-4 h-4 text-white" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                Dica Fiducia IA
+              </div>
+              <div className="text-sm text-foreground leading-relaxed">
+                {aiTip || 'Analisando seus dados...'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
