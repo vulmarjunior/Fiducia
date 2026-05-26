@@ -8,8 +8,7 @@ import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, getPreviousPeriod, resolveAccountName } from '../lib/utils';
-import { GoogleGenAI } from "@google/genai";
-
+ 
 export function Dashboard() {
   const { user, isAuthReady } = useAuth();
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -76,7 +75,6 @@ export function Dashboard() {
     if (!user || transactions.length < 5 || isLoadingAi) return;
     setIsLoadingAi(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const summary = {
         balance: accounts.reduce((sum, a) => sum + (a.balance || 0), 0),
         expenses: transactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && t.date.startsWith(currentMonthStr)).reduce((sum, t) => sum + t.amount, 0),
@@ -87,11 +85,20 @@ export function Dashboard() {
       Gasto: R$ ${summary.expenses.toFixed(2)}, Ganho: R$ ${summary.income.toFixed(2)}, Saldo: R$ ${summary.balance.toFixed(2)}.
       Seja motivador e direto em Português.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt,
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 200
+        })
       });
-      setAiTip(response.text || '');
+      const data = await response.json();
+      setAiTip(data.choices?.[0]?.message?.content || '');
     } catch (error) {
       console.error("Dashboard AI Tip error:", error);
     } finally {

@@ -9,7 +9,7 @@ import {
   PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid, AreaChart, Area 
 } from 'recharts';
 import { FileText, Sparkles, TrendingUp, TrendingDown, Wallet, Target, AlertCircle, Loader2 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+
 import { resolveAccountName } from '../lib/utils';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
@@ -58,9 +58,6 @@ export function Reports() {
     if (isLoadingAi || transactions.length < 5) return;
     setIsLoadingAi(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
-      // Summarize data for AI
       const recentTransactions = transactions
         .sort((a, b) => b.date.localeCompare(a.date))
         .slice(0, 50)
@@ -86,12 +83,20 @@ export function Reports() {
 
       Responda em Português usando Markdown básico (bullets, negrito). Seja empático e profissional.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt,
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 1000
+        })
       });
-
-      setAiInsight(response.text || 'Não foi possível gerar a análise no momento.');
+      const data = await response.json();
+      setAiInsight(data.choices?.[0]?.message?.content || 'Não foi possível gerar a análise no momento.');
     } catch (error) {
       console.error("AI Analysis Error:", error);
       setAiInsight('Ocorreu um erro ao gerar a análise automática. Verifique sua conexão ou tente novamente mais tarde.');

@@ -170,9 +170,9 @@ export function Audit() {
             ) : (
               <div className="space-y-3">
                 {closedPeriods.map((cp: any) => (
-                  <div key={cp.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                    <div>
-                      <p className="font-medium">{resolveAccountName(cp.accountId, accounts, creditCards)}</p>
+                  <div key={cp.id} className="flex items-center justify-between gap-2 p-3 border rounded-lg bg-muted/30">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{resolveAccountName(cp.accountId, accounts, creditCards)}</p>
                       <p className="text-xs text-muted-foreground">
                         Mês: {format(parseISO(cp.period + '-01'), 'MMMM yyyy', { locale: ptBR })}
                       </p>
@@ -181,7 +181,7 @@ export function Audit() {
                       variant="ghost" 
                       size="sm" 
                       onClick={() => handleUnlockPeriod(cp.id)}
-                      className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                      className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 shrink-0"
                     >
                       <Unlock className="h-4 w-4 mr-2" />
                       Reabrir
@@ -207,10 +207,10 @@ export function Audit() {
             ) : (
               <div className="space-y-3">
                 {invoices.filter(i => i.status !== 'aberta').map((inv: any) => (
-                  <div key={inv.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                    <div>
-                      <p className="font-medium">{resolveAccountName(inv.cardId, accounts, creditCards)}</p>
-                      <div className="flex items-center gap-2">
+                  <div key={inv.id} className="flex items-center justify-between gap-2 p-3 border rounded-lg bg-muted/30">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{resolveAccountName(inv.cardId, accounts, creditCards)}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-xs text-muted-foreground">
                           Período: {format(parseISO(inv.period + '-01'), 'MMMM yyyy', { locale: ptBR })}
                         </p>
@@ -225,7 +225,7 @@ export function Audit() {
                       variant="ghost" 
                       size="sm" 
                       onClick={() => handleReopenInvoice(inv.id)}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 shrink-0"
                     >
                       <RefreshCcw className="h-4 w-4 mr-2" />
                       Reabrir

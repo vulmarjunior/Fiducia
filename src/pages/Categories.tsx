@@ -42,10 +42,10 @@ function SortableCategoryItem({ cat, level, children, onEdit, onDelete }: any) {
           <span className="font-medium text-[13px]">{cat.name}</span>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => onEdit(cat)} className="text-muted-foreground hover:text-fiducia-blue">
+          <button onClick={() => onEdit(cat)} className="text-muted-foreground hover:text-fiducia-blue min-w-[44px] min-h-[44px] flex items-center justify-center">
             <Edit className="h-4 w-4" />
           </button>
-          <button onClick={() => onDelete(cat.id)} className="text-muted-foreground hover:text-fiducia-red">
+          <button onClick={() => onDelete(cat.id)} className="text-muted-foreground hover:text-fiducia-red min-w-[44px] min-h-[44px] flex items-center justify-center">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
@@ -418,7 +418,7 @@ export function Categories() {
       <div className="space-y-6">
         <div className="flex justify-between items-center flex-wrap gap-4">
         <h2 className="text-3xl font-bold tracking-tight">Categorias</h2>
-        <div className="flex space-x-2">
+        <div className="flex gap-2 flex-wrap">
           <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
             <DialogTrigger render={<Button variant="outline" />}>
               <Layers className="mr-2 h-4 w-4" /> Importação em Lote
@@ -496,7 +496,7 @@ export function Categories() {
                     onChange={(e) => setIconSearch(e.target.value)}
                     className="mb-2 h-8 text-sm"
                   />
-                  <div className="grid grid-cols-8 gap-2 p-2 border rounded-md max-h-[150px] overflow-y-auto">
+                  <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 p-2 border rounded-md max-h-[40vh] overflow-y-auto">
                     {Object.keys(CATEGORY_ICONS)
                       .filter(iconName => iconName.toLowerCase().includes(iconSearch.toLowerCase()))
                       .slice(0, 100) // Limita a 100 ícones para não travar a renderização

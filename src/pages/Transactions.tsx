@@ -1333,7 +1333,7 @@ export function Transactions() {
                     className="pl-9 h-11 bg-white shadow-sm border-secondary/30 rounded-xl"
                   />
                 </div>
-                <div className="w-[150px]">
+                <div className="w-full md:w-[150px]">
                   <Select
                     isMulti
                     options={tags.map(t => ({ value: t.id, label: t.name, color: t.color }))}
@@ -1476,7 +1476,7 @@ export function Transactions() {
                   </div>
                 </div>
 
-                <div className="border rounded-lg overflow-hidden">
+                <div className="border rounded-lg overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-secondary/50">
                       <tr>
@@ -2210,12 +2210,12 @@ export function Transactions() {
           <table className="w-full text-sm text-left">
             <thead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-secondary/30">
               <tr>
-                <th className="px-6 py-4 rounded-tl-xl">Descrição</th>
-                <th className="px-6 py-4">Categoria</th>
-                {selectedAccountFilter === 'all' && <th className="px-6 py-4">Conta</th>}
-                <th className="px-6 py-4 text-right">Valor</th>
-                {selectedAccountFilter !== 'all' && <th className="px-6 py-4 text-right">Saldo</th>}
-                <th className="px-6 py-4 text-right rounded-tr-xl">Ações</th>
+                <th className="px-3 md:px-6 py-3 md:py-4 rounded-tl-xl">Descrição</th>
+                <th className="px-3 md:px-6 py-3 md:py-4">Categoria</th>
+                {selectedAccountFilter === 'all' && <th className="px-3 md:px-6 py-3 md:py-4">Conta</th>}
+                <th className="px-3 md:px-6 py-3 md:py-4 text-right">Valor</th>
+                {selectedAccountFilter !== 'all' && <th className="px-3 md:px-6 py-3 md:py-4 text-right">Saldo</th>}
+                <th className="px-3 md:px-6 py-3 md:py-4 text-right rounded-tr-xl">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-secondary/20">
@@ -2236,7 +2236,7 @@ export function Transactions() {
 
                     return (
                       <tr key={t.id} className={`group transition-colors ${isClosed ? 'bg-secondary/20 opacity-75' : 'hover:bg-secondary/30'}`}>
-                        <td className="px-6 py-4">
+                        <td className="px-3 md:px-6 py-3 md:py-4">
                           <div className="flex items-center space-x-3">
                             <div className={`p-2 rounded-xl shrink-0 ${t.type === 'receita' || t.type === 'income' ? 'bg-fiducia-green-bg' : t.type === 'despesa' || t.type === 'expense' ? 'bg-fiducia-red-bg' : 'bg-fiducia-blue-bg'}`}>
                               {getIcon(t.type)}
@@ -2286,14 +2286,14 @@ export function Transactions() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-3 md:px-6 py-3 md:py-4">
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <CategoryIcon className="h-4 w-4" />
                             <span>{category?.name || 'Sem Categoria'}</span>
                           </div>
                         </td>
                         {selectedAccountFilter === 'all' && (
-                          <td className="px-6 py-4">
+                          <td className="px-3 md:px-6 py-3 md:py-4">
                             <div className="flex items-center gap-2 text-muted-foreground">
                               {isCreditCard ? <CreditCard className="h-4 w-4" /> : <Wallet className="h-4 w-4" />}
                               <span>
@@ -2304,20 +2304,20 @@ export function Transactions() {
                             </div>
                           </td>
                         )}
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-3 md:px-6 py-3 md:py-4 text-right">
                           <div className={`font-semibold font-mono ${t.type === 'receita' || t.type === 'income' ? 'text-fiducia-green' : t.type === 'despesa' || t.type === 'expense' ? 'text-fiducia-red' : 'text-foreground'}`}>
                             {t.type === 'receita' || t.type === 'income' ? '+' : t.type === 'despesa' || t.type === 'expense' ? '-' : ''}R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
                         </td>
                         {selectedAccountFilter !== 'all' && (
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-3 md:px-6 py-3 md:py-4 text-right">
                             <div className={`font-mono text-xs ${t.runningBalance < 0 ? 'text-fiducia-red' : 'text-muted-foreground'}`}>
                               R$ {(t.runningBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                           </td>
                         )}
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <td className="px-3 md:px-6 py-3 md:py-4 text-right">
+                          <div className="flex justify-end space-x-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                             <button onClick={() => openEdit(t)} disabled={isClosed} className={`p-2 rounded-lg bg-white shadow-sm border border-secondary/30 ${isClosed ? 'cursor-not-allowed opacity-50' : 'hover:text-fiducia-blue hover:border-fiducia-blue/30 transition-colors'}`}>
                               <Edit className="h-4 w-4" />
                             </button>

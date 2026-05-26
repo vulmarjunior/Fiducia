@@ -199,7 +199,7 @@ export function Accounts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <h2 className="text-3xl font-bold tracking-tight">Contas</h2>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
@@ -360,10 +360,10 @@ export function Accounts() {
                 )}
               </CardTitle>
               <div className="flex gap-2">
-                <button onClick={() => openEdit(account)} className="text-muted-foreground hover:text-fiducia-blue">
+                <button onClick={() => openEdit(account)} className="text-muted-foreground hover:text-fiducia-blue min-w-[44px] min-h-[44px] flex items-center justify-center">
                   <Edit className="h-4 w-4" />
                 </button>
-                <button onClick={() => setDeleteConfirmId(account.id)} className="text-muted-foreground hover:text-fiducia-red">
+                <button onClick={() => setDeleteConfirmId(account.id)} className="text-muted-foreground hover:text-fiducia-red min-w-[44px] min-h-[44px] flex items-center justify-center">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>

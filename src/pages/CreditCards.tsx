@@ -617,9 +617,9 @@ export function CreditCards() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <h2 className="text-3xl font-bold tracking-tight">Cartões de Crédito</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={handleRecalculateInvoices}>
             Recalcular Faturas Antigas
           </Button>
@@ -735,10 +735,10 @@ export function CreditCards() {
                   {card.name}
                 </CardTitle>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(card)} className="h-8 w-8 text-muted-foreground hover:text-fiducia-blue">
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(card)} className="min-w-[44px] min-h-[44px] text-muted-foreground hover:text-fiducia-blue">
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setDeleteConfirmId(card.id)} className="h-8 w-8 text-muted-foreground hover:text-fiducia-red">
+                  <Button variant="ghost" size="icon" onClick={() => setDeleteConfirmId(card.id)} className="min-w-[44px] min-h-[44px] text-muted-foreground hover:text-fiducia-red">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -851,7 +851,7 @@ export function CreditCards() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="text-sm font-bold min-w-[120px] text-center capitalize">
+                <div className="text-sm font-bold min-w-[90px] sm:min-w-[120px] text-center capitalize">
                   {selectedInvoiceMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
                 </div>
                 <Button 
@@ -988,7 +988,7 @@ export function CreditCards() {
                     </div>
                   </div>
 
-                  <div className="border rounded-xl overflow-hidden shadow-sm bg-white">
+                  <div className="border rounded-xl overflow-x-auto shadow-sm bg-white">
                     <table className="w-full text-sm">
                       <thead className="bg-secondary/30 border-b">
                         <tr>
