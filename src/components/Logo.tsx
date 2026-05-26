@@ -40,17 +40,17 @@ export const FiduciaLogo: React.FC<FiduciaLogoProps> = ({ size = 36, className =
               className="opacity-20 translate-y-[-2px] scale-95 origin-center text-slate-800"
             />
             <path
-              d="M30,35 H70 M30,52 H60 M30,35 V75"
+              d="M33,38 H67 M33,53 H58 M33,38 V72"
               stroke="url(#logo-fluid-grad)"
-              strokeWidth="11"
+              strokeWidth="9"
               strokeLinecap="round"
               strokeLinejoin="round"
               className="drop-shadow-[0_2px_4px_rgba(16,185,129,0.3)] transition-all duration-300 group-hover:stroke-cyan-300"
             />
             <circle
-              cx="70"
-              cy="35"
-              r="6.5"
+              cx="67"
+              cy="38"
+              r="5.5"
               fill="#10b981"
               className="animate-pulse"
             />
