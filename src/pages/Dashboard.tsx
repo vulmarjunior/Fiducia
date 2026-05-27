@@ -2,9 +2,9 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, FileText, Calendar, HelpCircle, Sparkles, Loader2 } from 'lucide-react';
+import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, FileText, Calendar, HelpCircle, Sparkles, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, getPreviousPeriod, resolveAccountName } from '../lib/utils';
@@ -21,6 +21,9 @@ export function Dashboard() {
   const [showValues, setShowValues] = useState(true);
   const [aiTip, setAiTip] = useState<string>('');
   const [isLoadingAi, setIsLoadingAi] = useState(false);
+  const [periodFilter, setPeriodFilter] = useState<'week' | 'month' | 'year'>('month');
+  const [extraSectionsOpen, setExtraSectionsOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -167,37 +170,48 @@ Regras:
   const monthlyExpense = currentMonthTransactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
   const monthlyBalance = monthlyIncome - monthlyExpense;
 
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  const prevMonthStr = getPreviousPeriod(currentMonthStr);
+  const prevMonthTransactions = transactions.filter(t => {
+    if (t.creditCardId || t.accountId && creditCards.some(c => c.id === t.accountId)) {
+      return t.invoicePeriod === prevMonthStr;
+    }
+    return t.date.startsWith(prevMonthStr);
+  });
+  const prevIncome = prevMonthTransactions.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
+  const prevExpense = prevMonthTransactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
+  const incomeTrendPct = prevIncome > 0 ? ((monthlyIncome - prevIncome) / prevIncome * 100).toFixed(1) : null;
+  const expenseTrendPct = prevExpense > 0 ? ((monthlyExpense - prevExpense) / prevExpense * 100).toFixed(1) : null;
+
+  const isExpenseType = (t: any) => t.type === 'despesa' || t.type === 'expense';
+  const isIncomeType = (t: any) => t.type === 'receita' || t.type === 'income';
+  const isPendingStatus = (t: any) => t.status === 'pendente' || t.status === 'pending' || !t.status;
+
   const overdueExpenses = transactions.filter(t => {
-    const tDatePart = t.date.split('T')[0];
-    const isExpense = t.type === 'despesa' || t.type === 'expense';
-    const isPending = t.status === 'pendente' || t.status === 'pending' || !t.status;
-    return isExpense && isPending && tDatePart < currentDateStr;
+    const d = t.date.split('T')[0];
+    return isExpenseType(t) && isPendingStatus(t) && d < currentDateStr && d >= thirtyDaysAgo;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const upcomingExpenses = transactions.filter(t => {
-    const tDatePart = t.date.split('T')[0];
-    const isExpense = t.type === 'despesa' || t.type === 'expense';
-    const isPending = t.status === 'pendente' || t.status === 'pending' || !t.status;
-    return isExpense && isPending && tDatePart >= currentDateStr;
+    const d = t.date.split('T')[0];
+    return isExpenseType(t) && isPendingStatus(t) && d >= currentDateStr && d <= thirtyDaysFromNow;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
 
   const overdueIncomes = transactions.filter(t => {
-    const tDatePart = t.date.split('T')[0];
-    const isIncome = t.type === 'receita' || t.type === 'income';
-    const isPending = t.status === 'pendente' || t.status === 'pending' || !t.status;
-    return isIncome && isPending && tDatePart < currentDateStr;
+    const d = t.date.split('T')[0];
+    return isIncomeType(t) && isPendingStatus(t) && d < currentDateStr && d >= thirtyDaysAgo;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const upcomingIncomes = transactions.filter(t => {
-    const tDatePart = t.date.split('T')[0];
-    const isIncome = t.type === 'receita' || t.type === 'income';
-    const isPending = t.status === 'pendente' || t.status === 'pending' || !t.status;
-    return isIncome && isPending && tDatePart >= currentDateStr;
+    const d = t.date.split('T')[0];
+    return isIncomeType(t) && isPendingStatus(t) && d >= currentDateStr && d <= thirtyDaysFromNow;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
 
   const totalPendingPay = [
     ...overdueExpenses, 
-    ...transactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && (t.status === 'pendente' || t.status === 'pending' || !t.status) && t.date.split('T')[0] >= currentDateStr)
+    ...transactions.filter(t => isExpenseType(t) && isPendingStatus(t) && t.date.split('T')[0] >= currentDateStr && t.date.split('T')[0] <= thirtyDaysFromNow)
   ].reduce((sum, t) => sum + t.amount, 0);
 
   // Calculate unpaid credit card invoices
@@ -256,7 +270,7 @@ Regras:
 
   const allPendingExpenses = [
     ...overdueExpenses,
-    ...transactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && (t.status === 'pendente' || t.status === 'pending' || !t.status) && t.date.split('T')[0] >= currentDateStr),
+    ...transactions.filter(t => isExpenseType(t) && isPendingStatus(t) && t.date.split('T')[0] >= currentDateStr && t.date.split('T')[0] <= thirtyDaysFromNow),
     ...unpaidInvoices
   ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -264,7 +278,7 @@ Regras:
   const upcomingExpensesWithInvoices = allPendingExpenses.filter(t => t.date.split('T')[0] >= currentDateStr).slice(0, 5);
   const overdueExpensesWithInvoices = allPendingExpenses.filter(t => t.date.split('T')[0] < currentDateStr);
 
-  const totalPendingReceive = [...overdueIncomes, ...transactions.filter(t => (t.type === 'receita' || t.type === 'income') && (t.status === 'pendente' || t.status === 'pending' || !t.status) && t.date.split('T')[0] >= currentDateStr)].reduce((sum, t) => sum + t.amount, 0);
+  const totalPendingReceive = [...overdueIncomes, ...transactions.filter(t => isIncomeType(t) && isPendingStatus(t) && t.date.split('T')[0] >= currentDateStr && t.date.split('T')[0] <= thirtyDaysFromNow)].reduce((sum, t) => sum + t.amount, 0);
 
   const formatShortDate = (dateStr: string) => {
     const datePart = dateStr.split('T')[0];
@@ -289,27 +303,63 @@ Regras:
     return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  // Prepare chart data (last 6 months)
-  const last6Months = Array.from({length: 6}, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 5 + i);
-    return { 
-      month: d.toISOString().substring(0, 7), 
-      label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') 
-    };
-  });
-  
-  const chartData = last6Months.map(m => {
-    const monthTx = transactions.filter(t => {
+  const getChartPeriods = () => {
+    if (periodFilter === 'week') {
+      return Array.from({length: 8}, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (7 * (7 - i)));
+        const weekStart = new Date(d);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+        const month = weekStart.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+        const day = weekStart.getDate();
+        return { label: `${day} ${month}`, start: weekStart };
+      });
+    } else if (periodFilter === 'year') {
+      return Array.from({length: 12}, (_, i) => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - 11 + i);
+        return { 
+          month: d.toISOString().substring(0, 7), 
+          label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+        };
+      });
+    }
+    return Array.from({length: 6}, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 5 + i);
+      return { 
+        month: d.toISOString().substring(0, 7), 
+        label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') 
+      };
+    });
+  };
+
+  const chartPeriods = getChartPeriods();
+
+  const chartData = chartPeriods.map(p => {
+    if (periodFilter === 'week') {
+      const weekEnd = new Date(p.start);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      const weekTx = transactions.filter(t => {
+        const td = new Date(t.date.split('T')[0]);
+        return td >= p.start && td < weekEnd;
+      });
+      return {
+        name: p.label.charAt(0).toUpperCase() + p.label.slice(1),
+        income: weekTx.filter(t => isIncomeType(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
+        expense: weekTx.filter(t => isExpenseType(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
+      };
+    }
+    const mTx = transactions.filter(t => {
       if (t.creditCardId || t.accountId && creditCards.some(c => c.id === t.accountId)) {
-        return t.invoicePeriod === m.month;
+        return t.invoicePeriod === p.month;
       }
-      return t.date.startsWith(m.month);
+      return t.date.startsWith(p.month);
     });
     return {
-      name: m.label.charAt(0).toUpperCase() + m.label.slice(1),
-      income: monthTx.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
-      expense: monthTx.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
+      name: p.label.charAt(0).toUpperCase() + p.label.slice(1),
+      income: mTx.filter(t => isIncomeType(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
+      expense: mTx.filter(t => isExpenseType(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
     };
   });
 
@@ -333,9 +383,15 @@ Regras:
             {showValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
           <div className="inline-flex bg-secondary/50 border border-border rounded-xl p-1 gap-1">
-            <button className="px-4 py-1.5 rounded-lg text-[12px] font-semibold text-muted-foreground hover:text-foreground transition-colors">Sem.</button>
-            <button className="px-4 py-1.5 rounded-lg text-[12px] font-semibold bg-white dark:bg-primary shadow-sm text-foreground dark:text-primary-foreground">Mês</button>
-            <button className="px-4 py-1.5 rounded-lg text-[12px] font-semibold text-muted-foreground hover:text-foreground transition-colors">Ano</button>
+            {(['week', 'month', 'year'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriodFilter(p)}
+                className={`px-4 py-1.5 rounded-lg text-[12px] font-semibold transition-colors ${periodFilter === p ? 'bg-white dark:bg-primary shadow-sm text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                {p === 'week' ? 'Sem.' : p === 'month' ? 'Mês' : 'Ano'}
+              </button>
+            ))}
           </div>
           <Button nativeButton={false} className="h-10 px-4 text-sm font-semibold rounded-xl gap-2 bg-primary text-primary-foreground hover:opacity-90 transition-opacity" render={<Link to="/transactions" />}>
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo lançamento</span>
@@ -388,8 +444,8 @@ Regras:
             <div className="w-10 h-10 rounded-xl bg-fiducia-green/10 text-fiducia-green flex items-center justify-center group-hover:scale-110 transition-transform">
               <ArrowUpRight className="w-5 h-5" />
             </div>
-            <div className="text-[11px] font-bold text-fiducia-green bg-fiducia-green/10 px-2 py-1 rounded-full">
-              +12.5%
+            <div className={`text-[11px] font-bold ${incomeTrendPct && Number(incomeTrendPct) >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'} ${incomeTrendPct ? 'bg-secondary/10' : 'bg-muted/30'} px-2 py-1 rounded-full`}>
+              {incomeTrendPct ? `${Number(incomeTrendPct) >= 0 ? '+' : ''}${incomeTrendPct}%` : '—'}
             </div>
           </div>
           <div className="text-[13px] text-muted-foreground font-medium mb-1">Receitas do mês</div>
@@ -402,8 +458,8 @@ Regras:
             <div className="w-10 h-10 rounded-xl bg-fiducia-red/10 text-fiducia-red flex items-center justify-center group-hover:scale-110 transition-transform">
               <ArrowDownRight className="w-5 h-5" />
             </div>
-            <div className="text-[11px] font-bold text-fiducia-red bg-fiducia-red/10 px-2 py-1 rounded-full">
-              -4.2%
+            <div className={`text-[11px] font-bold ${expenseTrendPct && Number(expenseTrendPct) > 0 ? 'text-fiducia-red' : 'text-fiducia-green'} ${expenseTrendPct ? 'bg-secondary/10' : 'bg-muted/30'} px-2 py-1 rounded-full`}>
+              {expenseTrendPct ? `${Number(expenseTrendPct) > 0 ? '+' : ''}${expenseTrendPct}%` : '—'}
             </div>
           </div>
           <div className="text-[13px] text-muted-foreground font-medium mb-1">Despesas do mês</div>
@@ -515,27 +571,27 @@ Regras:
                <Link to="/transactions" className="text-[12px] text-fiducia-blue font-bold hover:underline">Ver todos</Link>
              </div>
              <div className="divide-y divide-border">
-               {transactions.slice(0, 6).map(t => (
-                 <div key={t.id} className="flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
-                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${(t.type === 'receita' || t.type === 'income') ? 'bg-fiducia-green/10 text-fiducia-green' : 'bg-fiducia-red/10 text-fiducia-red'}`}>
-                     {(t.type === 'receita' || t.type === 'income') ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-                   </div>
-                   <div className="flex-1 min-w-0">
-                     <div className="text-[14px] font-semibold text-foreground truncate">{t.description}</div>
-                     <div className="text-[12px] text-muted-foreground truncate flex items-center gap-2">
-                       <span className="bg-secondary px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{categories.find(c => c.id === t.categoryId)?.name || 'Geral'}</span>
-                       <span>•</span>
-                       <span>{resolveAccountName(t.accountId, accounts, creditCards)}</span>
-                     </div>
-                   </div>
-                   <div className="text-right">
-                     <div className={`text-[15px] font-bold font-mono ${(t.type === 'receita' || t.type === 'income') ? 'text-fiducia-green' : 'text-foreground'}`}>
-                       {(t.type === 'receita' || t.type === 'income') ? '+ ' : '- '}{formatCurrency(t.amount)}
-                     </div>
-                     <div className="text-[11px] text-muted-foreground font-medium">{formatShortDate(t.date)}</div>
-                   </div>
-                 </div>
-               ))}
+                {transactions.slice(0, 6).map(t => (
+                  <div key={t.id} onClick={() => navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${(t.type === 'receita' || t.type === 'income') ? 'bg-fiducia-green/10 text-fiducia-green' : 'bg-fiducia-red/10 text-fiducia-red'}`}>
+                      {(t.type === 'receita' || t.type === 'income') ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[14px] font-semibold text-foreground truncate">{t.description}</div>
+                      <div className="text-[12px] text-muted-foreground truncate flex items-center gap-2">
+                        <span className="bg-secondary px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{categories.find(c => c.id === t.categoryId)?.name || 'Geral'}</span>
+                        <span>•</span>
+                        <span>{resolveAccountName(t.accountId, accounts, creditCards)}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-[15px] font-bold font-mono ${(t.type === 'receita' || t.type === 'income') ? 'text-fiducia-green' : 'text-foreground}'}`}>
+                        {(t.type === 'receita' || t.type === 'income') ? '+ ' : '- '}{formatCurrency(t.amount)}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground font-medium">{formatShortDate(t.date)}</div>
+                    </div>
+                  </div>
+                ))}
                {transactions.length === 0 && (
                  <div className="flex flex-col items-center justify-center p-12 text-center">
                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-3">
@@ -645,7 +701,7 @@ Regras:
             </div>
             <div className="divide-y divide-border">
               {overdueExpensesWithInvoices.map(t => (
-                <div key={t.id} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <div key={t.id} onClick={() => !t.isInvoice && navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
                   <div className="w-1.5 h-1.5 rounded-full bg-fiducia-red shrink-0 animate-pulse" />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-bold text-foreground truncate">{t.description}</div>
@@ -655,7 +711,7 @@ Regras:
                 </div>
               ))}
               {upcomingExpensesWithInvoices.map(t => (
-                <div key={t.id} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <div key={t.id} onClick={() => !t.isInvoice && navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
                   <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.isInvoice ? 'bg-fiducia-blue' : 'bg-fiducia-amber'}`} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-bold text-foreground truncate">{t.description}</div>
@@ -686,7 +742,7 @@ Regras:
             </div>
             <div className="divide-y divide-border">
               {overdueIncomes.map(t => (
-                <div key={t.id} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <div key={t.id} onClick={() => navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
                   <div className="w-1.5 h-1.5 rounded-full bg-fiducia-red shrink-0 animate-pulse" />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-bold text-foreground truncate">{t.description}</div>
@@ -696,7 +752,7 @@ Regras:
                 </div>
               ))}
               {upcomingIncomes.map(t => (
-                <div key={t.id} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <div key={t.id} onClick={() => navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
                   <div className="w-1.5 h-1.5 rounded-full bg-fiducia-green shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-bold text-foreground truncate">{t.description}</div>
@@ -711,8 +767,19 @@ Regras:
             </div>
           </div>
 
+          {/* Extra sections toggle for mobile */}
+          <div className="lg:hidden">
+            <button
+              onClick={() => setExtraSectionsOpen(!extraSectionsOpen)}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-card border border-border rounded-2xl text-[13px] font-bold text-muted-foreground hover:text-foreground transition-colors shadow-sm"
+            >
+              {extraSectionsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {extraSectionsOpen ? 'Mostrar menos' : 'Metas e Orçamentos'}
+            </button>
+          </div>
+
           {/* Goals */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+          <div className={`${extraSectionsOpen ? 'block' : 'hidden'} lg:block bg-card border border-border rounded-2xl overflow-hidden shadow-sm`}>
             <div className="flex items-center justify-between p-5 border-b border-border bg-secondary/10">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-fiducia-blue/10 text-fiducia-blue flex items-center justify-center">
@@ -752,7 +819,7 @@ Regras:
           </div>
 
           {/* Budgets */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+          <div className={`${extraSectionsOpen ? 'block' : 'hidden'} lg:block bg-card border border-border rounded-2xl overflow-hidden shadow-sm`}>
             <div className="flex items-center justify-between p-5 border-b border-border bg-secondary/10">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-fiducia-amber/10 text-fiducia-amber flex items-center justify-center">

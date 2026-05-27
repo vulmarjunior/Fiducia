@@ -70,11 +70,45 @@
 - **Contexto**: Account edit enviava `balance` no updateData, podendo sobrescrever saldo atual com valor do formulário
 - **Solução**: Removido `balance` do `updateData` no edit (saldo só deve ser gerenciado por transações)
 
+### Dashboard: Filtro de pendências escopo 30 dias
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-26
+- **Contexto**: Overdue e upcoming expenses/incomes mostravam TODAS as pendências (meses de atraso ou futuras distantes)
+- **Solução**: Adicionado filtro `thirtyDaysAgo` e `thirtyDaysFromNow` — overdue vê apenas últimos 30 dias, upcoming vê apenas próximos 30 dias (limitado a 5).
+
+### Dashboard: Badges de tendência dinâmicos
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-26
+- **Contexto**: Badges "+12.5%" e "-4.2%" nos cartões de Receitas/Despesas eram hardcoded
+- **Solução**: Computa automaticamente `incomeTrendPct` e `expenseTrendPct` comparando mês atual vs anterior. Badges agora mostram valor real ou "—" se não houver mês anterior.
+
+### Dashboard: Seletor de período funcional
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-26
+- **Contexto**: Botões "Sem. / Mês / Ano" não tinham binding de estado
+- **Solução**: Adicionado `periodFilter` state (week/month/year). ChartData agora é dinâmico — exibe 8 semanas, 6 meses ou 12 meses conforme seleção.
+
+### Dashboard: Linhas clicáveis → navegation para edição
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-26
+- **Contexto**: Lançamentos Recentes e contas a pagar/receber não permitiam edição rápida
+- **Solução**: onClick em cada row navega para `/transactions` com `state: { editId }`. Transactions.tsx detecta o state via `useLocation` e abre o dialog de edição automaticamente. Invoices (fatura) são ignoradas (não são transações reais).
+
+### Dashboard: Sessões extras colapsáveis no mobile
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-26
+- **Contexto**: Metas e Orçamentos ocupavam muito espaço vertical no mobile
+- **Solução**: Botão "Metas e Orçamentos" no mobile expande/colapsa as duas seções. Em desktop (lg+) ficam sempre visíveis.
+
 ---
 
 ## 💡 Padrões Descobertos
 
-*(Nenhuma entrada ainda)*
+### Navegação com state + edição automática
+- **Data**: 2026-05-26
+- **Padrão**: Dashboard navega para Transactions com `navigate('/transactions', { state: { editId } })`. Transactions detecta via `useLocation().state?.editId` e chama `openEdit(tx)` automaticamente.
+- **Limpeza**: `window.history.replaceState({}, '')` no useEffect para evitar reabertura ao navegar de volta.
+- **Cuidado**: Só executa quando `transactions.length > 0` (dados carregados) para evitar race condition com snapshot do Firestore.
 
 ---
 

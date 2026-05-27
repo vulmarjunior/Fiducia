@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, orderBy, writeBatch, runTransaction } from 'firebase/firestore';
@@ -105,6 +106,7 @@ export function Transactions() {
   const [tags, setTags] = useState<any[]>([]);
   const [closedPeriods, setClosedPeriods] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const location = useLocation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isClosePeriodDialogOpen, setIsClosePeriodDialogOpen] = useState(false);
   const [isNewCategoryDialogOpen, setIsNewCategoryDialogOpen] = useState(false);
@@ -247,6 +249,17 @@ export function Transactions() {
       unsubscribeStatusSync();
     };
   }, [user, isAuthReady]);
+
+  useEffect(() => {
+    const editId = (location.state as any)?.editId;
+    if (editId && transactions.length > 0) {
+      const tx = transactions.find(t => t.id === editId);
+      if (tx) {
+        openEdit(tx);
+      }
+      window.history.replaceState({}, '');
+    }
+  }, [location.state, transactions]);
 
   const isPeriodClosed = (dateString: string, accountId: string, invoicePeriod?: string) => {
     const card = creditCards.find(c => c.id === accountId);
