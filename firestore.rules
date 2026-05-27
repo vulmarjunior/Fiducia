@@ -320,7 +320,7 @@ service cloud.firestore {
     match /activityLogs/{logId} {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidActivityLog(request.resource.data) && uidUnchanged();
-      allow update: false;
+      allow update: if false;
       allow delete: if isDocOwner();
     }
   }
