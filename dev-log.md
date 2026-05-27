@@ -204,6 +204,21 @@
 - **Contexto**: Cards de resumo (Receitas/Despesas/Saldo), modal e formulário de lançamentos usavam classes Tailwind fixas (`bg-gray-50`, `text-gray-400`, `bg-white`, `border-gray-100`) que não se adaptam ao dark mode — texto ilegível sobre fundo cinza.
 - **Solução**: Substituídas ~70 classes hardcoded por tokens Shadcn (`bg-muted`, `text-muted-foreground`, `text-foreground`, `bg-background`, `border-border/50`). Gradientes dos summary cards ganharam variante `dark:`. Token `--text-muted` no dark mode alterado de `#94a3b8` para `#cbd5e1` (contraste 5.5:1). Cores fiducia no dark mode suavizadas (verde `#34d399`, vermelho `#f87171`, azul `#60a5fa`).
 
+### Transferência exibida como despesa no Dashboard
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: Lançamentos Recentes no Dashboard exibia transferências com ícone vermelho de despesa (`ArrowDownRight`), sinal de menos e cor de texto padrão — o código só tratava receita/income como caso especial.
+- **Solução**: Adicionado terceiro caminho para `transferencia`/`transfer` no bloco `transactions.slice(0,6).map()` — ícone `ArrowRightLeft`, círculo azul (`bg-fiducia-blue/10`), valor em azul, sem sinal de + ou -.
+
+### Card Disponível Seguro no Dashboard
+- **Status**: ✅ Implementado
+- **Data**: 2026-05-27
+- **Contexto**: Nova métrica de fluxo de caixa operacional. Substituiu o card "Balanço do Mês" no grid de KPIs.
+- **Fórmula**: `disponivelSeguro = saldoCirculante − gastosCartao − contasPendentes`
+- **Componentes**: Saldo Circulante (contas sem `excludeFromCashFlow`), Gastos de Cartão (transações com `creditCardId`), Contas Pendentes (despesas pendentes do mês atual/anteriores, excluindo cartão)
+- **UI**: Card com decomposição em 3 linhas coloridas, tooltip explicativo, estado positivo (roxo/`ShieldCheck`) ou negativo (vermelho/`ShieldAlert`), subtexto informando contas excluídas do fluxo.
+- **Tokens**: Adicionados `--fiducia-purple` e `--fiducia-purple-bg` no light mode (`#8b5cf6`/`#ede9fe`) e dark mode (`#a78bfa`/rgba).
+
 ### `allow update: false;` não é CEL válido — API retorna 400 sem mensagem útil
 - **Data**: 2026-05-27
 - **Problema**: `allow update: false;` em Firestore rules causa `400 INVALID_ARGUMENT` — a API não indica qual é o erro de sintaxe.
