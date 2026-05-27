@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, orderBy, writeBatch, runTransaction } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -551,22 +551,35 @@ export function Transactions() {
       }
 
       if (editingId) {
-        // Edit logic (simplified for now, usually doesn't change recurrence type)
-        const oldT = transactions.find(t => t.id === editingId);
-        if (oldT) {
-          const batch = writeBatch(db);
+        await runTransaction(db, async (transaction) => {
+          const txRef = doc(db, 'transactions', editingId);
+          const txSnap = await transaction.get(txRef);
+          if (!txSnap.exists()) throw new Error('Transaction not found');
+          const oldT = txSnap.data() as any;
+
           // Revert old balance if not credit card
           if (!creditCards.some(cc => cc.id === oldT.accountId)) {
             if (oldT.type === 'transferencia') {
-              const srcAcc = accounts.find(a => a.id === oldT.accountId);
-              const destAcc = accounts.find(a => a.id === oldT.destinationAccountId);
-              if (srcAcc) batch.update(doc(db, 'accounts', srcAcc.id), { balance: (srcAcc.balance || 0) + oldT.amount });
-              if (destAcc) batch.update(doc(db, 'accounts', destAcc.id), { balance: (destAcc.balance || 0) - oldT.amount });
+              if (oldT.accountId) {
+                const srcRef = doc(db, 'accounts', oldT.accountId);
+                const srcSnap = await transaction.get(srcRef);
+                if (srcSnap.exists()) {
+                  transaction.update(srcRef, { balance: (srcSnap.data().balance || 0) + oldT.amount });
+                }
+              }
+              if (oldT.destinationAccountId) {
+                const destRef = doc(db, 'accounts', oldT.destinationAccountId);
+                const destSnap = await transaction.get(destRef);
+                if (destSnap.exists()) {
+                  transaction.update(destRef, { balance: (destSnap.data().balance || 0) - oldT.amount });
+                }
+              }
             } else {
-              const acc = accounts.find(a => a.id === oldT.accountId);
-              if (acc) {
+              const accRef = doc(db, 'accounts', oldT.accountId);
+              const accSnap = await transaction.get(accRef);
+              if (accSnap.exists()) {
                 const balanceChange = oldT.type === 'receita' ? -oldT.amount : oldT.amount;
-                batch.update(doc(db, 'accounts', acc.id), { balance: (acc.balance || 0) + balanceChange });
+                transaction.update(accRef, { balance: (accSnap.data().balance || 0) + balanceChange });
               }
             }
           }
@@ -574,15 +587,26 @@ export function Transactions() {
           // Apply new balance if not credit card
           if (!isCreditCard) {
             if (formData.type === 'transferencia') {
-              const srcAcc = accounts.find(a => a.id === formData.accountId);
-              const destAcc = accounts.find(a => a.id === formData.destinationAccountId);
-              if (srcAcc) batch.update(doc(db, 'accounts', srcAcc.id), { balance: (srcAcc.balance || 0) - amount });
-              if (destAcc) batch.update(doc(db, 'accounts', destAcc.id), { balance: (destAcc.balance || 0) + amount });
+              if (formData.accountId) {
+                const srcRef = doc(db, 'accounts', formData.accountId);
+                const srcSnap = await transaction.get(srcRef);
+                if (srcSnap.exists()) {
+                  transaction.update(srcRef, { balance: (srcSnap.data().balance || 0) - amount });
+                }
+              }
+              if (formData.destinationAccountId) {
+                const destRef = doc(db, 'accounts', formData.destinationAccountId);
+                const destSnap = await transaction.get(destRef);
+                if (destSnap.exists()) {
+                  transaction.update(destRef, { balance: (destSnap.data().balance || 0) + amount });
+                }
+              }
             } else {
-              const acc = accounts.find(a => a.id === formData.accountId);
-              if (acc) {
+              const accRef = doc(db, 'accounts', formData.accountId);
+              const accSnap = await transaction.get(accRef);
+              if (accSnap.exists()) {
                 const balanceChange = formData.type === 'receita' ? amount : -amount;
-                batch.update(doc(db, 'accounts', acc.id), { balance: (acc.balance || 0) + balanceChange });
+                transaction.update(accRef, { balance: (accSnap.data().balance || 0) + balanceChange });
               }
             }
           }
@@ -601,26 +625,31 @@ export function Transactions() {
           // Check if this transaction is a payment for an invoice
           const relatedInvoice = invoices.find(i => i.paymentTransactionId === editingId);
           if (relatedInvoice) {
-            if (formData.status === 'pago' && relatedInvoice.status !== 'paga') {
-              batch.update(doc(db, 'invoices', relatedInvoice.id), { status: 'paga' });
-            } else if (formData.status !== 'pago' && relatedInvoice.status === 'paga') {
-              batch.update(doc(db, 'invoices', relatedInvoice.id), { status: 'fechada' });
+            const invRef = doc(db, 'invoices', relatedInvoice.id);
+            const invSnap = await transaction.get(invRef);
+            if (invSnap.exists()) {
+              if (formData.status === 'pago' && invSnap.data().status !== 'paga') {
+                transaction.update(invRef, { status: 'paga' });
+              } else if (formData.status !== 'pago' && invSnap.data().status === 'paga') {
+                transaction.update(invRef, { status: 'fechada' });
+              }
             }
           }
 
-          batch.update(doc(db, 'transactions', editingId), updateData);
-          await batch.commit();
-          toast.success('Lançamento atualizado');
-        }
+          transaction.update(txRef, updateData);
+        });
+        toast.success('Lançamento atualizado');
       } else {
         // Create logic
         const parentId = crypto.randomUUID();
         
-        if (isCreditCard && card && showRecurrence && formData.ccRecurrenceType === 'parcelado') {
-          // PARCELADO LOGIC
+        if (showRecurrence && formData.ccRecurrenceType === 'parcelado') {
           const numInstallments = parseInt(formData.installmentsCount) || 2;
           const installmentBase = Math.floor((amount / numInstallments) * 100) / 100;
           const remainder = Math.round((amount - (installmentBase * numInstallments)) * 100) / 100;
+
+          const batch = writeBatch(db);
+          let firstTxRef = doc(collection(db, 'transactions'));
 
           for (let i = 0; i < numInstallments; i++) {
             const date = new Date(formData.date);
@@ -629,7 +658,7 @@ export function Transactions() {
             
             const instAmount = i === 0 ? installmentBase + remainder : installmentBase;
             
-            const tData = {
+            const tData: any = {
               ...baseTData,
               amount: instAmount,
               date: dateStr,
@@ -638,18 +667,38 @@ export function Transactions() {
               installmentNumber: i + 1,
               totalInstallments: numInstallments,
               description: `${formData.description} (${i + 1}/${numInstallments})`,
-              creditCardId: formData.accountId,
-              invoicePeriod: calculateInvoicePeriod(dateStr, card.closingDay, card.dueDay),
               ccRecurrenceType: 'parcelado',
               reconciliationStatus: 'nao_conciliado'
             };
 
-            await addDoc(collection(db, 'transactions'), tData);
+            if (isCreditCard && card) {
+              tData.creditCardId = formData.accountId;
+              tData.invoicePeriod = calculateInvoicePeriod(dateStr, card.closingDay, card.dueDay);
+            } else {
+              tData.accountId = formData.accountId;
+              tData.categoryId = formData.categoryId;
+            }
+
+            const txRef = i === 0 ? firstTxRef : doc(collection(db, 'transactions'));
+            batch.set(txRef, tData);
           }
+
+          await batch.commit();
+
+          if (!isCreditCard) {
+            await runTransaction(db, async (transaction) => {
+              const srcRef = doc(db, 'accounts', formData.accountId);
+              const srcSnap = await transaction.get(srcRef);
+              if (srcSnap.exists()) {
+                const balanceChange = formData.type === 'receita' ? amount : -amount;
+                transaction.update(srcRef, { balance: (srcSnap.data().balance || 0) + balanceChange });
+              }
+            });
+          }
+
           toast.success(`${numInstallments} parcelas geradas com sucesso`);
         } else if (isCreditCard && card && showRecurrence && formData.ccRecurrenceType === 'fixo') {
-          // FIXO LOGIC
-          // 1. Create Recurrence Rule
+          // FIXO LOGIC (credit card only)
           const ruleData = {
             userId: user.uid,
             accountId: formData.accountId,
@@ -667,8 +716,7 @@ export function Transactions() {
           };
           const ruleRef = await addDoc(collection(db, 'recurrenceRules'), ruleData);
 
-          // 2. Create First Transaction
-          const tData = {
+          const tData: any = {
             ...baseTData,
             date: new Date(formData.date).toISOString(),
             createdAt: new Date().toISOString(),
@@ -681,11 +729,14 @@ export function Transactions() {
           await addDoc(collection(db, 'transactions'), tData);
           toast.success('Lançamento fixo configurado');
         } else {
-          // STANDARD OR AVULSO LOGIC
+          // STANDARD OR RECURRING LOGIC
           const iterations = !isCreditCard && showRecurrence && formData.isRecurring 
             ? (formData.frequency === 'mensal' ? 12 : (formData.frequency === 'semanal' ? 52 : (formData.frequency === 'anual' ? 5 : 1))) 
             : 1;
-          
+
+          const batch = writeBatch(db);
+          let firstTxRef: any = null;
+
           for (let i = 0; i < iterations; i++) {
             const date = new Date(formData.date);
             if (!isCreditCard && showRecurrence && formData.isRecurring) {
@@ -716,22 +767,32 @@ export function Transactions() {
               tData.ccRecurrenceType = 'avulso';
             }
 
-            await addDoc(collection(db, 'transactions'), tData);
-            
-            // Apply balance effect only for the first one if it's not a credit card
-            if (!isCreditCard && i === 0) {
-              const sourceAccount = accounts.find(a => a.id === formData.accountId);
-              if (sourceAccount) {
-                const balanceChange = tData.type === 'receita' ? amount : -amount;
-                await updateDoc(doc(db, 'accounts', sourceAccount.id), { balance: (sourceAccount.balance || 0) + balanceChange });
+            const txRef = doc(collection(db, 'transactions'));
+            if (i === 0) firstTxRef = txRef;
+            batch.set(txRef, tData);
+          }
+
+          await batch.commit();
+
+          if (!isCreditCard) {
+            await runTransaction(db, async (transaction) => {
+              const srcRef = doc(db, 'accounts', formData.accountId);
+              const srcSnap = await transaction.get(srcRef);
+              if (srcSnap.exists()) {
+                const balanceChange = formData.type === 'receita' ? amount : -amount;
+                transaction.update(srcRef, { balance: (srcSnap.data().balance || 0) + balanceChange });
               }
 
-              if (tData.type === 'transferencia') {
-                const destAccount = accounts.find(a => a.id === formData.destinationAccountId);
-                if (destAccount) await updateDoc(doc(db, 'accounts', destAccount.id), { balance: (destAccount.balance || 0) + amount });
+              if (formData.type === 'transferencia' && formData.destinationAccountId) {
+                const destRef = doc(db, 'accounts', formData.destinationAccountId);
+                const destSnap = await transaction.get(destRef);
+                if (destSnap.exists()) {
+                  transaction.update(destRef, { balance: (destSnap.data().balance || 0) + amount });
+                }
               }
-            }
+            });
           }
+
           toast.success(iterations > 1 ? 'Lançamentos gerados com sucesso' : 'Lançamento adicionado');
         }
       }
@@ -974,9 +1035,6 @@ export function Transactions() {
     try {
       const isCreditCard = creditCards.some(cc => cc.id === importAccountId);
       const card = creditCards.find(cc => cc.id === importAccountId);
-      const account = accounts.find(a => a.id === importAccountId);
-      
-      let currentBalance = account?.balance || 0;
 
       for (const t of selectedTransactions) {
         try {
@@ -999,16 +1057,6 @@ export function Transactions() {
           }
 
           await addDoc(collection(db, 'transactions'), tData);
-          
-          // Update local balance variable to keep track (only for bank accounts)
-          if (!isCreditCard) {
-            if (t.type === 'despesa') {
-              currentBalance -= t.amount;
-            } else {
-              currentBalance += t.amount;
-            }
-          }
-          
           successCount++;
         } catch (err) {
           console.error('Error importing transaction:', err);
@@ -1016,9 +1064,22 @@ export function Transactions() {
         }
       }
 
-      // Update final account balance (only for bank accounts)
-      if (!isCreditCard && account) {
-        await updateDoc(doc(db, 'accounts', importAccountId), { balance: currentBalance });
+      // Update account balance atomically after all imports (only for bank accounts)
+      if (!isCreditCard) {
+        let totalDelta = 0;
+        for (const t of selectedTransactions) {
+          totalDelta += t.type === 'despesa' ? -t.amount : t.amount;
+        }
+
+        if (totalDelta !== 0) {
+          await runTransaction(db, async (transaction) => {
+            const accRef = doc(db, 'accounts', importAccountId);
+            const accSnap = await transaction.get(accRef);
+            if (accSnap.exists()) {
+              transaction.update(accRef, { balance: (accSnap.data().balance || 0) + totalDelta });
+            }
+          });
+        }
       }
 
       toast.success(`${successCount} transações importadas com sucesso.${errorCount > 0 ? ` ${errorCount} erros.` : ''}`);
@@ -1176,6 +1237,7 @@ ${sample.map(t =>
 
   const summary = React.useMemo(() => {
     return processedTransactions.reduce((acc, t) => {
+      if (!isEffectivelyPaid(t)) return acc;
       if (t.type === 'receita') acc.income += t.amount;
       if (t.type === 'despesa') acc.expense += t.amount;
       // For transfers, if 'all' accounts, it's neutral. 
@@ -1236,6 +1298,100 @@ ${sample.map(t =>
   };
 
   const isCreditCard = creditCards.some(cc => cc.id === formData.accountId);
+
+  const renderParceladoFields = () => (
+    <>
+      <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="installmentsCount" className="text-[10px] font-bold text-gray-400 uppercase">Nº de Parcelas</Label>
+          <Input 
+            id="installmentsCount" 
+            type="number" 
+            min="2" 
+            value={formData.installmentsCount} 
+            onChange={(e) => setFormData({...formData, installmentsCount: e.target.value})} 
+            className="bg-white border-none h-10 rounded-xl"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[10px] font-bold text-gray-400 uppercase">Valor da Parcela</Label>
+          <div className="h-10 flex items-center px-3 bg-white rounded-xl text-sm font-medium text-gray-600">
+            {(() => {
+              const total = parseFloat(formData.amount.toString().replace(',', '.')) || 0;
+              const count = parseInt(formData.installmentsCount) || 1;
+              return (total / count).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            })()}
+          </div>
+        </div>
+      </div>
+      
+      <div className="animate-in fade-in slide-in-from-top-2">
+        {(() => {
+          const total = parseFloat(formData.amount.toString().replace(',', '.')) || 0;
+          const count = parseInt(formData.installmentsCount) || 2;
+          if (total <= 0) return null;
+          
+          const installmentBase = Math.floor((total / count) * 100) / 100;
+          const remainder = Math.round((total - (installmentBase * count)) * 100) / 100;
+          const firstInstallment = installmentBase + remainder;
+          
+          return (
+            <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 space-y-1">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-500">Parcela 1:</span>
+                <span className="font-bold text-primary">{firstInstallment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+              </div>
+              {count > 1 && (
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-gray-500">Demais {count - 1} parcelas:</span>
+                  <span className="font-medium text-gray-700">{installmentBase.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                </div>
+              )}
+              <div className="pt-1 mt-1 border-t border-primary/10 flex justify-between text-[11px] font-bold text-gray-800">
+                <span>Total:</span>
+                <span>{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} em {count} parcelas</span>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    </>
+  );
+
+  const renderFixoFields = () => (
+    <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+      <div className="space-y-1.5">
+        <Label htmlFor="frequency" className="text-[10px] font-bold text-gray-400 uppercase">Frequência</Label>
+        <ShadcnSelect value={formData.frequency} onValueChange={(v) => setFormData({...formData, frequency: v})}>
+          <SelectTrigger className="bg-white border-none h-10 rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="mensal">Mensal</SelectItem>
+            <SelectItem value="semanal">Semanal</SelectItem>
+            <SelectItem value="anual">Anual</SelectItem>
+          </SelectContent>
+        </ShadcnSelect>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="billingDay" className="text-[10px] font-bold text-gray-400 uppercase">Dia de Cobrança</Label>
+        <Input 
+          id="billingDay" 
+          type="number" 
+          min="1" 
+          max="31"
+          value={formData.billingDay} 
+          onChange={(e) => setFormData({...formData, billingDay: e.target.value})} 
+          className="bg-white border-none h-10 rounded-xl"
+        />
+      </div>
+    </div>
+  );
+
+  /** Filter only paid/received transactions for balance summaries */
+  const isEffectivelyPaid = (t: any) => {
+    return t.status === 'pago' || t.status === 'realizado' || t.status === 'paid';
+  };
 
   return (
     <div className="space-y-6">
@@ -2032,106 +2188,33 @@ ${sample.map(t =>
                             </button>
                           </div>
 
-                          {formData.ccRecurrenceType === 'parcelado' && (
-                            <>
-                              <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
-                                <div className="space-y-1.5">
-                                  <Label htmlFor="installmentsCount" className="text-[10px] font-bold text-gray-400 uppercase">Nº de Parcelas</Label>
-                                  <Input 
-                                    id="installmentsCount" 
-                                    type="number" 
-                                    min="2" 
-                                    value={formData.installmentsCount} 
-                                    onChange={(e) => setFormData({...formData, installmentsCount: e.target.value})} 
-                                    className="bg-white border-none h-10 rounded-xl"
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-[10px] font-bold text-gray-400 uppercase">Valor da Parcela</Label>
-                                  <div className="h-10 flex items-center px-3 bg-white rounded-xl text-sm font-medium text-gray-600">
-                                    {(() => {
-                                      const total = parseFloat(formData.amount.toString().replace(',', '.')) || 0;
-                                      const count = parseInt(formData.installmentsCount) || 1;
-                                      return (total / count).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                                    })()}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Resumo do Parcelamento */}
-                              <div className="animate-in fade-in slide-in-from-top-2">
-                                {(() => {
-                                  const total = parseFloat(formData.amount.toString().replace(',', '.')) || 0;
-                                  const count = parseInt(formData.installmentsCount) || 2;
-                                  if (total <= 0) return null;
-                                  
-                                  const installmentBase = Math.floor((total / count) * 100) / 100;
-                                  const remainder = Math.round((total - (installmentBase * count)) * 100) / 100;
-                                  const firstInstallment = installmentBase + remainder;
-                                  
-                                  return (
-                                    <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 space-y-1">
-                                      <div className="flex justify-between text-[11px]">
-                                        <span className="text-gray-500">Parcela 1:</span>
-                                        <span className="font-bold text-primary">{firstInstallment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                                      </div>
-                                      {count > 1 && (
-                                        <div className="flex justify-between text-[11px]">
-                                          <span className="text-gray-500">Demais {count - 1} parcelas:</span>
-                                          <span className="font-medium text-gray-700">{installmentBase.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                                        </div>
-                                      )}
-                                      <div className="pt-1 mt-1 border-t border-primary/10 flex justify-between text-[11px] font-bold text-gray-800">
-                                        <span>Total:</span>
-                                        <span>{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} em {count} parcelas</span>
-                                      </div>
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            </>
-                          )}
-
-                          {formData.ccRecurrenceType === 'fixo' && (
-                            <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
-                              <div className="space-y-1.5">
-                                <Label htmlFor="frequency" className="text-[10px] font-bold text-gray-400 uppercase">Frequência</Label>
-                                <ShadcnSelect value={formData.frequency} onValueChange={(v) => setFormData({...formData, frequency: v})}>
-                                  <SelectTrigger className="bg-white border-none h-10 rounded-xl">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="mensal">Mensal</SelectItem>
-                                    <SelectItem value="semanal">Semanal</SelectItem>
-                                    <SelectItem value="anual">Anual</SelectItem>
-                                  </SelectContent>
-                                </ShadcnSelect>
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label htmlFor="billingDay" className="text-[10px] font-bold text-gray-400 uppercase">Dia de Cobrança</Label>
-                                <Input 
-                                  id="billingDay" 
-                                  type="number" 
-                                  min="1" 
-                                  max="31"
-                                  value={formData.billingDay} 
-                                  onChange={(e) => setFormData({...formData, billingDay: e.target.value})} 
-                                  className="bg-white border-none h-10 rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          )}
+                          {formData.ccRecurrenceType === 'parcelado' && renderParceladoFields()}
+                          {formData.ccRecurrenceType === 'fixo' && renderFixoFields()}
                         </div>
                       ) : (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="recurring" className="text-sm font-semibold text-gray-700">Lançamento Recorrente?</Label>
-                            <Switch 
-                              id="recurring" 
-                              checked={formData.isRecurring} 
-                              onCheckedChange={(checked) => setFormData({...formData, isRecurring: checked})} 
-                            />
+                        <div className="space-y-4">
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData({...formData, ccRecurrenceType: 'parcelado', isRecurring: false});
+                              }}
+                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'parcelado' ? 'bg-primary text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`}
+                            >
+                              PARCELADO
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData({...formData, ccRecurrenceType: 'avulso', isRecurring: !formData.isRecurring});
+                              }}
+                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.isRecurring ? 'bg-primary text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`}
+                            >
+                              RECORRENTE
+                            </button>
                           </div>
+
+                          {formData.ccRecurrenceType === 'parcelado' && renderParceladoFields()}
                           {formData.isRecurring && (
                             <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                               <div className="space-y-1.5">
@@ -2148,7 +2231,7 @@ ${sample.map(t =>
                                 </ShadcnSelect>
                               </div>
                               <div className="space-y-1.5">
-                                <Label htmlFor="installments" className="text-[10px] font-bold text-gray-400 uppercase">Parcelas</Label>
+                                <Label htmlFor="installments" className="text-[10px] font-bold text-gray-400 uppercase">Qtd. de Repetições</Label>
                                 <Input 
                                   id="installments" 
                                   type="number" 
@@ -2160,7 +2243,7 @@ ${sample.map(t =>
                               </div>
                             </div>
                           )}
-                        </>
+                        </div>
                       )}
                     </div>
                   </motion.div>

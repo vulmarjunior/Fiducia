@@ -161,8 +161,10 @@ Regras:
     return t.date.split('T')[0].startsWith(currentMonthStr);
   });
   
-  const monthlyIncome = currentMonthTransactions.filter(t => t.type === 'receita' || t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-  const monthlyExpense = currentMonthTransactions.filter(t => t.type === 'despesa' || t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const isEffectivelyPaid = (t: any) => t.status === 'pago' || t.status === 'realizado' || t.status === 'paid';
+  
+  const monthlyIncome = currentMonthTransactions.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
+  const monthlyExpense = currentMonthTransactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
   const monthlyBalance = monthlyIncome - monthlyExpense;
 
   const overdueExpenses = transactions.filter(t => {
@@ -306,8 +308,8 @@ Regras:
     });
     return {
       name: m.label.charAt(0).toUpperCase() + m.label.slice(1),
-      income: monthTx.filter(t => t.type === 'receita' || t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
-      expense: monthTx.filter(t => t.type === 'despesa' || t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
+      income: monthTx.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
+      expense: monthTx.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
     };
   });
 
