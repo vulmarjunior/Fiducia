@@ -129,8 +129,9 @@ export function Accounts() {
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
-      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'accounts');
+      console.error('Accounts save error:', error);
       toast.error('Falha ao salvar conta');
+      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'accounts');
     }
   };
 
@@ -140,8 +141,9 @@ export function Accounts() {
       await deleteDoc(doc(db, 'accounts', deleteConfirmId));
       toast.success('Conta excluída');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `accounts/${deleteConfirmId}`);
+      console.error('Accounts delete error:', error);
       toast.error('Falha ao excluir conta');
+      handleFirestoreError(error, OperationType.DELETE, `accounts/${deleteConfirmId}`);
     } finally {
       setDeleteConfirmId(null);
     }
@@ -224,8 +226,9 @@ export function Accounts() {
       toast.success('Conta zerada com sucesso');
       setResetConfirmId(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `accounts/${resetConfirmId}`);
+      console.error('Accounts reset error:', error);
       toast.error('Erro ao zerar conta');
+      handleFirestoreError(error, OperationType.UPDATE, `accounts/${resetConfirmId}`);
     } finally {
       setIsResetting(false);
     }
