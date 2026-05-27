@@ -154,12 +154,12 @@
 - **Problema**: `handleFirestoreError` sempre dá `throw new Error(...)`. Se colocada antes de `toast.error()`, o toast nunca aparece.
 - **Prevenção**: Sempre chamar `toast.error()` PRIMEIRO, depois `handleFirestoreError()` (que pode throw sem阻塞 o UX).
 
-### Ordem `runTransaction` — reads depois de writes em 4 fluxos
+### Ordem `runTransaction` — reads depois de writes em todos os fluxos
 - **Status**: 🔄 Corrigido
 - **Data**: 2026-05-27
-- **Contexto**: Usuário recebia "Erro ao salvar lançamento" ao criar transação. Console mostrava `Firestore transactions require all reads to be executed before all writes`.
-- **Causa Raiz**: CREATE (standard e parcelado), DELETE e IMPORT executavam `transaction.set()`/`transaction.delete()` antes de `transaction.get()` dentro do mesmo `runTransaction`. Apenas o fluxo EDIT estava na ordem correta.
-- **Solução**: Reordenado todos os 4 fluxos — `transaction.get()` moveu-se para antes de qualquer `transaction.set()`/`transaction.delete()`. Agora o padrão é: coletar todos os snaps de saldo primeiro, depois executar as escritas.
+- **Contexto**: Usuário recebia "Erro ao salvar lançamento" ao criar (antes) e ao atualizar (depois) transações. Console mostrava `Firestore transactions require all reads to be executed before all writes`.
+- **Causa Raiz**: CREATE, EDIT, DELETE e IMPORT executavam `transaction.set()`/`transaction.delete()`/`transaction.update()` antes de completar todas as `transaction.get()`. No EDIT, o problema era fazer `get → update` (reverter) → `get` (aplicar novo) no mesmo documento — o segundo `get` após um `update` viola a regra.
+- **Solução**: Todos os 5 fluxos agora coletam TODOS os `transaction.get()` de saldo primeiro, acumulam deltas líquidos por conta, e só então aplicam as escritas. No EDIT, o delta é calculado como (efeito novo − efeito velho) para cada conta, permitindo uma única leitura + escrita por conta.
 
 ### Saldo inicial visível na edição de conta — risco de confusão
 - **Status**: 🔄 Corrigido

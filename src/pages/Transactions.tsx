@@ -573,57 +573,42 @@ export function Transactions() {
           if (!txSnap.exists()) throw new Error('Transaction not found');
           const oldT = txSnap.data() as any;
 
-          // Revert old balance if not credit card
+          // Compute net balance delta per account (old effect reversed + new effect applied)
+          const accountDeltas: Record<string, number> = {};
+
+          // Reverse old balance effect
           if (!creditCards.some(cc => cc.id === oldT.accountId)) {
             if (oldT.type === 'transferencia') {
-              if (oldT.accountId) {
-                const srcRef = doc(db, 'accounts', oldT.accountId);
-                const srcSnap = await transaction.get(srcRef);
-                if (srcSnap.exists()) {
-                  transaction.update(srcRef, { balance: (srcSnap.data().balance || 0) + oldT.amount });
-                }
-              }
-              if (oldT.destinationAccountId) {
-                const destRef = doc(db, 'accounts', oldT.destinationAccountId);
-                const destSnap = await transaction.get(destRef);
-                if (destSnap.exists()) {
-                  transaction.update(destRef, { balance: (destSnap.data().balance || 0) - oldT.amount });
-                }
-              }
+              if (oldT.accountId) accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) + oldT.amount;
+              if (oldT.destinationAccountId) accountDeltas[oldT.destinationAccountId] = (accountDeltas[oldT.destinationAccountId] || 0) - oldT.amount;
             } else {
-              const accRef = doc(db, 'accounts', oldT.accountId);
-              const accSnap = await transaction.get(accRef);
-              if (accSnap.exists()) {
-                const balanceChange = oldT.type === 'receita' ? -oldT.amount : oldT.amount;
-                transaction.update(accRef, { balance: (accSnap.data().balance || 0) + balanceChange });
-              }
+              const oldEffect = oldT.type === 'receita' ? -oldT.amount : oldT.amount;
+              accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) - oldEffect;
             }
           }
 
-          // Apply new balance if not credit card
+          // Apply new balance effect
           if (!isCreditCard) {
             if (formData.type === 'transferencia') {
-              if (formData.accountId) {
-                const srcRef = doc(db, 'accounts', formData.accountId);
-                const srcSnap = await transaction.get(srcRef);
-                if (srcSnap.exists()) {
-                  transaction.update(srcRef, { balance: (srcSnap.data().balance || 0) - amount });
-                }
-              }
-              if (formData.destinationAccountId) {
-                const destRef = doc(db, 'accounts', formData.destinationAccountId);
-                const destSnap = await transaction.get(destRef);
-                if (destSnap.exists()) {
-                  transaction.update(destRef, { balance: (destSnap.data().balance || 0) + amount });
-                }
-              }
+              if (formData.accountId) accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) - amount;
+              if (formData.destinationAccountId) accountDeltas[formData.destinationAccountId] = (accountDeltas[formData.destinationAccountId] || 0) + amount;
             } else {
-              const accRef = doc(db, 'accounts', formData.accountId);
-              const accSnap = await transaction.get(accRef);
-              if (accSnap.exists()) {
-                const balanceChange = formData.type === 'receita' ? amount : -amount;
-                transaction.update(accRef, { balance: (accSnap.data().balance || 0) + balanceChange });
-              }
+              const newEffect = formData.type === 'receita' ? -amount : amount;
+              accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) + newEffect;
+            }
+          }
+
+          // Read all affected accounts ONCE, then apply all balance updates
+          const accountSnaps: Record<string, any> = {};
+          for (const accId of Object.keys(accountDeltas)) {
+            if (accountDeltas[accId] === 0) continue;
+            accountSnaps[accId] = await transaction.get(doc(db, 'accounts', accId));
+          }
+          for (const [accId, delta] of Object.entries(accountDeltas)) {
+            if (delta === 0) continue;
+            const snap = accountSnaps[accId];
+            if (snap?.exists()) {
+              transaction.update(doc(db, 'accounts', accId), { balance: (snap.data().balance || 0) + delta });
             }
           }
 
