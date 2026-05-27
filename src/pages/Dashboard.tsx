@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, FileText, Calendar, HelpCircle, Sparkles, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, FileText, Calendar, HelpCircle, Sparkles, Loader2, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
@@ -171,6 +171,31 @@ Regras:
   const monthlyIncome = currentMonthTransactions.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
   const monthlyExpense = currentMonthTransactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
   const monthlyBalance = monthlyIncome - monthlyExpense;
+
+  // Disponível Seguro calculation
+  const saldoCirculante = accounts
+    .filter(a => !a.excludeFromCashFlow)
+    .reduce((sum, a) => sum + (a.balance || 0), 0);
+  const hasExcludedAccounts = accounts.some(a => a.excludeFromCashFlow);
+  const excludedCount = accounts.filter(a => a.excludeFromCashFlow).length;
+  const circulatingCount = accounts.filter(a => !a.excludeFromCashFlow).length;
+
+  const gastosCartao = transactions
+    .filter(t => t.creditCardId || creditCards.some(c => c.id === t.accountId))
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const contasPendentes = transactions
+    .filter(t =>
+      !t.creditCardId &&
+      !creditCards.some(c => c.id === t.accountId) &&
+      (t.type === 'despesa' || t.type === 'expense') &&
+      (t.status === 'pendente' || t.status === 'pending') &&
+      t.date.split('T')[0] <= currentDateStr
+    )
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const disponivelSeguro = saldoCirculante - gastosCartao - contasPendentes;
+  const isPositive = disponivelSeguro >= 0;
 
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -468,20 +493,67 @@ Regras:
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(monthlyExpense)}</div>
         </div>
 
-        {/* Balanço Mensal */}
+        {/* Disponível Seguro */}
         <div className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-10 h-10 rounded-xl bg-fiducia-amber/10 text-fiducia-amber flex items-center justify-center group-hover:scale-110 transition-transform">
-              <ArrowRightLeft className="w-5 h-5" />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${isPositive ? 'bg-fiducia-purple/10 text-fiducia-purple' : 'bg-fiducia-red/10 text-fiducia-red'}`}>
+              {isPositive ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
             </div>
-            <div className="text-[11px] font-bold text-fiducia-amber bg-fiducia-amber/10 px-2 py-1 rounded-full">
-              Balanço
+            <div className="relative group/tip">
+              <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+              <div className="absolute right-0 top-6 w-64 p-3 bg-popover border border-border rounded-xl shadow-lg text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-10">
+                <strong className="block mb-1">Disponível Seguro</strong>
+                = (Saldo Circulante) − (Gastos de Cartão) − (Contas Pendentes)
+                <br /><br />
+                Mostra quanto dinheiro livre você tem hoje depois de pagar todas as faturas de cartão e contas pendentes do mês.
+                {hasExcludedAccounts && <><br /><br />Contas marcadas como reserva/investimento são ignoradas deste cálculo.</>}
+              </div>
             </div>
           </div>
-          <div className="text-[13px] text-muted-foreground font-medium mb-1">Balanço do mês</div>
-          <div className={`text-[24px] font-bold tracking-tight font-mono ${monthlyBalance >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
-            {formatCurrency(monthlyBalance)}
+          <div className="text-[13px] text-muted-foreground font-medium mb-1">Disponível Seguro</div>
+          <div className={`text-[24px] font-bold tracking-tight font-mono ${isPositive ? 'text-fiducia-purple' : 'text-fiducia-red'}`}>
+            {formatCurrency(disponivelSeguro)}
           </div>
+          <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+            <div className="flex items-center justify-between text-[12px]">
+              <span className="flex items-center gap-1.5 text-fiducia-green">
+                <span className="w-2 h-2 rounded-full bg-fiducia-green shrink-0" />
+                Saldo Circulante
+              </span>
+              <span className="font-mono font-semibold text-fiducia-green">+{formatCurrency(saldoCirculante)}</span>
+            </div>
+            {gastosCartao > 0 && (
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="flex items-center gap-1.5 text-fiducia-red">
+                  <span className="w-2 h-2 rounded-full bg-fiducia-red shrink-0" />
+                  Gastos de Cartão
+                </span>
+                <span className="font-mono font-semibold text-fiducia-red">-{formatCurrency(gastosCartao)}</span>
+              </div>
+            )}
+            {contasPendentes > 0 && (
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="flex items-center gap-1.5 text-fiducia-amber">
+                  <span className="w-2 h-2 rounded-full bg-fiducia-amber shrink-0" />
+                  Contas Pendentes
+                </span>
+                <span className="font-mono font-semibold text-fiducia-amber">-{formatCurrency(contasPendentes)}</span>
+              </div>
+            )}
+            {gastosCartao === 0 && contasPendentes === 0 && (
+              <div className="text-[11px] text-muted-foreground italic">Nenhum compromisso pendente</div>
+            )}
+          </div>
+          <div className={`mt-3 pt-2 border-t border-border text-[11px] font-semibold ${isPositive ? 'text-fiducia-purple' : 'text-fiducia-red'}`}>
+            {isPositive
+              ? '✅ Folga financeira — você tem margem depois de todas as contas.'
+              : '⚠️ Atenção — o saldo circulante não cobre todos os compromissos.'}
+          </div>
+          {hasExcludedAccounts && (
+            <div className="mt-2 text-[10px] text-muted-foreground">
+              {circulatingCount} conta{circulatingCount !== 1 ? 's' : ''} em circulação · {excludedCount} reserva{excludedCount !== 1 ? 's' : ''} ignorada{excludedCount !== 1 ? 's' : ''}
+            </div>
+          )}
         </div>
       </div>
 
@@ -573,27 +645,41 @@ Regras:
                <Link to="/transactions" className="text-[12px] text-fiducia-blue font-bold hover:underline">Ver todos</Link>
              </div>
              <div className="divide-y divide-border">
-                {transactions.slice(0, 6).map(t => (
-                  <div key={t.id} onClick={() => navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${(t.type === 'receita' || t.type === 'income') ? 'bg-fiducia-green/10 text-fiducia-green' : 'bg-fiducia-red/10 text-fiducia-red'}`}>
-                      {(t.type === 'receita' || t.type === 'income') ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[14px] font-semibold text-foreground truncate">{t.description}</div>
-                      <div className="text-[12px] text-muted-foreground truncate flex items-center gap-2">
-                        <span className="bg-secondary px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{categories.find(c => c.id === t.categoryId)?.name || 'Geral'}</span>
-                        <span>•</span>
-                        <span>{resolveAccountName(t.accountId, accounts, creditCards)}</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-[15px] font-bold font-mono ${(t.type === 'receita' || t.type === 'income') ? 'text-fiducia-green' : 'text-foreground}'}`}>
-                        {(t.type === 'receita' || t.type === 'income') ? '+ ' : '- '}{formatCurrency(t.amount)}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground font-medium">{formatShortDate(t.date)}</div>
-                    </div>
-                  </div>
-                ))}
+                  {transactions.slice(0, 6).map(t => {
+                   const isIncome = t.type === 'receita' || t.type === 'income';
+                   const isTransfer = t.type === 'transferencia' || t.type === 'transfer';
+                   return (
+                   <div key={t.id} onClick={() => navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                     <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
+                       isIncome ? 'bg-fiducia-green/10 text-fiducia-green' :
+                       isTransfer ? 'bg-fiducia-blue/10 text-fiducia-blue' :
+                       'bg-fiducia-red/10 text-fiducia-red'
+                     }`}>
+                       {isIncome ? <ArrowUpRight className="w-5 h-5" /> :
+                        isTransfer ? <ArrowRightLeft className="w-5 h-5" /> :
+                        <ArrowDownRight className="w-5 h-5" />}
+                     </div>
+                     <div className="flex-1 min-w-0">
+                       <div className="text-[14px] font-semibold text-foreground truncate">{t.description}</div>
+                       <div className="text-[12px] text-muted-foreground truncate flex items-center gap-2">
+                         <span className="bg-secondary px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{categories.find(c => c.id === t.categoryId)?.name || 'Geral'}</span>
+                         <span>•</span>
+                         <span>{resolveAccountName(t.accountId, accounts, creditCards)}</span>
+                       </div>
+                     </div>
+                     <div className="text-right">
+                       <div className={`text-[15px] font-bold font-mono ${
+                         isIncome ? 'text-fiducia-green' :
+                         isTransfer ? 'text-fiducia-blue' :
+                         'text-foreground'
+                       }`}>
+                         {isIncome ? '+ ' : isTransfer ? '' : '- '}{formatCurrency(t.amount)}
+                       </div>
+                       <div className="text-[11px] text-muted-foreground font-medium">{formatShortDate(t.date)}</div>
+                     </div>
+                   </div>
+                   );
+                 })}
                {transactions.length === 0 && (
                  <div className="flex flex-col items-center justify-center p-12 text-center">
                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-3">

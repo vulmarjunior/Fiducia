@@ -62,7 +62,7 @@ const TransactionObservation = ({ observation }: { observation: string }) => {
             <PopoverClose render={(props) => (
               <button 
                 {...props}
-                className="p-1 -mr-2 -mt-2 rounded-full hover:bg-white/10 transition-colors"
+                className="p-1 -mr-2 -mt-2 rounded-full hover:bg-background/10 transition-colors"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -1329,19 +1329,19 @@ ${sample.map(t =>
     <>
       <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
         <div className="space-y-1.5">
-          <Label htmlFor="installmentsCount" className="text-[10px] font-bold text-gray-400 uppercase">Nº de Parcelas</Label>
+          <Label htmlFor="installmentsCount" className="text-[10px] font-bold text-muted-foreground uppercase">Nº de Parcelas</Label>
           <Input 
             id="installmentsCount" 
             type="number" 
             min="2" 
             value={formData.installmentsCount} 
             onChange={(e) => setFormData({...formData, installmentsCount: e.target.value})} 
-            className="bg-white border-none h-10 rounded-xl"
+            className="bg-background border-none h-10 rounded-xl"
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-[10px] font-bold text-gray-400 uppercase">Valor da Parcela</Label>
-          <div className="h-10 flex items-center px-3 bg-white rounded-xl text-sm font-medium text-gray-600">
+          <Label className="text-[10px] font-bold text-muted-foreground uppercase">Valor da Parcela</Label>
+          <div className="h-10 flex items-center px-3 bg-background rounded-xl text-sm font-medium text-secondary-foreground">
             {(() => {
               const total = parseFloat(formData.amount.toString().replace(',', '.')) || 0;
               const count = parseInt(formData.installmentsCount) || 1;
@@ -1364,16 +1364,16 @@ ${sample.map(t =>
           return (
             <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 space-y-1">
               <div className="flex justify-between text-[11px]">
-                <span className="text-gray-500">Parcela 1:</span>
+                <span className="text-secondary-foreground">Parcela 1:</span>
                 <span className="font-bold text-primary">{firstInstallment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
               </div>
               {count > 1 && (
                 <div className="flex justify-between text-[11px]">
-                  <span className="text-gray-500">Demais {count - 1} parcelas:</span>
-                  <span className="font-medium text-gray-700">{installmentBase.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                  <span className="text-secondary-foreground">Demais {count - 1} parcelas:</span>
+                  <span className="font-medium text-secondary-foreground">{installmentBase.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                 </div>
               )}
-              <div className="pt-1 mt-1 border-t border-primary/10 flex justify-between text-[11px] font-bold text-gray-800">
+              <div className="pt-1 mt-1 border-t border-primary/10 flex justify-between text-[11px] font-bold text-foreground">
                 <span>Total:</span>
                 <span>{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} em {count} parcelas</span>
               </div>
@@ -1387,9 +1387,9 @@ ${sample.map(t =>
   const renderFixoFields = () => (
     <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
       <div className="space-y-1.5">
-        <Label htmlFor="frequency" className="text-[10px] font-bold text-gray-400 uppercase">Frequência</Label>
+        <Label htmlFor="frequency" className="text-[10px] font-bold text-muted-foreground uppercase">Frequência</Label>
         <ShadcnSelect value={formData.frequency} onValueChange={(v) => setFormData({...formData, frequency: v})}>
-          <SelectTrigger className="bg-white border-none h-10 rounded-xl">
+          <SelectTrigger className="bg-background border-none h-10 rounded-xl">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1400,7 +1400,7 @@ ${sample.map(t =>
         </ShadcnSelect>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="billingDay" className="text-[10px] font-bold text-gray-400 uppercase">Dia de Cobrança</Label>
+        <Label htmlFor="billingDay" className="text-[10px] font-bold text-muted-foreground uppercase">Dia de Cobrança</Label>
         <Input 
           id="billingDay" 
           type="number" 
@@ -1408,7 +1408,7 @@ ${sample.map(t =>
           max="31"
           value={formData.billingDay} 
           onChange={(e) => setFormData({...formData, billingDay: e.target.value})} 
-          className="bg-white border-none h-10 rounded-xl"
+          className="bg-background border-none h-10 rounded-xl"
         />
       </div>
     </div>
@@ -1449,7 +1449,7 @@ ${sample.map(t =>
             <div className="space-y-2 md:col-span-3">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conta</Label>
               <ShadcnSelect value={selectedAccountFilter} onValueChange={setSelectedAccountFilter}>
-                <SelectTrigger className="h-11 bg-white shadow-sm border-secondary/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all rounded-xl">
+                <SelectTrigger className="h-11 bg-background shadow-sm border-secondary/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all rounded-xl">
                   <SelectValue placeholder="Todas as contas">
                     {selectedAccountFilter === 'all' ? 'Todas as contas' : resolveAccountName(selectedAccountFilter, accounts, creditCards)}
                   </SelectValue>
@@ -1479,19 +1479,19 @@ ${sample.map(t =>
               <div className="flex p-1 bg-secondary/30 rounded-xl">
                 <button 
                   onClick={() => setFilterType('month')}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${filterType === 'month' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground'}`}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${filterType === 'month' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`}
                 >
                   Mês
                 </button>
                 <button 
                   onClick={() => setFilterType('range')}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${filterType === 'range' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground'}`}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${filterType === 'range' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`}
                 >
                   Filtro
                 </button>
                 <button 
                   onClick={() => setFilterType('all')}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${filterType === 'all' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground'}`}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${filterType === 'all' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`}
                 >
                   Tudo
                 </button>
@@ -1509,7 +1509,7 @@ ${sample.map(t =>
                     type="month" 
                     value={selectedMonth} 
                     onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="h-11 bg-white shadow-sm border-secondary/30 rounded-xl"
+                    className="h-11 bg-background shadow-sm border-secondary/30 rounded-xl"
                   />
                   <Button variant="outline" size="icon" onClick={handleNextMonth} className="h-11 w-11 rounded-xl shrink-0">
                     <ChevronRight className="h-4 w-4" />
@@ -1524,7 +1524,7 @@ ${sample.map(t =>
                     type="date" 
                     value={startDate} 
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="h-11 bg-white shadow-sm border-secondary/30 rounded-xl"
+                    className="h-11 bg-background shadow-sm border-secondary/30 rounded-xl"
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
@@ -1533,7 +1533,7 @@ ${sample.map(t =>
                     type="date" 
                     value={endDate} 
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="h-11 bg-white shadow-sm border-secondary/30 rounded-xl"
+                    className="h-11 bg-background shadow-sm border-secondary/30 rounded-xl"
                   />
                 </div>
               </>
@@ -1568,7 +1568,7 @@ ${sample.map(t =>
                         handleAiSearch();
                       }
                     }}
-                    className={`pl-9 h-11 bg-white shadow-sm border-secondary/30 rounded-xl ${aiSearchMode ? 'ring-2 ring-amber-400/50' : ''}`}
+                    className={`pl-9 h-11 bg-background shadow-sm border-secondary/30 rounded-xl ${aiSearchMode ? 'ring-2 ring-amber-400/50' : ''}`}
                   />
                   {aiSearchMode && searchTerm && (
                     <button
@@ -1595,7 +1595,7 @@ ${sample.map(t =>
                   className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border transition-colors ${
                     aiSearchMode
                       ? 'bg-amber-50 border-amber-300 text-amber-600 dark:bg-amber-950 dark:border-amber-700 dark:text-amber-400'
-                      : 'bg-white border-secondary/30 text-muted-foreground hover:bg-accent'
+                      : 'bg-background border-secondary/30 text-muted-foreground hover:bg-accent'
                   }`}
                   title={aiSearchMode ? 'Modo texto' : 'Busca inteligente'}
                 >
@@ -1653,7 +1653,7 @@ ${sample.map(t =>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-none shadow-md bg-gradient-to-br from-white to-green-50/50">
+        <Card className="border-none shadow-md bg-gradient-to-br from-white to-green-50/50 dark:bg-gradient-to-br dark:from-surface dark:to-fiducia-green-bg/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <ArrowUpRight className="h-3 w-3 text-fiducia-green" /> Receitas
@@ -1665,7 +1665,7 @@ ${sample.map(t =>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-md bg-gradient-to-br from-white to-red-50/50">
+        <Card className="border-none shadow-md bg-gradient-to-br from-white to-red-50/50 dark:bg-gradient-to-br dark:from-surface dark:to-fiducia-red-bg/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <ArrowDownRight className="h-3 w-3 text-fiducia-red" /> Despesas
@@ -1677,7 +1677,7 @@ ${sample.map(t =>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-md bg-gradient-to-br from-white to-blue-50/50">
+        <Card className="border-none shadow-md bg-gradient-to-br from-white to-blue-50/50 dark:bg-gradient-to-br dark:from-surface dark:to-fiducia-blue-bg/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <ArrowRightLeft className="h-3 w-3 text-fiducia-blue" /> Saldo do Período
@@ -1690,7 +1690,7 @@ ${sample.map(t =>
           </CardContent>
         </Card>
         {selectedAccountFilter !== 'all' && (
-          <Card className="border-none shadow-md bg-gradient-to-br from-primary/5 to-primary/10">
+          <Card className="border-none shadow-md bg-gradient-to-br from-primary/5 to-primary/10 dark:bg-gradient-to-br dark:from-surface dark:to-primary/10">
             <CardHeader className="pb-2">
               <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Wallet className="h-3 w-3 text-primary" /> Saldo Atual da Conta
@@ -1911,9 +1911,9 @@ ${sample.map(t =>
             setIsDialogOpen(open);
             if (!open) resetForm();
           }}>
-            <DialogContent className="w-[95vw] sm:max-w-[480px] p-0 overflow-hidden rounded-2xl border-none shadow-2xl bg-white max-h-[95vh] flex flex-col">
+            <DialogContent className="w-[95vw] sm:max-w-[480px] p-0 overflow-hidden rounded-2xl border-none shadow-2xl bg-background dark:bg-surface max-h-[95vh] flex flex-col">
               <DialogHeader className="p-6 pb-0">
-                <DialogTitle className="text-xl font-bold text-gray-800">
+                <DialogTitle className="text-xl font-bold text-foreground">
                   {editingId ? 'Editar ' : 'Nova '}
                   {formData.type === 'receita' ? 'receita' : formData.type === 'despesa' ? 'despesa' : 'transferência'}
                 </DialogTitle>
@@ -1924,24 +1924,24 @@ ${sample.map(t =>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <Tabs value={formData.type} onValueChange={(v) => setFormData({...formData, type: v})} className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 bg-gray-100 p-1 rounded-xl h-11">
-                    <TabsTrigger value="despesa" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-red-600 data-[state=active]:shadow-sm transition-all">Despesa</TabsTrigger>
-                    <TabsTrigger value="receita" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm transition-all">Receita</TabsTrigger>
-                    <TabsTrigger value="transferencia" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all">Transf.</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-3 bg-muted p-1 rounded-xl h-11">
+                    <TabsTrigger value="despesa" className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-red-600 data-[state=active]:shadow-sm transition-all">Despesa</TabsTrigger>
+                    <TabsTrigger value="receita" className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-green-600 data-[state=active]:shadow-sm transition-all">Receita</TabsTrigger>
+                    <TabsTrigger value="transferencia" className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all">Transf.</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 
                 <form id="transaction-form" onSubmit={handleSubmit} className="space-y-6">
                   {/* Descrição */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="description" className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Descrição</Label>
+                    <Label htmlFor="description" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</Label>
                     <Input 
                       id="description" 
                       autoFocus
                       value={formData.description} 
                       onChange={(e) => setFormData({...formData, description: e.target.value})} 
                       placeholder="Ex: Supermercado, Salário..."
-                      className="bg-gray-50 border-none focus:ring-2 focus:ring-primary/20 h-12 text-base rounded-xl transition-all"
+                      className="bg-muted border-none focus:ring-2 focus:ring-primary/20 h-12 text-base rounded-xl transition-all"
                       required 
                     />
                   </div>
@@ -1957,7 +1957,7 @@ ${sample.map(t =>
                       className="sm:col-span-1"
                     />
                     <div className="space-y-1.5">
-                      <Label htmlFor="date" className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Data</Label>
+                      <Label htmlFor="date" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data</Label>
                       <Input 
                         id="date" 
                         type="date" 
@@ -1977,7 +1977,7 @@ ${sample.map(t =>
                           
                           setFormData({...formData, date: newDate, invoicePeriod: newInvoicePeriod, status: newStatus});
                         }} 
-                        className="bg-gray-50 border-none focus:ring-2 focus:ring-primary/20 h-12 text-base rounded-xl transition-all"
+                        className="bg-muted border-none focus:ring-2 focus:ring-primary/20 h-12 text-base rounded-xl transition-all"
                         required 
                       />
                     </div>
@@ -1986,7 +1986,7 @@ ${sample.map(t =>
                   {/* Conta e Categoria */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="account" className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      <Label htmlFor="account" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         {formData.type === 'transferencia' ? 'Origem' : 'Conta/Cartão'}
                       </Label>
                       <Select
@@ -2040,13 +2040,13 @@ ${sample.map(t =>
                       />
                       {creditCards.some(cc => cc.id === formData.accountId) && (
                         <div className="mt-2 space-y-1.5">
-                          <Label htmlFor="invoicePeriod" className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Fatura</Label>
+                          <Label htmlFor="invoicePeriod" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Fatura</Label>
                           <Input 
                             id="invoicePeriod" 
                             type="month" 
                             value={formData.invoicePeriod} 
                             onChange={(e) => setFormData({...formData, invoicePeriod: e.target.value})} 
-                            className="bg-gray-50 border-none focus:ring-2 focus:ring-primary/20 h-10 text-sm rounded-xl transition-all text-fiducia-blue font-bold"
+                            className="bg-muted border-none focus:ring-2 focus:ring-primary/20 h-10 text-sm rounded-xl transition-all text-fiducia-blue font-bold"
                             required 
                           />
                         </div>
@@ -2056,7 +2056,7 @@ ${sample.map(t =>
                     <div className="space-y-1.5">
                       {formData.type === 'transferencia' ? (
                         <>
-                          <Label htmlFor="destAccount" className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Destino</Label>
+                          <Label htmlFor="destAccount" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Destino</Label>
                           <Select
                             options={accounts.filter(a => a.id !== formData.accountId).map(a => ({ value: a.id, label: a.name }))}
                             value={accounts.map(a => ({ value: a.id, label: a.name })).find(opt => opt.value === formData.destinationAccountId) || null}
@@ -2089,7 +2089,7 @@ ${sample.map(t =>
                         </>
                       ) : (
                         <>
-                          <Label htmlFor="category" className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Categoria</Label>
+                          <Label htmlFor="category" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Categoria</Label>
                           <div className="flex gap-1.5 items-center">
                             <div className="flex-1 min-w-0">
                               <Select
@@ -2144,8 +2144,8 @@ ${sample.map(t =>
                                 }}
                               />
                             </div>
-                            <Button type="button" variant="outline" size="icon" onClick={() => setIsNewCategoryDialogOpen(true)} className="h-12 w-12 shrink-0 rounded-xl bg-gray-50 border-none hover:bg-gray-100 transition-all">
-                              <Plus className="h-5 w-5 text-gray-400" />
+                            <Button type="button" variant="outline" size="icon" onClick={() => setIsNewCategoryDialogOpen(true)} className="h-12 w-12 shrink-0 rounded-xl bg-muted border-none hover:bg-muted transition-all">
+                              <Plus className="h-5 w-5 text-muted-foreground" />
                             </Button>
                           </div>
                         </>
@@ -2158,7 +2158,7 @@ ${sample.map(t =>
                     <button 
                       type="button" 
                       onClick={() => setShowRecurrence(!showRecurrence)}
-                      className={`p-3 rounded-2xl transition-all ${showRecurrence ? 'bg-primary/10 text-primary shadow-inner' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                      className={`p-3 rounded-2xl transition-all ${showRecurrence ? 'bg-primary/10 text-primary shadow-inner' : 'bg-muted text-muted-foreground hover:bg-muted'}`}
                       title="Recorrência"
                     >
                       <Repeat className="h-6 w-6" />
@@ -2166,14 +2166,14 @@ ${sample.map(t =>
                     <button 
                       type="button" 
                       onClick={() => setShowObservation(!showObservation)}
-                      className={`p-3 rounded-2xl transition-all ${showObservation ? 'bg-primary/10 text-primary shadow-inner' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                      className={`p-3 rounded-2xl transition-all ${showObservation ? 'bg-primary/10 text-primary shadow-inner' : 'bg-muted text-muted-foreground hover:bg-muted'}`}
                       title="Observação"
                     >
                       <MessageSquare className="h-6 w-6" />
                     </button>
                     <button 
                       type="button" 
-                      className="p-3 rounded-2xl bg-gray-50 text-gray-200 cursor-not-allowed"
+                      className="p-3 rounded-2xl bg-muted text-muted-foreground/30 cursor-not-allowed"
                       title="Anexo (Em breve)"
                       disabled
                     >
@@ -2182,7 +2182,7 @@ ${sample.map(t =>
                     <button 
                       type="button" 
                       onClick={() => setShowTags(!showTags)}
-                      className={`p-3 rounded-2xl transition-all ${showTags ? 'bg-primary/10 text-primary shadow-inner' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                      className={`p-3 rounded-2xl transition-all ${showTags ? 'bg-primary/10 text-primary shadow-inner' : 'bg-muted text-muted-foreground hover:bg-muted'}`}
                       title="Tags"
                     >
                       <Tag className="h-6 w-6" />
@@ -2195,21 +2195,21 @@ ${sample.map(t =>
                     animate={{ height: showRecurrence ? 'auto' : 0, opacity: showRecurrence ? 1 : 0 }}
                     className="overflow-hidden space-y-4"
                   >
-                    <div className="p-4 bg-gray-50 rounded-2xl space-y-4">
+                    <div className="p-4 bg-muted rounded-2xl space-y-4">
                       {isCreditCard ? (
                         <div className="space-y-4">
                           <div className="flex gap-2">
                             <button
                               type="button"
                               onClick={() => setFormData({...formData, ccRecurrenceType: 'parcelado'})}
-                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'parcelado' ? 'bg-primary text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`}
+                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'parcelado' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}
                             >
                               PARCELADO
                             </button>
                             <button
                               type="button"
                               onClick={() => setFormData({...formData, ccRecurrenceType: 'fixo'})}
-                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'fixo' ? 'bg-primary text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`}
+                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'fixo' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}
                             >
                               FIXO
                             </button>
@@ -2226,7 +2226,7 @@ ${sample.map(t =>
                               onClick={() => {
                                 setFormData({...formData, ccRecurrenceType: 'parcelado', isRecurring: false});
                               }}
-                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'parcelado' ? 'bg-primary text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`}
+                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'parcelado' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}
                             >
                               PARCELADO
                             </button>
@@ -2235,7 +2235,7 @@ ${sample.map(t =>
                               onClick={() => {
                                 setFormData({...formData, ccRecurrenceType: 'avulso', isRecurring: !formData.isRecurring});
                               }}
-                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.isRecurring ? 'bg-primary text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`}
+                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.isRecurring ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}
                             >
                               RECORRENTE
                             </button>
@@ -2245,9 +2245,9 @@ ${sample.map(t =>
                           {formData.isRecurring && (
                             <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                               <div className="space-y-1.5">
-                                <Label htmlFor="frequency" className="text-[10px] font-bold text-gray-400 uppercase">Frequência</Label>
+                                <Label htmlFor="frequency" className="text-[10px] font-bold text-muted-foreground uppercase">Frequência</Label>
                                 <ShadcnSelect value={formData.frequency} onValueChange={(v) => setFormData({...formData, frequency: v})}>
-                                  <SelectTrigger className="bg-white border-none h-10 rounded-xl">
+                                  <SelectTrigger className="bg-background border-none h-10 rounded-xl">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -2258,14 +2258,14 @@ ${sample.map(t =>
                                 </ShadcnSelect>
                               </div>
                               <div className="space-y-1.5">
-                                <Label htmlFor="installments" className="text-[10px] font-bold text-gray-400 uppercase">Qtd. de Repetições</Label>
+                                <Label htmlFor="installments" className="text-[10px] font-bold text-muted-foreground uppercase">Qtd. de Repetições</Label>
                                 <Input 
                                   id="installments" 
                                   type="number" 
                                   min="1" 
                                   value={formData.installments} 
                                   onChange={(e) => setFormData({...formData, installments: parseInt(e.target.value)})} 
-                                  className="bg-white border-none h-10 rounded-xl"
+                                  className="bg-background border-none h-10 rounded-xl"
                                 />
                               </div>
                             </div>
@@ -2280,9 +2280,9 @@ ${sample.map(t =>
                     animate={{ height: showObservation ? 'auto' : 0, opacity: showObservation ? 1 : 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="p-4 bg-gray-50 rounded-2xl space-y-1.5">
+                    <div className="p-4 bg-muted rounded-2xl space-y-1.5">
                       <div className="flex justify-between items-center">
-                        <Label htmlFor="observation" className="text-[10px] font-bold text-gray-400 uppercase">Observações</Label>
+                        <Label htmlFor="observation" className="text-[10px] font-bold text-muted-foreground uppercase">Observações</Label>
                         <span className="text-[10px] text-muted-foreground">
                           {(formData.observation || '').length}/500
                         </span>
@@ -2293,7 +2293,7 @@ ${sample.map(t =>
                         onChange={(e) => setFormData({...formData, observation: e.target.value})}
                         placeholder="Adicione detalhes sobre este lançamento..."
                         maxLength={500}
-                        className="w-full bg-white border-none rounded-xl p-3 text-sm min-h-[80px] focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                        className="w-full bg-background border-none rounded-xl p-3 text-sm min-h-[80px] focus:ring-2 focus:ring-primary/20 transition-all resize-none"
                       />
                     </div>
                   </motion.div>
@@ -2303,9 +2303,9 @@ ${sample.map(t =>
                     animate={{ height: showTags ? 'auto' : 0, opacity: showTags ? 1 : 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="p-4 bg-gray-50 rounded-2xl space-y-1.5">
+                    <div className="p-4 bg-muted rounded-2xl space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-bold text-gray-400 uppercase">Tags</Label>
+                        <Label className="text-[10px] font-bold text-muted-foreground uppercase">Tags</Label>
                         <Button type="button" variant="ghost" size="sm" onClick={() => setIsNewTagDialogOpen(true)} className="h-6 text-[10px] text-primary hover:text-primary/80">
                           + Nova Tag
                         </Button>
@@ -2345,10 +2345,10 @@ ${sample.map(t =>
 
                   {/* Status do Lançamento (Apenas para Caixa/Conta Corrente) */}
                   {!creditCards.some(cc => cc.id === formData.accountId) && (
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100/50">
+                    <div className="flex items-center justify-between p-3 bg-muted rounded-2xl border border-border/50/50">
                       <div className="flex flex-col">
-                        <Label className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Status</Label>
-                        <span className="text-xs font-semibold text-gray-600">
+                        <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">Status</Label>
+                        <span className="text-xs font-semibold text-secondary-foreground">
                           {formData.status === 'pago' 
                             ? (formData.type === 'receita' ? 'Recebido' : 'Pago') 
                             : 'Pendente'}
@@ -2361,7 +2361,7 @@ ${sample.map(t =>
                           className={`p-2 rounded-lg transition-all ${
                             formData.status === 'pago' 
                               ? 'bg-green-100 text-green-600 shadow-sm' 
-                              : 'bg-white text-gray-300 hover:text-gray-400 border border-gray-100'
+                              : 'bg-background text-muted-foreground/50 hover:text-muted-foreground border border-border/50'
                           }`}
                           title={formData.type === 'receita' ? 'Recebido' : 'Pago'}
                         >
@@ -2373,7 +2373,7 @@ ${sample.map(t =>
                           className={`p-2 rounded-lg transition-all ${
                             formData.status === 'pendente' 
                               ? 'bg-amber-100 text-amber-500 shadow-sm' 
-                              : 'bg-white text-gray-300 hover:text-gray-400 border border-gray-100'
+                              : 'bg-background text-muted-foreground/50 hover:text-muted-foreground border border-border/50'
                           }`}
                           title="Pendente"
                         >
@@ -2385,12 +2385,12 @@ ${sample.map(t =>
                 </form>
               </div>
 
-              <div className="p-6 pt-2 flex items-center justify-between gap-4 bg-white border-t border-gray-50">
+              <div className="p-6 pt-2 flex items-center justify-between gap-4 bg-background border-t border-gray-50">
                 <Button 
                   type="button" 
                   variant="ghost" 
                   onClick={() => setIsDialogOpen(false)}
-                  className="flex-1 h-14 rounded-2xl text-gray-400 font-semibold hover:bg-gray-50 transition-all"
+                  className="flex-1 h-14 rounded-2xl text-muted-foreground font-semibold hover:bg-muted transition-all"
                 >
                   Cancelar
                 </Button>
@@ -2521,7 +2521,7 @@ ${sample.map(t =>
                         )}
                         <td className="px-3 md:px-6 py-3 md:py-4 text-right">
                           <div className="flex justify-end space-x-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => openEdit(t)} disabled={isClosed} className={`p-2 rounded-lg bg-white shadow-sm border border-secondary/30 ${isClosed ? 'cursor-not-allowed opacity-50' : 'hover:text-fiducia-blue hover:border-fiducia-blue/30 transition-colors'}`}>
+                            <button onClick={() => openEdit(t)} disabled={isClosed} className={`p-2 rounded-lg bg-background shadow-sm border border-secondary/30 ${isClosed ? 'cursor-not-allowed opacity-50' : 'hover:text-fiducia-blue hover:border-fiducia-blue/30 transition-colors'}`}>
                               <Edit className="h-4 w-4" />
                             </button>
                             <button 
@@ -2533,7 +2533,7 @@ ${sample.map(t =>
                                 setDeleteConfirmTx(t);
                               }} 
                               disabled={isClosed} 
-                              className={`p-2 rounded-lg bg-white shadow-sm border border-secondary/30 ${isClosed ? 'cursor-not-allowed opacity-50' : 'hover:text-fiducia-red hover:border-fiducia-red/30 transition-colors'}`}
+                              className={`p-2 rounded-lg bg-background shadow-sm border border-secondary/30 ${isClosed ? 'cursor-not-allowed opacity-50' : 'hover:text-fiducia-red hover:border-fiducia-red/30 transition-colors'}`}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

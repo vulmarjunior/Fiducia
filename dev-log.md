@@ -198,6 +198,12 @@
 - **Contexto**: `.env` continha `GEMINI_API_KEY` com uma chave hardcoded, mas o código ativo não a utiliza (só Groq). APP_URL estava com placeholder.
 - **Solução**: Removida `GEMINI_API_KEY`. `APP_URL` atualizada para `https://fiducianew.vercel.app`.
 
+### Contraste Dark Mode — classes hardcoded no Transactions.tsx
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: Cards de resumo (Receitas/Despesas/Saldo), modal e formulário de lançamentos usavam classes Tailwind fixas (`bg-gray-50`, `text-gray-400`, `bg-white`, `border-gray-100`) que não se adaptam ao dark mode — texto ilegível sobre fundo cinza.
+- **Solução**: Substituídas ~70 classes hardcoded por tokens Shadcn (`bg-muted`, `text-muted-foreground`, `text-foreground`, `bg-background`, `border-border/50`). Gradientes dos summary cards ganharam variante `dark:`. Token `--text-muted` no dark mode alterado de `#94a3b8` para `#cbd5e1` (contraste 5.5:1). Cores fiducia no dark mode suavizadas (verde `#34d399`, vermelho `#f87171`, azul `#60a5fa`).
+
 ### `allow update: false;` não é CEL válido — API retorna 400 sem mensagem útil
 - **Data**: 2026-05-27
 - **Problema**: `allow update: false;` em Firestore rules causa `400 INVALID_ARGUMENT` — a API não indica qual é o erro de sintaxe.

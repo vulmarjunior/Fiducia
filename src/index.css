@@ -50,6 +50,8 @@
     --color-fiducia-red-bg: var(--fiducia-red-bg);
     --color-fiducia-amber: var(--fiducia-amber);
     --color-fiducia-amber-bg: var(--fiducia-amber-bg);
+    --color-fiducia-purple: var(--fiducia-purple);
+    --color-fiducia-purple-bg: var(--fiducia-purple-bg);
     
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
@@ -78,6 +80,8 @@
     --fiducia-blue-bg: #dbeafe;
     --fiducia-amber: #f59e0b;
     --fiducia-amber-bg: #fef3c7;
+    --fiducia-purple: #8b5cf6;
+    --fiducia-purple-bg: #ede9fe;
 
     /* Shadcn Mappings */
     --background: var(--bg);
@@ -125,16 +129,18 @@
     --border-color: #334155;
     --text-primary: #f8fafc;
     --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
+    --text-muted: #cbd5e1;
     
-    --fiducia-green: #10b981;
-    --fiducia-green-bg: rgba(16, 185, 129, 0.2);
-    --fiducia-red: #ef4444;
-    --fiducia-red-bg: rgba(239, 68, 68, 0.2);
-    --fiducia-blue: #3b82f6;
-    --fiducia-blue-bg: rgba(59, 130, 246, 0.2);
-    --fiducia-amber: #f59e0b;
-    --fiducia-amber-bg: rgba(245, 158, 11, 0.2);
+    --fiducia-green: #34d399;
+    --fiducia-green-bg: rgba(52, 211, 153, 0.15);
+    --fiducia-red: #f87171;
+    --fiducia-red-bg: rgba(248, 113, 113, 0.15);
+    --fiducia-blue: #60a5fa;
+    --fiducia-blue-bg: rgba(96, 165, 250, 0.15);
+    --fiducia-amber: #fbbf24;
+    --fiducia-amber-bg: rgba(251, 191, 36, 0.15);
+    --fiducia-purple: #a78bfa;
+    --fiducia-purple-bg: rgba(139, 92, 246, 0.15);
 
     --background: var(--bg);
     --foreground: var(--text-primary);
