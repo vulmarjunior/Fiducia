@@ -13,6 +13,7 @@ import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRigh
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 import { calculateInvoicePeriod, getNextPeriod, resolveAccountName } from '../lib/utils';
+import { PageHelp } from '../components/PageHelp';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -619,7 +620,18 @@ export function CreditCards() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">Cartões de Crédito</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-3xl font-bold tracking-tight">Cartões de Crédito</h2>
+          <PageHelp
+            title="Cartões de Crédito"
+            description="Cadastre seus cartões com limite, dia de fechamento e vencimento. Acompanhe faturas abertas e fechadas, e registre pagamentos diretamente aqui."
+            items={[
+              { label: "Fatura Aberta", desc: "Período atual acumulando compras. O valor finaliza no dia de fechamento." },
+              { label: "Fatura Fechada", desc: "Ciclo encerrado com valor definido. O pagamento pode ser registrado manualmente." },
+              { label: "Pagamento", desc: "Ao pagar, o sistema cria uma transferência da conta corrente para o cartão e marca a fatura como paga." },
+            ]}
+          />
+        </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={handleRecalculateInvoices}>
             Recalcular Faturas Antigas

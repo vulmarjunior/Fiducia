@@ -12,6 +12,7 @@ import { FileText, Sparkles, TrendingUp, TrendingDown, Wallet, Target, AlertCirc
 import { toast } from 'sonner';
 
 import { resolveAccountName } from '../lib/utils';
+import { PageHelp } from '../components/PageHelp';
 import { callGroq } from '../services/groqService';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
@@ -169,10 +170,20 @@ export function Reports() {
     <div className="space-y-6 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2 text-foreground">
-            <TrendingUp className="h-8 w-8 text-fiducia-blue" />
-            Análise Financeira
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2 text-foreground">
+              <TrendingUp className="h-8 w-8 text-fiducia-blue" />
+              Análise Financeira
+            </h2>
+            <PageHelp
+              title="Relatórios"
+              description="Gráficos detalhados de receitas vs despesas, evolução mensal e distribuição por categoria. Gere análises inteligentes com IA."
+              items={[
+                { label: "Gráficos", desc: "Acompanhe a evolução mensal, distribuição por categoria e comparativo de receitas e despesas." },
+                { label: "IA Analysis", desc: "Clique em 'Análise Completa' para gerar um relatório textual com score de saúde financeira, dicas personalizadas e previsões." },
+              ]}
+            />
+          </div>
           <p className="text-muted-foreground mt-1 text-sm font-medium">Relatórios detalhados e insights inteligentes sobre sua saúde financeira.</p>
         </div>
         <Button 

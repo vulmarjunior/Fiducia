@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { History, Plus, Minus, Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { PageHelp } from '../components/PageHelp';
 
 interface ActivityLogEntry {
   id?: string;
@@ -106,7 +107,13 @@ export function ActivityLog() {
           <History size={24} className="text-primary" />
         </div>
         <div>
+          <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-foreground">Registro de Atividades</h1>
+          <PageHelp
+            title="Registro de Atividades"
+            description="Histórico completo de todas as operações realizadas no sistema: criação, edição e exclusão de lançamentos, contas, categorias e mais."
+          />
+        </div>
           <p className="text-sm text-muted-foreground">Últimas {logs.length} operações realizadas</p>
         </div>
       </div>

@@ -9,6 +9,7 @@ import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Target, Plus, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHelp } from '../components/PageHelp';
 import { MoneyInput } from '../components/MoneyInput';
 
 export function Goals() {
@@ -106,7 +107,18 @@ export function Goals() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">Metas</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-3xl font-bold tracking-tight">Metas</h2>
+          <PageHelp
+            title="Metas Financeiras"
+            description="Defina objetivos financeiros com valor alvo e prazo. Acompanhe o progresso da sua poupança até atingir a meta."
+            items={[
+              { label: "Valor Alvo", desc: "Quanto você quer poupar ao todo." },
+              { label: "Valor Atual", desc: "Quanto você já reservou para esta meta. Atualize manualmente conforme poupa." },
+              { label: "Prazo", desc: "Data limite para atingir o objetivo (opcional)." },
+            ]}
+          />
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) resetForm();

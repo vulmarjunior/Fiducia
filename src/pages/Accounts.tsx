@@ -13,6 +13,7 @@ import { Badge } from '../components/ui/badge';
 import { Wallet, Landmark, PiggyBank, Plus, Trash2, Edit, Building, ChevronDown, Search, TrendingUp, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
+import { PageHelp } from '../components/PageHelp';
 
 interface BankInfo {
   code: number;
@@ -290,7 +291,18 @@ export function Accounts() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">Contas</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-3xl font-bold tracking-tight">Contas</h2>
+          <PageHelp
+            title="Contas Bancárias"
+            description="Gerencie suas contas correntes, poupanças, carteiras e investimentos. O saldo inicial é definido na criação e atualizado automaticamente pelos lançamentos."
+            items={[
+              { label: "Tipos de Conta", desc: "Corrente (dia a dia), Poupança (reserva), Carteira (dinheiro físico), Investimento (aplicações)." },
+              { label: "Excluir do Fluxo de Caixa", desc: "Ative esta opção para contas de reserva ou investimento que não devem entrar no cálculo do Disponível Seguro." },
+              { label: "Saldo", desc: "Definido na criação. Depois só é alterado automaticamente por transações — nunca edite manualmente." },
+            ]}
+          />
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) resetForm();

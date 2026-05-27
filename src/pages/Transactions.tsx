@@ -23,6 +23,7 @@ import { callGroq } from '../services/groqService';
 import Select, { MultiValue } from 'react-select';
 import { getCategoryIcon, suggestIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, resolveAccountName } from '../lib/utils';
+import { PageHelp } from '../components/PageHelp';
 
 const TransactionObservation = ({ observation }: { observation: string }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -1417,7 +1418,19 @@ ${sample.map(t =>
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">Lançamentos</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-3xl font-bold tracking-tight">Lançamentos</h2>
+          <PageHelp
+            title="Lançamentos"
+            description="Registre receitas, despesas e transferências entre contas. Crie lançamentos avulsos, parcelados (em contas corrente) ou recorrentes."
+            items={[
+              { label: "Tipos", desc: "Receita (dinheiro que entra), Despesa (dinheiro que sai), Transferência (movimentação entre contas)." },
+              { label: "Parcelamento", desc: "Divide o valor total em N parcelas mensais. O saldo da conta é atualizado apenas na primeira." },
+              { label: "Importar Arquivo", desc: "Envie extratos OFX, CSV ou Excel. O sistema identifica automaticamente as colunas e sugere o match." },
+              { label: "IA", desc: "Use o campo de busca inteligente para perguntar em linguagem natural sobre seus gastos." },
+            ]}
+          />
+        </div>
         <div className="flex space-x-2">
           <div className="relative">
             <input

@@ -8,6 +8,7 @@ import { Input } from '../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Download, FileJson, Settings, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHelp } from '../components/PageHelp';
 
 const RESET_COLLECTIONS = [
   'transactions',
@@ -139,7 +140,17 @@ export function SettingsPage() {
           <Settings size={24} className="text-primary" />
         </div>
         <div>
+          <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
+          <PageHelp
+            title="Configurações"
+            description="Exporte seus dados financeiros ou redefina completamente o sistema."
+            items={[
+              { label: "Exportar Dados", desc: "Baixe todas as suas transações em formato CSV para análise externa." },
+              { label: "Resetar Sistema", desc: "Remove todos os seus dados (transações, contas, cartões, etc.). Use com extrema cautela." },
+            ]}
+          />
+        </div>
           <p className="text-sm text-muted-foreground">Gerencie seus dados e preferências</p>
         </div>
       </div>

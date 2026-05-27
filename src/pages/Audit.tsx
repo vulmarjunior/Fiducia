@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { resolveAccountName } from '../lib/utils';
+import { PageHelp } from '../components/PageHelp';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
@@ -156,8 +157,19 @@ export function Audit() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold">Auditoria e Gestão</h1>
+        <PageHelp
+          title="Auditoria e Gestão"
+          description="Ferramentas de diagnóstico e correção para manter a integridade dos seus dados financeiros."
+          items={[
+            { label: "Recalcular Saldo", desc: "Replay de todas as transações de uma conta para corrigir o saldo atual. Útil se houver divergência." },
+            { label: "Reabrir Período", desc: "Períodos fechados impedem edições. Reabra um período para fazer ajustes necessários." },
+            { label: "Desfazer Pagamento", desc: "Reabra uma fatura de cartão que foi paga, deletando a transação de pagamento correspondente." },
+            { label: "Diferença da Conciliação", desc: "Auditoria é para corrigir saldos e dados. Conciliação é para conferir lançamentos com extrato bancário." },
+          ]}
+          relatedPages={["Conciliação"]}
+        />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

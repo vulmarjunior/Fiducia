@@ -10,6 +10,7 @@ import { getCategoryIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, getPreviousPeriod, resolveAccountName } from '../lib/utils';
 import { callGroq } from '../services/groqService';
 import { toast } from 'sonner';
+import { PageHelp } from '../components/PageHelp';
  
 export function Dashboard() {
   const { user, isAuthReady } = useAuth();
@@ -431,6 +432,15 @@ Regras:
               </button>
             ))}
           </div>
+          <PageHelp
+            title="Dashboard"
+            description="Sua visão geral financeira: saldo total, receitas e despesas do mês, Disponível Seguro, gráfico de fluxo de caixa e lançamentos recentes."
+            items={[
+              { label: "Disponível Seguro", desc: "Métrica que mostra quanto dinheiro livre você tem hoje após descontar faturas de cartão (abertas e fechadas) e contas pendentes." },
+              { label: "Gráfico", desc: "Alterna entre Semana, Mês e Ano para visualizar a evolução das suas receitas e despesas." },
+              { label: "Dica IA", desc: "O assistente financeiro analisa seus dados e sugere alertas personalizados sobre seus gastos." },
+            ]}
+          />
           <Button nativeButton={false} className="h-10 px-4 text-sm font-semibold rounded-xl gap-2 bg-primary text-primary-foreground hover:opacity-90 transition-opacity" render={<Link to="/transactions" />}>
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo lançamento</span>
           </Button>

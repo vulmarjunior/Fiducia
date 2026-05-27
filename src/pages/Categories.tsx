@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tags, Plus, Trash2, Edit, Download, Layers, HelpCircle, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { CATEGORY_ICONS, getCategoryIcon, suggestIcon, DEFAULT_TEMPLATES } from '../lib/categoryIcons';
+import { PageHelp } from '../components/PageHelp';
 import { DEFAULT_CATEGORY_TREE } from '../lib/defaultCategories';
 import { writeBatch } from 'firebase/firestore';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -417,7 +418,18 @@ export function Categories() {
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <div className="space-y-6">
         <div className="flex justify-between items-center flex-wrap gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">Categorias</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-3xl font-bold tracking-tight">Categorias</h2>
+          <PageHelp
+            title="Categorias"
+            description="Organize seus lançamentos com categorias (Alimentação, Transporte, Salário, etc.). Suporta subcategorias para uma classificação mais detalhada."
+            items={[
+              { label: "Tipo", desc: "Cada categoria pode ser de receita ou despesa. Aparecerão nos campos correspondentes ao criar lançamentos." },
+              { label: "Subcategoria", desc: "Defina uma categoria pai para criar hierarquia. Ex: 'Transporte' > 'Combustível' e 'Estacionamento'." },
+              { label: "Ordem", desc: "Arraste para reordenar. A ordem é refletida nos dropdowns de lançamentos." },
+            ]}
+          />
+        </div>
         <div className="flex gap-2 flex-wrap">
           <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
             <DialogTrigger render={<Button variant="outline" />}>

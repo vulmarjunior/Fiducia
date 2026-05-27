@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { PieChart, Plus, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHelp } from '../components/PageHelp';
 import { MoneyInput } from '../components/MoneyInput';
 
 export function Budgets() {
@@ -118,7 +119,17 @@ export function Budgets() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">Orçamentos</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-3xl font-bold tracking-tight">Orçamentos</h2>
+          <PageHelp
+            title="Orçamentos"
+            description="Defina limites mensais de gastos por categoria e acompanhe quanto já foi utilizado. O sistema alerta quando você se aproxima do limite."
+            items={[
+              { label: "Limite Mensal", desc: "Valor máximo que você pretende gastar em uma categoria a cada mês." },
+              { label: "Acompanhamento", desc: "A barra de progresso mostra o percentual usado. O orçamento reinicia automaticamente a cada mês." },
+            ]}
+          />
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) resetForm();

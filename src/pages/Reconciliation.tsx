@@ -13,6 +13,7 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Check, X, Link as LinkIcon, Plus, CheckCircle2, AlertCircle, LayoutDashboard, Download, FileText, Sparkles, Loader2 } from 'lucide-react';
 import { calculateInvoicePeriod, resolveAccountName } from '../lib/utils';
+import { PageHelp } from '../components/PageHelp';
 import { callGroq } from '../services/groqService';
 
 export function Reconciliation() {
@@ -440,8 +441,20 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Conciliação</h1>
-          <p className="text-gray-500 mt-1">Importe seu extrato e concilie com os lançamentos do sistema.</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">Conciliação</h1>
+            <PageHelp
+              title="Conciliação Bancária"
+              description="Compare seus lançamentos do sistema com os extratos bancários (OFX ou CSV) para confirmar quais transações já foram processadas pelo banco."
+              items={[
+                { label: "Importar Extrato", desc: "Envie o arquivo fornecido pelo seu banco. O sistema extrai automaticamente as transações." },
+                { label: "Match Automático", desc: "O sistema sugere correspondências quando valor e data batem (diferença de até 3 dias)." },
+                { label: "Diferença da Auditoria", desc: "Conciliação é sobre conferir lançamentos existentes. Auditoria é para diagnosticar e corrigir saldos." },
+              ]}
+              relatedPages={["Auditoria"]}
+            />
+          </div>
+          <p className="text-muted-foreground mt-1">Importe seu extrato e concilie com os lançamentos do sistema.</p>
         </div>
         
         <div className="flex items-center gap-4">

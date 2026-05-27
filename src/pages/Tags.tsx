@@ -9,6 +9,7 @@ import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../components/ui/dialog';
 import { Plus, Trash2, Edit, Tag as TagIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHelp } from '../components/PageHelp';
 
 export function Tags() {
   const { user, isAuthReady } = useAuth();
@@ -84,7 +85,17 @@ export function Tags() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">Tags</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-3xl font-bold tracking-tight">Tags</h2>
+          <PageHelp
+            title="Tags"
+            description="Rótulos livres para classificar transações além das categorias. Use tags para agrupar gastos de um projeto, viagem ou período específico."
+            items={[
+              { label: "Cor", desc: "Cada tag tem uma cor para identificação visual rápida nos lançamentos." },
+              { label: "Múltiplas Tags", desc: "Um lançamento pode ter várias tags. Use isso para criar interseções de categorização." },
+            ]}
+          />
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) resetForm();
