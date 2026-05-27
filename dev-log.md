@@ -168,6 +168,36 @@
 - **Causa Raiz**: O `updateData` já não enviava `balance` (corrigido anteriormente), mas o campo continuava visível no formulário.
 - **Solução**: Substituído `MoneyInput` por label informativa "Saldo Atual: R$ X (gerenciado por transações)" quando `editingId` está presente.
 
+### onSnapshot sem error callback no Reconciliation
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: `onSnapshot` de accounts e creditCards no Reconciliation.tsx não tinha callback de erro.
+- **Solução**: Adicionados callbacks com `handleFirestoreError`.
+
+### AI errors sem feedback visual
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: Dashboard e Reports engoliam erros da Groq API silenciosamente (só console.error). Erro de fetchBanks em Accounts.tsx também sem toast.
+- **Solução**: Adicionados `toast.error()` nos catch blocks de `fetchAiTip` (Dashboard), `generateAIAnalysis` (Reports) e `fetchBanks` (Accounts).
+
+### forEach(async) anti-pattern no sync de faturas
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: Transactions.tsx usava `invoices.forEach(async ...)` com `await updateDoc` — promises não eram aguardadas e erros não propagavam.
+- **Solução**: Substituído por `for...of` dentro de `async function` nomeada.
+
+### PWA — iOS meta tags ausentes e update forçado
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: index.html faltava 4 meta tags essenciais para iOS PWA. Service worker forçava reload sem aviso.
+- **Solução**: Adicionadas `apple-mobile-web-app-capable`, `mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`. `theme-color` agora é dinâmico por preferência de tema. `updateSW()` agora exibe toast com botão "Atualizar" em vez de reload forçado.
+
+### .env — chave GEMINI_API_KEY expirada/não utilizada
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: `.env` continha `GEMINI_API_KEY` com uma chave hardcoded, mas o código ativo não a utiliza (só Groq). APP_URL estava com placeholder.
+- **Solução**: Removida `GEMINI_API_KEY`. `APP_URL` atualizada para `https://fiducianew.vercel.app`.
+
 ### `allow update: false;` não é CEL válido — API retorna 400 sem mensagem útil
 - **Data**: 2026-05-27
 - **Problema**: `allow update: false;` em Firestore rules causa `400 INVALID_ARGUMENT` — a API não indica qual é o erro de sintaxe.

@@ -9,6 +9,7 @@ import {
   PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid, AreaChart, Area 
 } from 'recharts';
 import { FileText, Sparkles, TrendingUp, TrendingDown, Wallet, Target, AlertCircle, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { resolveAccountName } from '../lib/utils';
 import { callGroq } from '../services/groqService';
@@ -91,6 +92,7 @@ export function Reports() {
       setAiInsight(insight || 'Não foi possível gerar a análise no momento.');
     } catch (error) {
       console.error("AI Analysis Error:", error);
+      toast.error('Erro ao gerar análise. Verifique sua conexão e tente novamente.');
       setAiInsight('Ocorreu um erro ao gerar a análise automática. Verifique sua conexão ou tente novamente mais tarde.');
     } finally {
       setIsLoadingAi(false);

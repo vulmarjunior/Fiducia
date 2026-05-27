@@ -53,6 +53,7 @@ export function Accounts() {
       }
     } catch (error) {
       console.error('Failed to fetch banks', error);
+      toast.error('Erro ao carregar lista de bancos.');
     }
   };
 

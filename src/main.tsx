@@ -4,13 +4,21 @@ import { ThemeProvider } from 'next-themes';
 import App from './App.tsx';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
+import { toast } from 'sonner';
 
 const updateSW = registerSW({
   onNeedRefresh() {
-    updateSW(true);
+    toast('Nova versão disponível', {
+      description: 'Clique em "Atualizar" para obter as últimas funcionalidades.',
+      duration: Infinity,
+      action: {
+        label: 'Atualizar',
+        onClick: () => updateSW(true),
+      },
+    });
   },
   onOfflineReady() {
-    console.log('App pronto para uso offline');
+    toast.success('App pronto para uso offline');
   },
 });
 

@@ -9,6 +9,7 @@ import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, Ca
 import { getCategoryIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, getPreviousPeriod, resolveAccountName } from '../lib/utils';
 import { callGroq } from '../services/groqService';
+import { toast } from 'sonner';
  
 export function Dashboard() {
   const { user, isAuthReady } = useAuth();
@@ -140,6 +141,7 @@ Regras:
       setAiTip(tip);
     } catch (error) {
       console.error("Dashboard AI Tip error:", error);
+      toast.error('Não foi possível carregar a dica financeira.');
     } finally {
       setIsLoadingAi(false);
     }

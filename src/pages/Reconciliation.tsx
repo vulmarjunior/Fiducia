@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, doc, writeBatch } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -36,12 +36,12 @@ export function Reconciliation() {
     const accountsQuery = query(collection(db, 'accounts'), where('userId', '==', user.uid));
     const unsubscribeAccounts = onSnapshot(accountsQuery, (snapshot) => {
       setAccounts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'accounts'));
 
     const creditCardsQuery = query(collection(db, 'creditCards'), where('userId', '==', user.uid));
     const unsubscribeCreditCards = onSnapshot(creditCardsQuery, (snapshot) => {
       setCreditCards(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'creditCards'));
 
     return () => {
       unsubscribeAccounts();

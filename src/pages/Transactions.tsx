@@ -215,27 +215,30 @@ export function Transactions() {
       const allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
       // Find invoices that might need status update
-      invoices.forEach(async (invoice: any) => {
-        if (invoice.paymentTransactionId) {
-          const paymentTx = allTransactions.find(t => t.id === invoice.paymentTransactionId) as any;
-          if (paymentTx) {
-            let newStatus = invoice.status;
-            if (paymentTx.status === 'pago' && invoice.status !== 'paga') {
-              newStatus = 'paga';
-            } else if (paymentTx.status !== 'pago' && invoice.status === 'paga') {
-              newStatus = 'fechada';
-            }
+      const syncInvoices = async () => {
+        for (const invoice of invoices) {
+          if (invoice.paymentTransactionId) {
+            const paymentTx = allTransactions.find(t => t.id === invoice.paymentTransactionId) as any;
+            if (paymentTx) {
+              let newStatus = invoice.status;
+              if (paymentTx.status === 'pago' && invoice.status !== 'paga') {
+                newStatus = 'paga';
+              } else if (paymentTx.status !== 'pago' && invoice.status === 'paga') {
+                newStatus = 'fechada';
+              }
 
-            if (newStatus !== invoice.status) {
-              try {
-                await updateDoc(doc(db, 'invoices', invoice.id), { status: newStatus });
-              } catch (err) {
-                console.error('Error syncing invoice status:', err);
+              if (newStatus !== invoice.status) {
+                try {
+                  await updateDoc(doc(db, 'invoices', invoice.id), { status: newStatus });
+                } catch (err) {
+                  console.error('Error syncing invoice status:', err);
+                }
               }
             }
           }
         }
-      });
+      };
+      syncInvoices();
     });
 
     return () => {
