@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, orderBy, writeBatch, runTransaction } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -246,35 +246,36 @@ export function CreditCards() {
       return;
     }
 
-    const sourceAccount = accounts.find(a => a.id === paymentData.accountId);
-    if (!sourceAccount) return;
+    if (!paymentData.accountId) return;
 
-    const batch = writeBatch(db);
-    
     try {
-      // Create transfer transaction
-      const tData = {
-        userId: user.uid,
-        type: 'transferencia',
-        amount: paymentData.amount,
-        date: paymentData.date,
-        description: `Pagamento Fatura ${selectedCardForInvoice.name} - ${selectedInvoiceMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
-        accountId: paymentData.accountId,
-        destinationAccountId: selectedCardForInvoice.id,
-        categoryId: 'Pagamento de Cartão',
-        status: 'pago',
-        invoicePeriod: calculateInvoicePeriod(selectedInvoiceMonth, selectedCardForInvoice.closingDay, selectedCardForInvoice.dueDay),
-        createdAt: new Date().toISOString()
-      };
+      await runTransaction(db, async (transaction) => {
+        // Read source account balance first (Firestore requires all reads before writes)
+        const accRef = doc(db, 'accounts', paymentData.accountId);
+        const accSnap = await transaction.get(accRef);
+        if (!accSnap.exists()) throw new Error('Conta de origem não encontrada');
+        const currentBalance = accSnap.data().balance || 0;
 
-      const tRef = doc(collection(db, 'transactions'));
-      batch.set(tRef, tData);
+        // Create transfer transaction
+        const tData = {
+          userId: user.uid,
+          type: 'transferencia',
+          amount: paymentData.amount,
+          date: paymentData.date,
+          description: `Pagamento Fatura ${selectedCardForInvoice.name} - ${selectedInvoiceMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
+          accountId: paymentData.accountId,
+          destinationAccountId: selectedCardForInvoice.id,
+          categoryId: 'Pagamento de Cartão',
+          status: 'pago',
+          invoicePeriod: calculateInvoicePeriod(selectedInvoiceMonth, selectedCardForInvoice.closingDay, selectedCardForInvoice.dueDay),
+          createdAt: new Date().toISOString()
+        };
 
-      // Update source account balance
-      const accRef = doc(db, 'accounts', sourceAccount.id);
-      batch.update(accRef, { balance: (sourceAccount.balance || 0) - paymentData.amount });
+        const tRef = doc(collection(db, 'transactions'));
+        transaction.set(tRef, tData);
+        transaction.update(accRef, { balance: currentBalance - paymentData.amount });
+      });
 
-      await batch.commit();
       toast.success('Pagamento registrado com sucesso');
       setIsPayInvoiceDialogOpen(false);
     } catch (error) {

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { resolveAccountName } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -96,14 +96,19 @@ export function Audit() {
 
   const handleRecalculateBalance = async () => {
     if (!selectedAccountId) return;
-    
-    const finalBalance = runningBalanceTransactions.length > 0 
-      ? runningBalanceTransactions[runningBalanceTransactions.length - 1].runningBalance 
-      : 0;
 
     try {
-      const accRef = doc(db, 'accounts', selectedAccountId);
-      await updateDoc(accRef, { balance: finalBalance });
+      await runTransaction(db, async (transaction) => {
+        const accRef = doc(db, 'accounts', selectedAccountId);
+        const accSnap = await transaction.get(accRef);
+        if (!accSnap.exists()) throw new Error('Conta não encontrada');
+
+        const finalBalance = runningBalanceTransactions.length > 0 
+          ? runningBalanceTransactions[runningBalanceTransactions.length - 1].runningBalance 
+          : 0;
+
+        transaction.update(accRef, { balance: finalBalance });
+      });
       toast.success('Saldo da conta recalculado e corrigido com sucesso!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `accounts/${selectedAccountId}`);

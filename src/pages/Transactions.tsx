@@ -662,6 +662,12 @@ export function Transactions() {
           const remainder = Math.round((amount - (installmentBase * numInstallments)) * 100) / 100;
 
           await runTransaction(db, async (transaction) => {
+            // Read balance first (Firestore requires all reads before writes)
+            let accountSnap: any = null;
+            if (!isCreditCard && formData.accountId) {
+              accountSnap = await transaction.get(doc(db, 'accounts', formData.accountId));
+            }
+
             for (let i = 0; i < numInstallments; i++) {
               const date = new Date(formData.date);
               date.setUTCMonth(date.getUTCMonth() + i);
@@ -693,13 +699,9 @@ export function Transactions() {
               transaction.set(doc(collection(db, 'transactions')), tData);
             }
 
-            if (!isCreditCard) {
-              const srcRef = doc(db, 'accounts', formData.accountId);
-              const srcSnap = await transaction.get(srcRef);
-              if (srcSnap.exists()) {
-                const balanceChange = formData.type === 'receita' ? amount : -amount;
-                transaction.update(srcRef, { balance: (srcSnap.data().balance || 0) + balanceChange });
-              }
+            if (accountSnap?.exists()) {
+              const balanceChange = formData.type === 'receita' ? amount : -amount;
+              transaction.update(doc(db, 'accounts', formData.accountId), { balance: (accountSnap.data().balance || 0) + balanceChange });
             }
           });
 
@@ -742,6 +744,16 @@ export function Transactions() {
             : 1;
 
           await runTransaction(db, async (transaction) => {
+            // Read balances first (Firestore requires all reads before writes)
+            let srcSnap: any = null;
+            let destSnap: any = null;
+            if (!isCreditCard && formData.accountId) {
+              srcSnap = await transaction.get(doc(db, 'accounts', formData.accountId));
+            }
+            if (!isCreditCard && formData.type === 'transferencia' && formData.destinationAccountId) {
+              destSnap = await transaction.get(doc(db, 'accounts', formData.destinationAccountId));
+            }
+
             for (let i = 0; i < iterations; i++) {
               const date = new Date(formData.date);
               if (!isCreditCard && showRecurrence && formData.isRecurring) {
@@ -775,21 +787,12 @@ export function Transactions() {
               transaction.set(doc(collection(db, 'transactions')), tData);
             }
 
-            if (!isCreditCard) {
-              const srcRef = doc(db, 'accounts', formData.accountId);
-              const srcSnap = await transaction.get(srcRef);
-              if (srcSnap.exists()) {
-                const balanceChange = formData.type === 'receita' ? amount : -amount;
-                transaction.update(srcRef, { balance: (srcSnap.data().balance || 0) + balanceChange });
-              }
-
-              if (formData.type === 'transferencia' && formData.destinationAccountId) {
-                const destRef = doc(db, 'accounts', formData.destinationAccountId);
-                const destSnap = await transaction.get(destRef);
-                if (destSnap.exists()) {
-                  transaction.update(destRef, { balance: (destSnap.data().balance || 0) + amount });
-                }
-              }
+            if (srcSnap?.exists()) {
+              const balanceChange = formData.type === 'receita' ? amount : -amount;
+              transaction.update(doc(db, 'accounts', formData.accountId), { balance: (srcSnap.data().balance || 0) + balanceChange });
+            }
+            if (destSnap?.exists()) {
+              transaction.update(doc(db, 'accounts', formData.destinationAccountId), { balance: (destSnap.data().balance || 0) + amount });
             }
           });
 
@@ -901,16 +904,22 @@ export function Transactions() {
     // Execute atomic delete + balance update with fresh reads from Firestore
     try {
       await runTransaction(db, async (transaction) => {
+        // Read all account balances first (Firestore requires all reads before writes)
+        const balanceSnapshots: Record<string, any> = {};
+        for (const [accId, change] of Object.entries(accountBalanceChanges)) {
+          if (change === 0) continue;
+          balanceSnapshots[accId] = await transaction.get(doc(db, 'accounts', accId));
+        }
+
         for (const tx of transactionsToDelete) {
           transaction.delete(doc(db, 'transactions', tx.id));
         }
 
         for (const [accId, change] of Object.entries(accountBalanceChanges)) {
           if (change === 0) continue;
-          const accRef = doc(db, 'accounts', accId);
-          const accSnap = await transaction.get(accRef);
-          if (accSnap.exists()) {
-            transaction.update(accRef, { balance: (accSnap.data().balance || 0) + change });
+          const snap = balanceSnapshots[accId];
+          if (snap?.exists()) {
+            transaction.update(doc(db, 'accounts', accId), { balance: (snap.data().balance || 0) + change });
           }
         }
       });
@@ -1092,16 +1101,18 @@ export function Transactions() {
 
       // Atomic: create all transactions + update balance in a single runTransaction
       await runTransaction(db, async (transaction) => {
+        // Read balance first (Firestore requires all reads before writes)
+        let accSnap: any = null;
+        if (!isCreditCard && totalDelta !== 0 && importAccountId) {
+          accSnap = await transaction.get(doc(db, 'accounts', importAccountId));
+        }
+
         for (const tData of tDataList) {
           transaction.set(doc(collection(db, 'transactions')), tData);
         }
 
-        if (!isCreditCard && totalDelta !== 0) {
-          const accRef = doc(db, 'accounts', importAccountId);
-          const accSnap = await transaction.get(accRef);
-          if (accSnap.exists()) {
-            transaction.update(accRef, { balance: (accSnap.data().balance || 0) + totalDelta });
-          }
+        if (accSnap?.exists()) {
+          transaction.update(doc(db, 'accounts', importAccountId), { balance: (accSnap.data().balance || 0) + totalDelta });
         }
       });
 

@@ -1,20 +1,39 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+<img width="1200" height="475" alt="Fiducia Banner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>
 
-# Run and deploy your AI Studio app
+# Fiducia — Assistente de Finanças Pessoais
 
-This contains everything you need to run your app locally.
+Aplicação web para gestão financeira pessoal com contas, cartões de crédito, transações, conciliação bancária, orçamentos, metas e relatórios com IA.
 
-View your app in AI Studio: https://ai.studio/apps/77a98755-5866-4d3f-a8e1-bc8ca9b2476f
+**Stack**: React 19 | TypeScript 5.8 | Tailwind CSS 4 | Shadcn/UI | Firebase (Firestore + Auth) | Vite 6
 
-## Run Locally
+---
 
-**Prerequisites:**  Node.js
+## Links
 
+- **Site**: https://fiducianew.vercel.app/
+- **Repositório**: https://github.com/vulmarjunior/Fiducia
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Desenvolvimento
+
+```bash
+npm install      # Instalar dependências
+npm run dev      # Servidor local (porta 3000)
+npm run build    # Build de produção
+npm run lint     # TypeScript check (tsc --noEmit)
+npm run test     # Vitest
+```
+
+## Estrutura de Dados
+
+Banco de dados **Firestore** (NoSQL) com coleções isoladas por `userId`. A configuração do Firebase está em `firebase-applet-config.json` (não requer variáveis de ambiente).
+
+Coleções principais: `accounts`, `creditCards`, `transactions`, `invoices`, `categories`, `tags`, `budgets`, `goals`.
+
+## Ambiente
+
+Copie `.env.example` para `.env.local` e preencha:
+
+- `GROQ_API_KEY` — Groq API (relatórios analíticos)
+- `APP_URL` — URL da aplicação (para callbacks OAuth)

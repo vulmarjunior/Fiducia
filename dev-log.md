@@ -2,7 +2,7 @@
 
 > Documentação viva de descobertas técnicas. Atualizada automaticamente durante o desenvolvimento.
 > **Stack**: Firebase, Firestore, TypeScript, React 19, Tailwind CSS 4, Shadcn/UI
-> **Última atualização**: 2026-05-26
+> **Última atualização**: 2026-05-27
 
 ---
 
@@ -100,6 +100,27 @@
 - **Contexto**: Metas e Orçamentos ocupavam muito espaço vertical no mobile
 - **Solução**: Botão "Metas e Orçamentos" no mobile expande/colapsa as duas seções. Em desktop (lg+) ficam sempre visíveis.
 
+### Firestore Rules — `files[].name` é obrigatório na API REST
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: POST `/v1/projects/{projectId}/rulesets` retornava `400 INVALID_ARGUMENT` sem detalhes
+- **Causa Raiz**: O campo `name` dentro de `files[]` é **obrigatório**. Omitting causes 400 even with valid CEL.
+- **Solução**: Incluir `"name": "firestore.rules"` no objeto do arquivo.
+
+### Sintaxe CEL — `allow update: false;` inválido sem `if`
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: `allow update: false;` nas regras de activityLogs causava `400 INVALID_ARGUMENT` na criação do ruleset (sem erro de sintaxe visível)
+- **Causa Raiz**: CEL exige `if` antes da expressão booleana — `allow update: if false;` é a sintaxe correta. `allow update: false;` não é reconhecido pelo compilador de regras.
+- **Solução**: Alterado `allow update: false;` → `allow update: if false;`
+
+### Deploy de Release para Named Database — delete + recreate
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-27
+- **Contexto**: Tentativas de `PATCH` com `updateMask=rulesetName` falham com `400 Unknown name "rulesetName"`
+- **Solução**: `DELETE /v1/{releaseName}` seguido de `POST /v1/projects/{projectId}/releases` com body `{ name, rulesetName }` funciona.
+- **Observações**: Projeto ID real é `gen-lang-client-0172941229` (não o database ID). O `firebase-tools.json` em `~/.config/configstore/` contém o token de acesso.
+
 ---
 
 ## 💡 Padrões Descobertos
@@ -132,3 +153,23 @@
 - **Data**: 2026-05-26
 - **Problema**: `handleFirestoreError` sempre dá `throw new Error(...)`. Se colocada antes de `toast.error()`, o toast nunca aparece.
 - **Prevenção**: Sempre chamar `toast.error()` PRIMEIRO, depois `handleFirestoreError()` (que pode throw sem阻塞 o UX).
+
+### Ordem `runTransaction` — reads depois de writes em 4 fluxos
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: Usuário recebia "Erro ao salvar lançamento" ao criar transação. Console mostrava `Firestore transactions require all reads to be executed before all writes`.
+- **Causa Raiz**: CREATE (standard e parcelado), DELETE e IMPORT executavam `transaction.set()`/`transaction.delete()` antes de `transaction.get()` dentro do mesmo `runTransaction`. Apenas o fluxo EDIT estava na ordem correta.
+- **Solução**: Reordenado todos os 4 fluxos — `transaction.get()` moveu-se para antes de qualquer `transaction.set()`/`transaction.delete()`. Agora o padrão é: coletar todos os snaps de saldo primeiro, depois executar as escritas.
+
+### Saldo inicial visível na edição de conta — risco de confusão
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-27
+- **Contexto**: Dialog de edição de conta exibia o campo "Saldo Inicial" preenchido com o saldo atual, dando a falsa impressão de que o saldo podia ser editado.
+- **Causa Raiz**: O `updateData` já não enviava `balance` (corrigido anteriormente), mas o campo continuava visível no formulário.
+- **Solução**: Substituído `MoneyInput` por label informativa "Saldo Atual: R$ X (gerenciado por transações)" quando `editingId` está presente.
+
+### `allow update: false;` não é CEL válido — API retorna 400 sem mensagem útil
+- **Data**: 2026-05-27
+- **Problema**: `allow update: false;` em Firestore rules causa `400 INVALID_ARGUMENT` — a API não indica qual é o erro de sintaxe.
+- **Sintoma**: POST `/rulesets` retorna 400 com mensagem genérica "Request contains an invalid argument." Mesmo logs detalhados do Google não mostram o erro real.
+- **Prevenção**: Sempre usar `allow <op>: if <expressão>;`. O `if` é obrigatório mesmo para literais booleanos. Incrementar mudanças uma a uma via API para isolar o erro.

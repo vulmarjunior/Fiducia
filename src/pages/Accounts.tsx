@@ -410,13 +410,23 @@ export function Accounts() {
                 </div>
               )}
 
-              <MoneyInput
-                id="balance"
-                label="Saldo Inicial"
-                value={formData.balance}
-                onChange={(v) => setFormData({ ...formData, balance: v })}
-                required
-              />
+              {editingId ? (
+                <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-border">
+                  <Label className="text-sm font-medium">Saldo Atual</Label>
+                  <p className="text-lg font-mono font-bold text-fiducia-blue">
+                    R$ {formData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Gerenciado automaticamente por transações</p>
+                </div>
+              ) : (
+                <MoneyInput
+                  id="balance"
+                  label="Saldo Inicial"
+                  value={formData.balance}
+                  onChange={(v) => setFormData({ ...formData, balance: v })}
+                  required
+                />
+              )}
 
               <div className="flex items-center justify-between p-3 border border-border rounded-xl">
                 <div>
