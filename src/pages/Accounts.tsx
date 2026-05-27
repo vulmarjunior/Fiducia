@@ -130,7 +130,8 @@ export function Accounts() {
       resetForm();
     } catch (error) {
       console.error('Accounts save error:', error);
-      toast.error('Falha ao salvar conta');
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(`Falha ao salvar conta: ${msg.substring(0, 120)}`);
       handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'accounts');
     }
   };
