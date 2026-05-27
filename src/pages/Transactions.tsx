@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -165,6 +165,9 @@ export function Transactions() {
   const [closePeriodAccountId, setClosePeriodAccountId] = useState<string>('');
   const [closePeriodPaymentAccountId, setClosePeriodPaymentAccountId] = useState<string>('');
 
+  const keepOpenRef = useRef(false);
+  const descriptionRef = useRef<HTMLInputElement>(null);
+
   // OFX Import State
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importedTransactions, setImportedTransactions] = useState<(OfxTransaction & { selected: boolean; categoryId: string })[]>([]);
@@ -264,6 +267,20 @@ export function Transactions() {
       window.history.replaceState({}, '');
     }
   }, [location.state, transactions]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
+        e.preventDefault();
+        resetForm();
+        setIsDialogOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const isPeriodClosed = (dateString: string, accountId: string, invoicePeriod?: string) => {
     const card = creditCards.find(c => c.id === accountId);
@@ -789,8 +806,14 @@ export function Transactions() {
         }
       }
       
-      setIsDialogOpen(false);
-      resetForm();
+      if (keepOpenRef.current) {
+        keepOpenRef.current = false;
+        resetForm();
+        requestAnimationFrame(() => descriptionRef.current?.focus());
+      } else {
+        setIsDialogOpen(false);
+        resetForm();
+      }
     } catch (error) {
       toast.error('Erro ao salvar lançamento');
       handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'transactions');
@@ -1444,15 +1467,23 @@ ${sample.map(t =>
               <FileUp className="mr-2 h-4 w-4" /> Importar Arquivo
             </Button>
           </div>
-          <Button 
-            className="rounded-xl shadow-lg shadow-primary/20"
-            onClick={() => {
-              resetForm();
-              setIsDialogOpen(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" /> Novo Lançamento
-          </Button>
+          <Tooltip>
+            <TooltipTrigger render={(props) => (
+              <Button 
+                {...props}
+                className="rounded-xl shadow-lg shadow-primary/20"
+                onClick={() => {
+                  resetForm();
+                  setIsDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Novo Lançamento
+              </Button>
+            )} />
+            <TooltipContent side="bottom">
+              <span className="text-xs">Ctrl+N (Cmd+N no Mac)</span>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -1949,6 +1980,7 @@ ${sample.map(t =>
                   <div className="space-y-1.5">
                     <Label htmlFor="description" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</Label>
                     <Input 
+                      ref={descriptionRef}
                       id="description" 
                       autoFocus
                       value={formData.description} 
@@ -2403,14 +2435,30 @@ ${sample.map(t =>
                   type="button" 
                   variant="ghost" 
                   onClick={() => setIsDialogOpen(false)}
-                  className="flex-1 h-14 rounded-2xl text-muted-foreground font-semibold hover:bg-muted transition-all"
+                  className="h-14 rounded-2xl text-muted-foreground font-semibold hover:bg-muted transition-all"
                 >
                   Cancelar
                 </Button>
+                {!editingId && (
+                  <Button 
+                    form="transaction-form"
+                    type="submit" 
+                    onClick={() => { keepOpenRef.current = true; }}
+                    variant="outline"
+                    className={`h-14 rounded-2xl font-semibold transition-all border-2 ${
+                      formData.type === 'despesa' ? 'border-red-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20' : 
+                      formData.type === 'receita' ? 'border-green-200 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20' : 
+                      'border-blue-200 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20'
+                    }`}
+                  >
+                    Salvar e Continuar
+                  </Button>
+                )}
                 <Button 
                   form="transaction-form"
                   type="submit" 
-                  className={`flex-[2] h-14 rounded-2xl font-bold text-white shadow-xl transition-all active:scale-[0.98] ${
+                  onClick={() => { keepOpenRef.current = false; }}
+                  className={`h-14 rounded-2xl font-bold text-white shadow-xl transition-all active:scale-[0.98] ${
                     formData.type === 'despesa' ? 'bg-red-600 shadow-red-100' : 
                     formData.type === 'receita' ? 'bg-green-600 shadow-green-100' : 'bg-blue-600 shadow-blue-100'
                   }`}

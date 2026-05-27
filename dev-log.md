@@ -221,6 +221,12 @@
 - **Correção**: `gastosCartao` mudou de `transactions` individuais para `invoices.totalAmount`. Dashboard agora escuta a coleção `invoices` via `onSnapshot`.
 - **Fluxo de Caixa (gráfico)**: Não precisou de alteração. Já agrupa compras de cartão por `invoicePeriod` e ignora transferências — mostra tendência de consumo sem dupla contagem com o card Disponível Seguro, que mostra posição atual.
 
+### PageHelp — Componente de ajuda contextual
+- **Status**: ✅ Implementado
+- **Data**: 2026-05-27
+- **Contexto**: Usuários com dificuldade em entender a diferença entre Conciliação e Auditoria, e o propósito de cada tela do sistema.
+- **Solução**: Criado componente `PageHelp` (`src/components/PageHelp.tsx`) com botão `?` ao lado do título de cada página. Abre um Dialog Shadcn com descrição, dicas em cards e páginas relacionadas. Adicionado em todas as 12 páginas privadas + Dashboard. Conteúdo estático (offline-first), sem dependência de IA.
+
 ### `allow update: false;` não é CEL válido — API retorna 400 sem mensagem útil
 - **Data**: 2026-05-27
 - **Problema**: `allow update: false;` em Firestore rules causa `400 INVALID_ARGUMENT` — a API não indica qual é o erro de sintaxe.
