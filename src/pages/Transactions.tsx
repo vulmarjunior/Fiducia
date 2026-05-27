@@ -2039,12 +2039,14 @@ ${sample.map(t =>
                             boxShadow: 'none',
                           }),
                           menuPortal: base => ({ ...base, zIndex: 9999 }),
-                          menu: (base) => ({ ...base, zIndex: 9999 }),
+                          menu: (base) => ({ ...base, zIndex: 9999, minWidth: '280px' }),
                           option: (base) => ({
                             ...base,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            paddingTop: '8px',
+                            paddingBottom: '8px',
+                            lineHeight: '1.4'
                           })
                         }}
                       />
@@ -2085,12 +2087,14 @@ ${sample.map(t =>
                                 boxShadow: 'none',
                               }),
                               menuPortal: base => ({ ...base, zIndex: 9999 }),
-                              menu: (base) => ({ ...base, zIndex: 9999 }),
+                              menu: (base) => ({ ...base, zIndex: 9999, minWidth: '280px' }),
                               option: (base) => ({
                                 ...base,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
+                                whiteSpace: 'normal',
+                                wordBreak: 'break-word',
+                                paddingTop: '8px',
+                                paddingBottom: '8px',
+                                lineHeight: '1.4'
                               })
                             }}
                           />
@@ -2139,13 +2143,15 @@ ${sample.map(t =>
                                     boxShadow: 'none',
                                   }),
                                   menuPortal: base => ({ ...base, zIndex: 9999 }),
-                                  menu: (base) => ({ ...base, zIndex: 9999 }),
+                                  menu: (base) => ({ ...base, zIndex: 9999, minWidth: '280px' }),
                                   option: (base, { data }) => ({
                                     ...base,
                                     paddingLeft: `${(data.level * 16) + 12}px`,
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis'
+                                    whiteSpace: 'normal',
+                                    wordBreak: 'break-word',
+                                    paddingTop: '8px',
+                                    paddingBottom: '8px',
+                                    lineHeight: '1.4'
                                   })
                                 }}
                               />
@@ -2335,12 +2341,14 @@ ${sample.map(t =>
                             boxShadow: 'none',
                           }),
                           menuPortal: base => ({ ...base, zIndex: 9999 }),
-                          menu: (base) => ({ ...base, zIndex: 9999 }),
+                          menu: (base) => ({ ...base, zIndex: 9999, minWidth: '280px' }),
                           option: (base) => ({
                             ...base,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            paddingTop: '8px',
+                            paddingBottom: '8px',
+                            lineHeight: '1.4'
                           })
                         }}
                       />
