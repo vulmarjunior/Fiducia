@@ -82,11 +82,8 @@ export function Layout() {
       <aside className={`fixed inset-y-0 left-0 z-50 w-[240px] bg-card border-r border-border flex flex-col transform transition-transform duration-200 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:relative shrink-0`}>
         
         {/* Logo Area */}
-        <div className="p-6 flex items-center gap-3 border-b border-border">
-          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Logo size={24} />
-          </div>
-          <span className="text-[18px] font-bold tracking-tight text-foreground">Fiducia</span>
+        <div className="p-6 border-b border-border">
+          <Logo size={48} withText />
         </div>
 
         {/* Navigation */}
@@ -192,9 +189,8 @@ export function Layout() {
           <button onClick={() => setIsMobileMenuOpen(true)} className="text-muted-foreground hover:text-foreground">
             <Menu className="w-6 h-6" />
           </button>
-          <div className="ml-4 flex items-center gap-2">
-            <Logo size={24} />
-            <h1 className="text-lg font-semibold">Fiducia</h1>
+          <div className="ml-4">
+            <Logo size={28} withText />
           </div>
         </header>
         
