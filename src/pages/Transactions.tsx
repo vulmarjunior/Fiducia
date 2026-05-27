@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, orderBy, writeBatch, runTransaction } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, orderBy, writeBatch, runTransaction } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -380,8 +380,8 @@ export function Transactions() {
         setClosePeriodAccountId('');
         setClosePeriodPaymentAccountId('');
       } catch (error) {
-        handleFirestoreError(error, OperationType.CREATE, 'invoices/transactions');
         toast.error('Erro ao fechar a fatura.');
+        handleFirestoreError(error, OperationType.CREATE, 'invoices/transactions');
       }
     } else {
       // Logic for checking accounts
@@ -400,8 +400,8 @@ export function Transactions() {
         setIsClosePeriodDialogOpen(false);
         setClosePeriodAccountId('');
       } catch (error) {
-        handleFirestoreError(error, OperationType.CREATE, 'closedPeriods');
         toast.error('Erro ao fechar o mês.');
+        handleFirestoreError(error, OperationType.CREATE, 'closedPeriods');
       }
     }
   };
@@ -432,8 +432,8 @@ export function Transactions() {
       setIsNewCategoryDialogOpen(false);
       toast.success('Categoria criada com sucesso');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'categories');
       toast.error('Erro ao criar categoria');
+      handleFirestoreError(error, OperationType.CREATE, 'categories');
     }
   };
 
@@ -457,8 +457,8 @@ export function Transactions() {
       setIsNewTagDialogOpen(false);
       toast.success('Tag criada com sucesso');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'tags');
       toast.error('Erro ao criar tag');
+      handleFirestoreError(error, OperationType.CREATE, 'tags');
     }
   };
 
@@ -648,53 +648,47 @@ export function Transactions() {
           const installmentBase = Math.floor((amount / numInstallments) * 100) / 100;
           const remainder = Math.round((amount - (installmentBase * numInstallments)) * 100) / 100;
 
-          const batch = writeBatch(db);
-          let firstTxRef = doc(collection(db, 'transactions'));
+          await runTransaction(db, async (transaction) => {
+            for (let i = 0; i < numInstallments; i++) {
+              const date = new Date(formData.date);
+              date.setUTCMonth(date.getUTCMonth() + i);
+              const dateStr = date.toISOString();
+              
+              const instAmount = i === 0 ? installmentBase + remainder : installmentBase;
+              
+              const tData: any = {
+                ...baseTData,
+                amount: instAmount,
+                date: dateStr,
+                createdAt: new Date().toISOString(),
+                parentId,
+                installmentNumber: i + 1,
+                totalInstallments: numInstallments,
+                description: `${formData.description} (${i + 1}/${numInstallments})`,
+                ccRecurrenceType: 'parcelado',
+                reconciliationStatus: 'nao_conciliado'
+              };
 
-          for (let i = 0; i < numInstallments; i++) {
-            const date = new Date(formData.date);
-            date.setUTCMonth(date.getUTCMonth() + i);
-            const dateStr = date.toISOString();
-            
-            const instAmount = i === 0 ? installmentBase + remainder : installmentBase;
-            
-            const tData: any = {
-              ...baseTData,
-              amount: instAmount,
-              date: dateStr,
-              createdAt: new Date().toISOString(),
-              parentId,
-              installmentNumber: i + 1,
-              totalInstallments: numInstallments,
-              description: `${formData.description} (${i + 1}/${numInstallments})`,
-              ccRecurrenceType: 'parcelado',
-              reconciliationStatus: 'nao_conciliado'
-            };
+              if (isCreditCard && card) {
+                tData.creditCardId = formData.accountId;
+                tData.invoicePeriod = calculateInvoicePeriod(dateStr, card.closingDay, card.dueDay);
+              } else {
+                tData.accountId = formData.accountId;
+                tData.categoryId = formData.categoryId;
+              }
 
-            if (isCreditCard && card) {
-              tData.creditCardId = formData.accountId;
-              tData.invoicePeriod = calculateInvoicePeriod(dateStr, card.closingDay, card.dueDay);
-            } else {
-              tData.accountId = formData.accountId;
-              tData.categoryId = formData.categoryId;
+              transaction.set(doc(collection(db, 'transactions')), tData);
             }
 
-            const txRef = i === 0 ? firstTxRef : doc(collection(db, 'transactions'));
-            batch.set(txRef, tData);
-          }
-
-          await batch.commit();
-
-          if (!isCreditCard) {
-            await runTransaction(db, async (transaction) => {
+            if (!isCreditCard) {
               const srcRef = doc(db, 'accounts', formData.accountId);
               const srcSnap = await transaction.get(srcRef);
               if (srcSnap.exists()) {
                 const balanceChange = formData.type === 'receita' ? amount : -amount;
                 transaction.update(srcRef, { balance: (srcSnap.data().balance || 0) + balanceChange });
               }
-            });
-          }
+            }
+          });
 
           toast.success(`${numInstallments} parcelas geradas com sucesso`);
         } else if (isCreditCard && card && showRecurrence && formData.ccRecurrenceType === 'fixo') {
@@ -734,48 +728,41 @@ export function Transactions() {
             ? (formData.frequency === 'mensal' ? 12 : (formData.frequency === 'semanal' ? 52 : (formData.frequency === 'anual' ? 5 : 1))) 
             : 1;
 
-          const batch = writeBatch(db);
-          let firstTxRef: any = null;
+          await runTransaction(db, async (transaction) => {
+            for (let i = 0; i < iterations; i++) {
+              const date = new Date(formData.date);
+              if (!isCreditCard && showRecurrence && formData.isRecurring) {
+                if (formData.frequency === 'semanal') date.setUTCDate(date.getUTCDate() + (i * 7));
+                else if (formData.frequency === 'mensal') date.setUTCMonth(date.getUTCMonth() + i);
+                else if (formData.frequency === 'anual') date.setUTCFullYear(date.getUTCFullYear() + i);
+              }
+              const dateStr = date.toISOString();
+              
+              const tData: any = { 
+                ...baseTData, 
+                date: dateStr,
+                createdAt: new Date().toISOString(),
+                reconciliationStatus: 'nao_conciliado'
+              };
 
-          for (let i = 0; i < iterations; i++) {
-            const date = new Date(formData.date);
-            if (!isCreditCard && showRecurrence && formData.isRecurring) {
-              if (formData.frequency === 'semanal') date.setUTCDate(date.getUTCDate() + (i * 7));
-              else if (formData.frequency === 'mensal') date.setUTCMonth(date.getUTCMonth() + i);
-              else if (formData.frequency === 'anual') date.setUTCFullYear(date.getUTCFullYear() + i);
+              if (!isCreditCard && showRecurrence && formData.isRecurring) {
+                tData.parentId = parentId;
+                tData.isRecurring = true;
+                tData.frequency = formData.frequency;
+              }
+
+              if (isCreditCard && card) {
+                tData.creditCardId = formData.accountId;
+                tData.invoicePeriod = i === 0 && formData.invoicePeriod 
+                  ? formData.invoicePeriod 
+                  : calculateInvoicePeriod(dateStr, card.closingDay, card.dueDay);
+                tData.ccRecurrenceType = 'avulso';
+              }
+
+              transaction.set(doc(collection(db, 'transactions')), tData);
             }
-            const dateStr = date.toISOString();
-            
-            const tData: any = { 
-              ...baseTData, 
-              date: dateStr,
-              createdAt: new Date().toISOString(),
-              reconciliationStatus: 'nao_conciliado'
-            };
 
-            if (!isCreditCard && showRecurrence && formData.isRecurring) {
-              tData.parentId = parentId;
-              tData.isRecurring = true;
-              tData.frequency = formData.frequency;
-            }
-
-            if (isCreditCard && card) {
-              tData.creditCardId = formData.accountId;
-              tData.invoicePeriod = i === 0 && formData.invoicePeriod 
-                ? formData.invoicePeriod 
-                : calculateInvoicePeriod(dateStr, card.closingDay, card.dueDay);
-              tData.ccRecurrenceType = 'avulso';
-            }
-
-            const txRef = doc(collection(db, 'transactions'));
-            if (i === 0) firstTxRef = txRef;
-            batch.set(txRef, tData);
-          }
-
-          await batch.commit();
-
-          if (!isCreditCard) {
-            await runTransaction(db, async (transaction) => {
+            if (!isCreditCard) {
               const srcRef = doc(db, 'accounts', formData.accountId);
               const srcSnap = await transaction.get(srcRef);
               if (srcSnap.exists()) {
@@ -790,8 +777,8 @@ export function Transactions() {
                   transaction.update(destRef, { balance: (destSnap.data().balance || 0) + amount });
                 }
               }
-            });
-          }
+            }
+          });
 
           toast.success(iterations > 1 ? 'Lançamentos gerados com sucesso' : 'Lançamento adicionado');
         }
@@ -800,8 +787,8 @@ export function Transactions() {
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
-      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'transactions');
       toast.error('Erro ao salvar lançamento');
+      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'transactions');
     }
   };
 
@@ -848,48 +835,77 @@ export function Transactions() {
       }
     }
 
-    const batch = writeBatch(db);
+    // Group transactions by series to avoid over-reverting balance
+    const seriesGroups = new Map<string, any[]>();
+    const standaloneTxs: any[] = [];
 
+    for (const tx of transactionsToDelete) {
+      const seriesKey = tx.parentId || tx.installmentId || null;
+      if (seriesKey) {
+        if (!seriesGroups.has(seriesKey)) seriesGroups.set(seriesKey, []);
+        seriesGroups.get(seriesKey)!.push(tx);
+      } else {
+        standaloneTxs.push(tx);
+      }
+    }
+
+    // Calculate balance changes per account (series-aware)
+    const accountBalanceChanges: Record<string, number> = {};
+
+    const applyChange = (accId: string | undefined, change: number) => {
+      if (!accId) return;
+      accountBalanceChanges[accId] = (accountBalanceChanges[accId] || 0) + change;
+    };
+
+    // Standalone transactions: revert each individually
+    for (const tx of standaloneTxs) {
+      if (tx.type === 'transferencia') {
+        applyChange(tx.accountId, tx.amount);
+        applyChange(tx.destinationAccountId, -tx.amount);
+      } else {
+        applyChange(tx.accountId, tx.type === 'receita' ? -tx.amount : tx.amount);
+      }
+    }
+
+    // Series: revert balance ONLY ONCE per group
+    for (const [_, series] of seriesGroups) {
+      const firstTx = series[0];
+      const isParcelado = firstTx.installmentNumber != null && firstTx.totalInstallments != null;
+      // For parcelado, reversal = sum of all installments (= original total)
+      // For recurring, reversal = any single transaction's amount (all same)
+      const reversalAmount = isParcelado
+        ? series.reduce((sum, tx) => sum + tx.amount, 0)
+        : firstTx.amount;
+
+      if (firstTx.type === 'transferencia') {
+        applyChange(firstTx.accountId, reversalAmount);
+        applyChange(firstTx.destinationAccountId, -reversalAmount);
+      } else {
+        applyChange(firstTx.accountId, firstTx.type === 'receita' ? -reversalAmount : reversalAmount);
+      }
+    }
+
+    // Execute atomic delete + balance update with fresh reads from Firestore
     try {
-      console.log('Attempting to delete transactions:', transactionsToDelete.map(tx => tx.id));
-      
-      // Accumulate balance changes per account
-      const accountBalanceChanges: Record<string, number> = {};
-
-      for (const tx of transactionsToDelete) {
-        // Revert balance
-        if (tx.type === 'transferencia') {
-          if (tx.accountId) {
-            accountBalanceChanges[tx.accountId] = (accountBalanceChanges[tx.accountId] || 0) + tx.amount;
-          }
-          if (tx.destinationAccountId) {
-            accountBalanceChanges[tx.destinationAccountId] = (accountBalanceChanges[tx.destinationAccountId] || 0) - tx.amount;
-          }
-        } else {
-          if (tx.accountId) {
-            const balanceChange = tx.type === 'receita' ? -tx.amount : tx.amount;
-            accountBalanceChanges[tx.accountId] = (accountBalanceChanges[tx.accountId] || 0) + balanceChange;
-          }
+      await runTransaction(db, async (transaction) => {
+        for (const tx of transactionsToDelete) {
+          transaction.delete(doc(db, 'transactions', tx.id));
         }
-        
-        batch.delete(doc(db, 'transactions', tx.id));
-      }
 
-      // Apply accumulated balance changes to accounts
-      for (const [accId, change] of Object.entries(accountBalanceChanges)) {
-        const acc = accounts.find(a => a.id === accId);
-        if (acc) {
+        for (const [accId, change] of Object.entries(accountBalanceChanges)) {
+          if (change === 0) continue;
           const accRef = doc(db, 'accounts', accId);
-          batch.update(accRef, { balance: (acc.balance || 0) + change });
+          const accSnap = await transaction.get(accRef);
+          if (accSnap.exists()) {
+            transaction.update(accRef, { balance: (accSnap.data().balance || 0) + change });
+          }
         }
-      }
-      
-      await batch.commit();
-      console.log('Transaction batch commit successful for IDs:', transactionsToDelete.map(tx => tx.id));
+      });
+
       toast.success('Lançamentos excluídos');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `transactions`);
       toast.error('Erro ao excluir lançamentos');
+      handleFirestoreError(error, OperationType.DELETE, `transactions`);
     } finally {
       setDeleteConfirmTx(null);
       setDeleteScope('only');
@@ -1029,66 +1045,60 @@ export function Transactions() {
     }
 
     setIsImporting(true);
-    let successCount = 0;
-    let errorCount = 0;
 
     try {
       const isCreditCard = creditCards.some(cc => cc.id === importAccountId);
       const card = creditCards.find(cc => cc.id === importAccountId);
 
+      // Compute all transaction data + total delta before the atomic transaction
+      const tDataList: any[] = [];
+      let totalDelta = 0;
+
       for (const t of selectedTransactions) {
-        try {
-          const tData: any = {
-            userId: user.uid,
-            type: t.type,
-            amount: t.amount,
-            date: t.date,
-            description: t.description,
-            status: isCreditCard ? 'realizado' : 'pago',
-            accountId: importAccountId,
-            categoryId: t.categoryId || 'default',
-            ofxId: t.id,
-            createdAt: new Date().toISOString()
-          };
+        const tData: any = {
+          userId: user.uid,
+          type: t.type,
+          amount: t.amount,
+          date: t.date,
+          description: t.description,
+          status: isCreditCard ? 'realizado' : 'pago',
+          accountId: importAccountId,
+          categoryId: t.categoryId || 'default',
+          ofxId: t.id,
+          createdAt: new Date().toISOString()
+        };
 
-          if (isCreditCard && card) {
-            tData.creditCardId = importAccountId;
-            tData.invoicePeriod = calculateInvoicePeriod(t.date, card.closingDay, card.dueDay);
+        if (isCreditCard && card) {
+          tData.creditCardId = importAccountId;
+          tData.invoicePeriod = calculateInvoicePeriod(t.date, card.closingDay, card.dueDay);
+        }
+
+        tDataList.push(tData);
+        totalDelta += t.type === 'despesa' ? -t.amount : t.amount;
+      }
+
+      // Atomic: create all transactions + update balance in a single runTransaction
+      await runTransaction(db, async (transaction) => {
+        for (const tData of tDataList) {
+          transaction.set(doc(collection(db, 'transactions')), tData);
+        }
+
+        if (!isCreditCard && totalDelta !== 0) {
+          const accRef = doc(db, 'accounts', importAccountId);
+          const accSnap = await transaction.get(accRef);
+          if (accSnap.exists()) {
+            transaction.update(accRef, { balance: (accSnap.data().balance || 0) + totalDelta });
           }
-
-          await addDoc(collection(db, 'transactions'), tData);
-          successCount++;
-        } catch (err) {
-          console.error('Error importing transaction:', err);
-          errorCount++;
         }
-      }
+      });
 
-      // Update account balance atomically after all imports (only for bank accounts)
-      if (!isCreditCard) {
-        let totalDelta = 0;
-        for (const t of selectedTransactions) {
-          totalDelta += t.type === 'despesa' ? -t.amount : t.amount;
-        }
-
-        if (totalDelta !== 0) {
-          await runTransaction(db, async (transaction) => {
-            const accRef = doc(db, 'accounts', importAccountId);
-            const accSnap = await transaction.get(accRef);
-            if (accSnap.exists()) {
-              transaction.update(accRef, { balance: (accSnap.data().balance || 0) + totalDelta });
-            }
-          });
-        }
-      }
-
-      toast.success(`${successCount} transações importadas com sucesso.${errorCount > 0 ? ` ${errorCount} erros.` : ''}`);
+      toast.success(`${tDataList.length} transações importadas com sucesso.`);
       setIsImportDialogOpen(false);
       setImportedTransactions([]);
       setImportAccountId('');
     } catch (error) {
       console.error('Error during batch import:', error);
-      toast.error('Erro ao finalizar a importação.');
+      toast.error('Erro ao finalizar a importação. Nenhuma transação foi salva.');
     } finally {
       setIsImporting(false);
     }

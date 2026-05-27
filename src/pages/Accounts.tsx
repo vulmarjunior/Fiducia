@@ -107,7 +107,6 @@ export function Accounts() {
         const updateData: any = {
           name: accountData.name,
           type: accountData.type,
-          balance: accountData.balance,
           excludeFromCashFlow: accountData.excludeFromCashFlow,
           bankCode: formData.bankCode || '',
           bankName: formData.bankName || '',
