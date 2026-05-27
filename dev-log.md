@@ -215,9 +215,10 @@
 - **Data**: 2026-05-27
 - **Contexto**: Nova métrica de fluxo de caixa operacional. Substituiu o card "Balanço do Mês" no grid de KPIs.
 - **Fórmula**: `disponivelSeguro = saldoCirculante − gastosCartao − contasPendentes`
-- **Componentes**: Saldo Circulante (contas sem `excludeFromCashFlow`), Gastos de Cartão (transações com `creditCardId`), Contas Pendentes (despesas pendentes do mês atual/anteriores, excluindo cartão)
-- **UI**: Card com decomposição em 3 linhas coloridas, tooltip explicativo, estado positivo (roxo/`ShieldCheck`) ou negativo (vermelho/`ShieldAlert`), subtexto informando contas excluídas do fluxo.
+- **Componentes**: Saldo Circulante (contas sem `excludeFromCashFlow`), Gastos de Cartão (**faturas `aberta` + `fechada`** da coleção `invoices`), Contas Pendentes (despesas pendentes do mês atual/anteriores, excluindo cartão)
+- **UI**: Card com decomposição em linhas (Fatura Aberta, Fatura Fechada, Total Cartão, Contas Pendentes), tooltip explicativo, estado positivo (roxo/`ShieldCheck`) ou negativo (vermelho/`ShieldAlert`), subtexto informando contas excluídas do fluxo.
 - **Tokens**: Adicionados `--fiducia-purple` e `--fiducia-purple-bg` no light mode (`#8b5cf6`/`#ede9fe`) e dark mode (`#a78bfa`/rgba).
+- **Correção**: `gastosCartao` mudou de `transactions` individuais para `invoices.totalAmount`. Dashboard agora escuta a coleção `invoices` via `onSnapshot`.
 
 ### `allow update: false;` não é CEL válido — API retorna 400 sem mensagem útil
 - **Data**: 2026-05-27

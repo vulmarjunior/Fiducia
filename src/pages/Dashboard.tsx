@@ -19,6 +19,7 @@ export function Dashboard() {
   const [budgets, setBudgets] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [showValues, setShowValues] = useState(true);
   const [aiTip, setAiTip] = useState<string>('');
   const [isLoadingAi, setIsLoadingAi] = useState(false);
@@ -66,6 +67,11 @@ export function Dashboard() {
       setGoals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => handleFirestoreError(error, OperationType.GET, 'goals'));
 
+    const invoicesQuery = query(collection(db, 'invoices'), where('userId', '==', user.uid));
+    const unsubscribeInvoices = onSnapshot(invoicesQuery, (snapshot) => {
+      setInvoices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'invoices'));
+
     return () => {
       unsubscribeAccounts();
       unsubscribeCards();
@@ -73,6 +79,7 @@ export function Dashboard() {
       unsubscribeBudgets();
       unsubscribeCategories();
       unsubscribeGoals();
+      unsubscribeInvoices();
     };
   }, [user, isAuthReady]);
 
@@ -180,9 +187,13 @@ Regras:
   const excludedCount = accounts.filter(a => a.excludeFromCashFlow).length;
   const circulatingCount = accounts.filter(a => !a.excludeFromCashFlow).length;
 
-  const gastosCartao = transactions
-    .filter(t => t.creditCardId || creditCards.some(c => c.id === t.accountId))
-    .reduce((sum, t) => sum + t.amount, 0);
+  const gastosCartaoFaturaAberta = invoices
+    .filter(i => i.status === 'aberta')
+    .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+  const gastosCartaoFaturaFechada = invoices
+    .filter(i => i.status === 'fechada')
+    .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+  const gastosCartao = gastosCartaoFaturaAberta + gastosCartaoFaturaFechada;
 
   const contasPendentes = transactions
     .filter(t =>
@@ -503,9 +514,9 @@ Regras:
               <Info className="w-4 h-4 text-muted-foreground cursor-help" />
               <div className="absolute right-0 top-6 w-64 p-3 bg-popover border border-border rounded-xl shadow-lg text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-10">
                 <strong className="block mb-1">Disponível Seguro</strong>
-                = (Saldo Circulante) − (Gastos de Cartão) − (Contas Pendentes)
+                = (Saldo Circulante) − (Faturas de Cartão) − (Contas Pendentes)
                 <br /><br />
-                Mostra quanto dinheiro livre você tem hoje depois de pagar todas as faturas de cartão e contas pendentes do mês.
+                Considera faturas <strong>abertas</strong> (acumulando) e <strong>fechadas</strong> (a vencer). Faturas pagas são ignoradas (já saíram da conta).
                 {hasExcludedAccounts && <><br /><br />Contas marcadas como reserva/investimento são ignoradas deste cálculo.</>}
               </div>
             </div>
@@ -522,11 +533,28 @@ Regras:
               </span>
               <span className="font-mono font-semibold text-fiducia-green">+{formatCurrency(saldoCirculante)}</span>
             </div>
-            {gastosCartao > 0 && (
+            {gastosCartaoFaturaAberta > 0 && (
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="flex items-center gap-1.5 text-fiducia-red/80">
+                  <span className="w-2 h-2 rounded-full bg-fiducia-red/60 shrink-0" />
+                  Fatura Aberta
+                </span>
+                <span className="font-mono font-semibold text-fiducia-red/80">-{formatCurrency(gastosCartaoFaturaAberta)}</span>
+              </div>
+            )}
+            {gastosCartaoFaturaFechada > 0 && (
               <div className="flex items-center justify-between text-[12px]">
                 <span className="flex items-center gap-1.5 text-fiducia-red">
                   <span className="w-2 h-2 rounded-full bg-fiducia-red shrink-0" />
-                  Gastos de Cartão
+                  Fatura Fechada
+                </span>
+                <span className="font-mono font-semibold text-fiducia-red">-{formatCurrency(gastosCartaoFaturaFechada)}</span>
+              </div>
+            )}
+            {gastosCartao > 0 && (
+              <div className="flex items-center justify-between text-[12px] pt-0.5 border-t border-border/40">
+                <span className="flex items-center gap-1.5 font-semibold text-fiducia-red text-[11px]">
+                  Total Cartão
                 </span>
                 <span className="font-mono font-semibold text-fiducia-red">-{formatCurrency(gastosCartao)}</span>
               </div>
