@@ -23,10 +23,28 @@
 - **Observações**: Para cartão de crédito, parcelas vão para faturas distintas. Para conta corrente, o saldo reflete o valor total do bem/serviço.
 
 ### Resumos Mensais — Filtro por Status
-- **Status**: ✅ Confirmado
+- **Status**: ✅ Confirmado (após correção de TDZ)
 - **Data**: 2026-05-26
 - **Contexto**: Dashboard e sumário de transações contavam parcelas futuras e pendentes como despesas quitadas
 - **Solução**: Adicionado filtro `isEffectivelyPaid()` nos cálculos de `monthlyIncome`, `monthlyExpense`, `chartData` (Dashboard) e `summary` (Transactions) — considera apenas transações com status `pago` ou `realizado`.
+
+---
+
+## ❌ O que Não Funciona
+
+*(Nenhuma entrada ainda)*
+
+---
+
+## 🔄 Correções de Registro
+
+### TDZ — `isEffectivelyPaid` depois do `useMemo` que o chama
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-26
+- **Contexto**: Após deploy, página de Lançamentos não carregava (crash runtime)
+- **Causa Raiz**: `const isEffectivelyPaid` definida na linha 1392, mas chamada dentro de `React.useMemo` na linha 1238. `useMemo` executa o callback SÍNCRONO durante o primeiro render — a variável ainda está na **Zona Morta Temporal (TDZ)** do JavaScript, causando `ReferenceError`.
+- **Solução**: Moveu `isEffectivelyPaid` para antes do `summary` memo.
+- **Observações**: TypeScript/tsc não detecta acesso a `const` na TDZ via closures (`--noEmit` passa limpo). Vite também compila sem erros. O erro só aparece em runtime no navegador.
 
 ---
 
@@ -56,4 +74,9 @@
 
 ## ⚠️ Armadilhas Conhecidas (Gotchas)
 
-*(Nenhuma entrada ainda)*
+### TDZ com `useMemo` — `const` após `useMemo` quebra em runtime
+- **Data**: 2026-05-26
+- **Problema**: `const fn = React.useMemo(() => { chamaOutraFuncao(); }, []);` seguido de `const chamaOutraFuncao = () => {...}`. `useMemo` executa o callback sincronamente durante render, mas `chamaOutraFuncao` ainda não foi inicializada (TDZ). TypeScript não detecta porque a closure referencia a variável do escopo pai — não há erro de tipo.
+- **Sintoma**: Página não carrega (crash silencioso em produção).
+- **Prevenção**: Toda função chamada dentro de `useMemo`/`useCallback` deve ser declarada ANTES do memo. Colocar todas as funções auxiliares no topo do componente, antes dos primeiros `useMemo`.
+- **Teste**: `npm run build` compila OK, mas runtime quebra. Único jeito de detectar é testar no navegador.

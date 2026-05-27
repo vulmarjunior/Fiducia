@@ -1235,6 +1235,10 @@ ${sample.map(t =>
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Final sort descending
   }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, accounts, creditCards, aiSearchResultIds]);
 
+  const isEffectivelyPaid = (t: any) => {
+    return t.status === 'pago' || t.status === 'realizado' || t.status === 'paid';
+  };
+
   const summary = React.useMemo(() => {
     return processedTransactions.reduce((acc, t) => {
       if (!isEffectivelyPaid(t)) return acc;
@@ -1387,11 +1391,6 @@ ${sample.map(t =>
       </div>
     </div>
   );
-
-  /** Filter only paid/received transactions for balance summaries */
-  const isEffectivelyPaid = (t: any) => {
-    return t.status === 'pago' || t.status === 'realizado' || t.status === 'paid';
-  };
 
   return (
     <div className="space-y-6">
