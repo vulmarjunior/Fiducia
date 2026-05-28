@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Download, FileJson, Settings, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
+import { logActivity } from '../services/activityLogService';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
 
@@ -119,6 +120,7 @@ export function SettingsPage() {
       if (errors.length > 0) {
         toast.warning(`Reset concluído com avisos em: ${errors.join(', ')}`);
       } else {
+        logActivity({ userId: user.uid, action: 'delete', entityType: 'account', entityId: 'all', description: 'Aplicação resetada' }).catch(() => {});
         toast.success('Aplicação resetada com sucesso! Seus dados estão como novos.');
       }
 

@@ -13,6 +13,7 @@ import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRigh
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 import { calculateInvoicePeriod, getNextPeriod, resolveAccountName } from '../lib/utils';
+import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
 import {
   DropdownMenu,
@@ -216,9 +217,11 @@ export function CreditCards() {
           closingDay: cardData.closingDay,
           dueDay: cardData.dueDay
         });
+        logActivity({ userId: user.uid, action: 'update', entityType: 'creditCard', entityId: editingId, description: `Cartão editado: ${cardData.name}` }).catch(() => {});
         toast.success('Cartão de crédito atualizado com sucesso');
       } else {
-        await addDoc(collection(db, 'creditCards'), cardData);
+        const cardRef = await addDoc(collection(db, 'creditCards'), cardData);
+        logActivity({ userId: user.uid, action: 'create', entityType: 'creditCard', entityId: cardRef.id, description: `Cartão criado: ${cardData.name}` }).catch(() => {});
         toast.success('Cartão de crédito adicionado com sucesso');
       }
       
@@ -249,6 +252,7 @@ export function CreditCards() {
 
     if (!paymentData.accountId) return;
 
+    let paymentTxRef: any;
     try {
       await runTransaction(db, async (transaction) => {
         // Read source account balance first (Firestore requires all reads before writes)
@@ -272,11 +276,12 @@ export function CreditCards() {
           createdAt: new Date().toISOString()
         };
 
-        const tRef = doc(collection(db, 'transactions'));
-        transaction.set(tRef, tData);
+        paymentTxRef = doc(collection(db, 'transactions'));
+        transaction.set(paymentTxRef, tData);
         transaction.update(accRef, { balance: currentBalance - paymentData.amount });
       });
 
+      logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: paymentTxRef?.id, description: `Pagamento de fatura: ${selectedCardForInvoice.name}` }).catch(() => {});
       toast.success('Pagamento registrado com sucesso');
       setIsPayInvoiceDialogOpen(false);
     } catch (error) {
@@ -394,6 +399,7 @@ export function CreditCards() {
       }
 
       await batch.commit();
+      logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: 'batch', description: `Lançamento adicionado na fatura: ${newTxFormData.description}` }).catch(() => {});
       toast.success('Lançamento(s) adicionado(s) com sucesso');
       setIsNewTxDialogOpen(false);
       setNewTxFormData({
@@ -438,6 +444,7 @@ export function CreditCards() {
 
       batch.update(doc(db, 'transactions', editingTx.id), updateData);
       await batch.commit();
+      logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingTx.id, description: `Lançamento editado na fatura: ${updateData.description}` }).catch(() => {});
       toast.success('Lançamento atualizado com sucesso');
       setIsEditTxDialogOpen(false);
     } catch (error) {
@@ -478,6 +485,7 @@ export function CreditCards() {
         updatedAt: new Date().toISOString()
       });
 
+      logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: tx.id, description: `Lançamento movido para fatura ${newInvoicePeriod}: ${tx.description}` }).catch(() => {});
       toast.success(`Lançamento movido para a fatura de ${month.toString().padStart(2, '0')}/${year}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'transactions');
@@ -548,6 +556,7 @@ export function CreditCards() {
       }
 
       await batch.commit();
+      logActivity({ userId: user.uid, action: 'delete', entityType: 'transaction', entityId: t.id || t.parentId, description: `${transactionsToDelete.length} lançamento(s) excluído(s) da fatura: ${t.description}` }).catch(() => {});
       toast.success('Lançamento(s) excluído(s) com sucesso');
       setTxToDelete(null);
       setDeleteScope('only');
@@ -560,7 +569,9 @@ export function CreditCards() {
   const handleDelete = async () => {
     if (!deleteConfirmId) return;
     try {
+      const deleted = cards.find(c => c.id === deleteConfirmId);
       await deleteDoc(doc(db, 'creditCards', deleteConfirmId));
+      logActivity({ userId: user.uid, action: 'delete', entityType: 'creditCard', entityId: deleteConfirmId, description: `Cartão excluído: ${deleted?.name || deleteConfirmId}` }).catch(() => {});
       toast.success('Cartão de crédito excluído');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `creditCards/${deleteConfirmId}`);
@@ -591,6 +602,7 @@ export function CreditCards() {
 
       if (count > 0) {
         await batch.commit();
+        logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: 'batch', description: `${count} lançamentos recalculados para novo padrão de faturas` }).catch(() => {});
         toast.success(`${count} lançamentos atualizados para o novo padrão de faturas.`);
       } else {
         toast.info('Nenhum lançamento precisava ser atualizado.');
@@ -930,6 +942,7 @@ export function CreditCards() {
                 if (!invoice) return;
                 try {
                   await updateDoc(doc(db, 'invoices', invoice.id), { status: 'aberta' });
+                  logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: invoice.id, description: `Fatura reaberta: ${selectedCardForInvoice.name} - ${invoice.period}` }).catch(() => {});
                   toast.success('Fatura reaberta com sucesso');
                 } catch (error) {
                   handleFirestoreError(error, OperationType.UPDATE, `invoices/${invoice.id}`);

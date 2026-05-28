@@ -12,6 +12,7 @@ import { PieChart, Plus, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
 import { MoneyInput } from '../components/MoneyInput';
+import { logActivity } from '../services/activityLogService';
 
 export function Budgets() {
   const { user, isAuthReady } = useAuth();
@@ -76,9 +77,11 @@ export function Budgets() {
           amount: budgetData.amount,
           period: budgetData.period
         });
+        logActivity({ userId: user.uid, action: 'update', entityType: 'budget', entityId: editingId, description: `Orçamento editado: ${formData.categoryId}` }).catch(() => {});
         toast.success('Orçamento atualizado com sucesso');
       } else {
-        await addDoc(collection(db, 'budgets'), budgetData);
+        const budgetRef = await addDoc(collection(db, 'budgets'), budgetData);
+        logActivity({ userId: user.uid, action: 'create', entityType: 'budget', entityId: budgetRef.id, description: `Orçamento criado` }).catch(() => {});
         toast.success('Orçamento criado com sucesso');
       }
       
@@ -93,7 +96,9 @@ export function Budgets() {
   const handleDelete = async () => {
     if (!deleteConfirmId) return;
     try {
+      const deleted = budgets.find(b => b.id === deleteConfirmId);
       await deleteDoc(doc(db, 'budgets', deleteConfirmId));
+      logActivity({ userId: user.uid, action: 'delete', entityType: 'budget', entityId: deleteConfirmId, description: `Orçamento excluído: ${deleted?.categoryId || deleteConfirmId}` }).catch(() => {});
       toast.success('Orçamento excluído');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `budgets/${deleteConfirmId}`);

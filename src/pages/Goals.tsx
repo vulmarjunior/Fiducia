@@ -11,6 +11,7 @@ import { Target, Plus, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
 import { MoneyInput } from '../components/MoneyInput';
+import { logActivity } from '../services/activityLogService';
 
 export function Goals() {
   const { user, isAuthReady } = useAuth();
@@ -61,9 +62,11 @@ export function Goals() {
           currentAmount: goalData.currentAmount,
           deadline: goalData.deadline
         });
+        logActivity({ userId: user.uid, action: 'update', entityType: 'goal', entityId: editingId, description: `Meta editada: ${goalData.name}` }).catch(() => {});
         toast.success('Meta atualizada com sucesso');
       } else {
-        await addDoc(collection(db, 'goals'), goalData);
+        const goalRef = await addDoc(collection(db, 'goals'), goalData);
+        logActivity({ userId: user.uid, action: 'create', entityType: 'goal', entityId: goalRef.id, description: `Meta criada: ${goalData.name}` }).catch(() => {});
         toast.success('Meta criada com sucesso');
       }
       
@@ -78,7 +81,9 @@ export function Goals() {
   const handleDelete = async () => {
     if (!deleteConfirmId) return;
     try {
+      const deleted = goals.find(g => g.id === deleteConfirmId);
       await deleteDoc(doc(db, 'goals', deleteConfirmId));
+      logActivity({ userId: user.uid, action: 'delete', entityType: 'goal', entityId: deleteConfirmId, description: `Meta excluída: ${deleted?.name || deleteConfirmId}` }).catch(() => {});
       toast.success('Meta excluída');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `goals/${deleteConfirmId}`);

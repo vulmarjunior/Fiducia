@@ -20,6 +20,7 @@ import { MoneyInput } from '../components/MoneyInput';
 import { parseOfx, OfxTransaction } from '../services/ofxService';
 import { parseCsvOrExcel } from '../services/importService';
 import { callGroq } from '../services/groqService';
+import { logActivity } from '../services/activityLogService';
 import Select, { MultiValue } from 'react-select';
 import { getCategoryIcon, suggestIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, resolveAccountName } from '../lib/utils';
@@ -657,6 +658,7 @@ export function Transactions() {
 
           transaction.update(txRef, updateData);
         });
+        logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Lançamento editado: ${formData.description}` }).catch(() => {});
         toast.success('Lançamento atualizado');
       } else {
         // Create logic
@@ -711,9 +713,11 @@ export function Transactions() {
             }
           });
 
+          logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: parentId, description: `${numInstallments} parcelas geradas: ${formData.description}` }).catch(() => {});
           toast.success(`${numInstallments} parcelas geradas com sucesso`);
         } else if (isCreditCard && card && showRecurrence && formData.ccRecurrenceType === 'fixo') {
-          // FIXO LOGIC (credit card only)
+          const iterations = formData.frequency === 'mensal' ? 12 : (formData.frequency === 'semanal' ? 52 : (formData.frequency === 'anual' ? 5 : 1));
+
           const ruleData = {
             userId: user.uid,
             accountId: formData.accountId,
@@ -731,18 +735,31 @@ export function Transactions() {
           };
           const ruleRef = await addDoc(collection(db, 'recurrenceRules'), ruleData);
 
-          const tData: any = {
-            ...baseTData,
-            date: new Date(formData.date).toISOString(),
-            createdAt: new Date().toISOString(),
-            parentId: ruleRef.id,
-            creditCardId: formData.accountId,
-            invoicePeriod: formData.invoicePeriod || calculateInvoicePeriod(formData.date, card.closingDay, card.dueDay),
-            ccRecurrenceType: 'fixo',
-            reconciliationStatus: 'nao_conciliado'
-          };
-          await addDoc(collection(db, 'transactions'), tData);
-          toast.success('Lançamento fixo configurado');
+          const batch = writeBatch(db);
+          for (let i = 0; i < iterations; i++) {
+            const date = new Date(formData.date);
+            if (formData.frequency === 'semanal') date.setUTCDate(date.getUTCDate() + (i * 7));
+            else if (formData.frequency === 'mensal') date.setUTCMonth(date.getUTCMonth() + i);
+            else if (formData.frequency === 'anual') date.setUTCFullYear(date.getUTCFullYear() + i);
+            const dateStr = date.toISOString();
+
+            const tData: any = {
+              ...baseTData,
+              date: dateStr,
+              createdAt: new Date().toISOString(),
+              parentId: ruleRef.id,
+              creditCardId: formData.accountId,
+              invoicePeriod: i === 0 && formData.invoicePeriod
+                ? formData.invoicePeriod
+                : calculateInvoicePeriod(dateStr, card.closingDay, card.dueDay),
+              ccRecurrenceType: 'fixo',
+              reconciliationStatus: 'nao_conciliado'
+            };
+            batch.set(doc(collection(db, 'transactions')), tData);
+          }
+          await batch.commit();
+          logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: ruleRef.id, description: `Lançamento fixo: ${formData.description}` }).catch(() => {});
+          toast.success(iterations > 1 ? `Lançamento fixo gerado para os próximos ${iterations} meses` : 'Lançamento fixo configurado');
         } else {
           // STANDARD OR RECURRING LOGIC
           const iterations = !isCreditCard && showRecurrence && formData.isRecurring 
@@ -802,6 +819,7 @@ export function Transactions() {
             }
           });
 
+          logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: parentId, description: formData.description }).catch(() => {});
           toast.success(iterations > 1 ? 'Lançamentos gerados com sucesso' : 'Lançamento adicionado');
         }
       }
@@ -936,6 +954,7 @@ export function Transactions() {
         }
       });
 
+      logActivity({ userId: user.uid, action: 'delete', entityType: 'transaction', entityId: t.id || t.parentId, description: `${transactionsToDelete.length} lançamento(s) excluído(s): ${t.description}` }).catch(() => {});
       toast.success('Lançamentos excluídos');
     } catch (error) {
       toast.error('Erro ao excluir lançamentos');

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Plus, Trash2, Edit, Tag as TagIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
+import { logActivity } from '../services/activityLogService';
 
 export function Tags() {
   const { user, isAuthReady } = useAuth();
@@ -44,9 +45,11 @@ export function Tags() {
 
       if (editingId) {
         await updateDoc(doc(db, 'tags', editingId), tagData);
+        logActivity({ userId: user.uid, action: 'update', entityType: 'tag', entityId: editingId, description: `Tag editada: ${tagData.name}` }).catch(() => {});
         toast.success('Tag atualizada');
       } else {
-        await addDoc(collection(db, 'tags'), tagData);
+        const tagRef = await addDoc(collection(db, 'tags'), tagData);
+        logActivity({ userId: user.uid, action: 'create', entityType: 'tag', entityId: tagRef.id, description: `Tag criada: ${tagData.name}` }).catch(() => {});
         toast.success('Tag criada');
       }
       
@@ -62,6 +65,7 @@ export function Tags() {
     if (!deleteConfirmTag) return;
     try {
       await deleteDoc(doc(db, 'tags', deleteConfirmTag.id));
+      logActivity({ userId: user.uid, action: 'delete', entityType: 'tag', entityId: deleteConfirmTag.id, description: `Tag excluída: ${deleteConfirmTag.name}` }).catch(() => {});
       toast.success('Tag excluída');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `tags/${deleteConfirmTag.id}`);

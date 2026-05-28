@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { logActivity } from '../services/activityLogService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
@@ -122,9 +123,11 @@ export function Accounts() {
         }
 
         await updateDoc(doc(db, 'accounts', editingId), updateData);
+        logActivity({ userId: user.uid, action: 'update', entityType: 'account', entityId: editingId, description: `Conta editada: ${accountData.name}` }).catch(() => {});
         toast.success('Conta atualizada com sucesso');
       } else {
-        await addDoc(collection(db, 'accounts'), accountData);
+        const ref = await addDoc(collection(db, 'accounts'), accountData);
+        logActivity({ userId: user.uid, action: 'create', entityType: 'account', entityId: ref.id, description: `Conta criada: ${accountData.name}` }).catch(() => {});
         toast.success('Conta criada com sucesso');
       }
       
@@ -141,7 +144,9 @@ export function Accounts() {
   const handleDelete = async () => {
     if (!deleteConfirmId) return;
     try {
+      const deleted = accounts.find(a => a.id === deleteConfirmId);
       await deleteDoc(doc(db, 'accounts', deleteConfirmId));
+      logActivity({ userId: user.uid, action: 'delete', entityType: 'account', entityId: deleteConfirmId, description: `Conta excluída: ${deleted?.name || deleteConfirmId}` }).catch(() => {});
       toast.success('Conta excluída');
     } catch (error) {
       console.error('Accounts delete error:', error);
@@ -226,6 +231,7 @@ export function Accounts() {
 
       await commitBatch();
 
+      logActivity({ userId: user.uid, action: 'update', entityType: 'account', entityId: resetConfirmId, description: `Conta zerada: ${accounts.find(a => a.id === resetConfirmId)?.name || resetConfirmId}` }).catch(() => {});
       toast.success('Conta zerada com sucesso');
       setResetConfirmId(null);
     } catch (error) {

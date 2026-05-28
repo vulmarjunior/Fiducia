@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { logActivity } from '../services/activityLogService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Tags, Plus, Trash2, Edit, Download, Layers, HelpCircle, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
@@ -154,9 +155,11 @@ export function Categories() {
             icon: categoryData.icon,
             parentId: formData.parentId === 'nenhuma' ? null : formData.parentId
           });
+          logActivity({ userId: user.uid, action: 'update', entityType: 'category', entityId: editingId, description: `Categoria editada: ${categoryData.name}` }).catch(() => {});
           toast.success('Categoria atualizada com sucesso');
         } else {
-          await addDoc(collection(db, 'categories'), categoryData);
+          const catRef = await addDoc(collection(db, 'categories'), categoryData);
+          logActivity({ userId: user.uid, action: 'create', entityType: 'category', entityId: catRef.id, description: `Categoria criada: ${categoryData.name}` }).catch(() => {});
           toast.success('Categoria criada com sucesso');
         }
       
@@ -171,7 +174,9 @@ export function Categories() {
   const handleDelete = async () => {
     if (!deleteConfirmId) return;
     try {
+      const deleted = categories.find(c => c.id === deleteConfirmId);
       await deleteDoc(doc(db, 'categories', deleteConfirmId));
+      logActivity({ userId: user.uid, action: 'delete', entityType: 'category', entityId: deleteConfirmId, description: `Categoria excluída: ${deleted?.name || deleteConfirmId}` }).catch(() => {});
       toast.success('Categoria excluída');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `categories/${deleteConfirmId}`);
@@ -199,6 +204,7 @@ export function Categories() {
       });
 
       await batch.commit();
+      logActivity({ userId: user.uid, action: 'delete', entityType: 'category', entityId: 'batch', description: 'Todas as categorias excluídas' }).catch(() => {});
       toast.success('Todas as categorias foram excluídas.');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'categories (batch)');
@@ -269,6 +275,7 @@ export function Categories() {
 
       if (added > 0) {
         await batch.commit();
+        logActivity({ userId: user.uid, action: 'create', entityType: 'category', entityId: 'batch', description: `${added} categorias padrão importadas` }).catch(() => {});
         toast.success(`${added} categorias padrão importadas com sucesso.`);
       } else {
         toast.info('Todas as categorias padrão já existem.');
@@ -354,6 +361,7 @@ export function Categories() {
       }
 
       await batch.commit();
+      logActivity({ userId: user.uid, action: 'create', entityType: 'category', entityId: 'batch', description: `${added} categorias criadas em lote` }).catch(() => {});
       toast.success(`${added} novas categorias criadas.`);
       setIsBatchDialogOpen(false);
       setBatchText('');

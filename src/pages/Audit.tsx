@@ -13,6 +13,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Lock, Unlock, RefreshCcw, AlertTriangle } from 'lucide-react';
+import { logActivity } from '../services/activityLogService';
 
 export function Audit() {
   const { user } = useAuth();
@@ -110,6 +111,7 @@ export function Audit() {
 
         transaction.update(accRef, { balance: finalBalance });
       });
+      logActivity({ userId: user.uid, action: 'update', entityType: 'account', entityId: selectedAccountId, description: `Saldo recalculado: ${resolveAccountName(selectedAccountId, accounts, [])}` }).catch(() => {});
       toast.success('Saldo da conta recalculado e corrigido com sucesso!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `accounts/${selectedAccountId}`);
@@ -125,6 +127,7 @@ export function Audit() {
       onConfirm: async () => {
         try {
           await deleteDoc(doc(db, 'closedPeriods', periodId));
+          logActivity({ userId: user.uid, action: 'delete', entityType: 'account', entityId: periodId, description: `Período contábil reaberto: ${periodId}` }).catch(() => {});
           toast.success('Período reaberto com sucesso!');
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, `closedPeriods/${periodId}`);
@@ -144,6 +147,7 @@ export function Audit() {
       onConfirm: async () => {
         try {
           await updateDoc(doc(db, 'invoices', invoiceId), { status: 'aberta' });
+          logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: invoiceId, description: `Fatura reaberta na auditoria: ${invoiceId}` }).catch(() => {});
           toast.success('Fatura reaberta com sucesso!');
         } catch (error) {
           handleFirestoreError(error, OperationType.UPDATE, `invoices/${invoiceId}`);
