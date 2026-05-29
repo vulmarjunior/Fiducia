@@ -25,6 +25,7 @@ import Select, { MultiValue } from 'react-select';
 import { getCategoryIcon, suggestIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, resolveAccountName } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
+import { CategorySelect } from '../components/CategorySelect';
 
 const TransactionObservation = ({ observation }: { observation: string }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -505,40 +506,6 @@ export function Transactions() {
       toast.error('Erro ao criar tag');
       handleFirestoreError(error, OperationType.CREATE, 'tags');
     }
-  };
-
-  const renderCategoryOptions = (cats: any[], parentId: string | null = null, level: number = 0) => {
-    const filtered = cats.filter(c => (c.parentId || null) === parentId);
-    return filtered.map(cat => {
-      const Icon = getCategoryIcon(cat.icon);
-      return (
-        <React.Fragment key={cat.id}>
-          <SelectItem value={cat.id}>
-            <div className="flex items-center gap-2">
-              <span>{'\u00A0'.repeat(level * 4)}</span>
-              <Icon className="h-3 w-3 opacity-70" />
-              <span>{cat.name}</span>
-            </div>
-          </SelectItem>
-          {renderCategoryOptions(cats, cat.id, level + 1)}
-        </React.Fragment>
-      );
-    });
-  };
-
-  const getCategoryOptions = (cats: any[], parentId: string | null = null, level: number = 0): any[] => {
-    const filtered = cats.filter(c => (c.parentId || null) === parentId);
-    let options: any[] = [];
-    filtered.forEach(cat => {
-      options.push({
-        value: cat.id,
-        label: cat.name,
-        icon: cat.icon,
-        level: level
-      });
-      options = options.concat(getCategoryOptions(cats, cat.id, level + 1));
-    });
-    return options;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1926,7 +1893,9 @@ ${sample.map(t =>
                                 </SelectValue>
                               </SelectTrigger>
                               <SelectContent>
-                                {renderCategoryOptions(categories.filter(c => c.type === t.type))}
+                                {categories.filter(c => (!t.type || c.type === t.type)).map(cat => (
+                                  <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                ))}
                               </SelectContent>
                             </ShadcnSelect>
                           </td>
@@ -2207,56 +2176,12 @@ ${sample.map(t =>
                           <Label htmlFor="category" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Categoria</Label>
                           <div className="flex gap-1.5 items-center">
                             <div className="flex-1 min-w-0">
-                              <Select
-                                options={(() => {
-                                  const opts = getCategoryOptions(categories.filter(c => c.type === formData.type));
-                                  if (opts.length === 0) {
-                                    opts.push({ value: 'default', label: 'Categoria Padrão', icon: 'HelpCircle', level: 0 });
-                                  }
-                                  return opts;
-                                })()}
-                                value={(() => {
-                                  const opts = getCategoryOptions(categories.filter(c => c.type === formData.type));
-                                  if (opts.length === 0) {
-                                    opts.push({ value: 'default', label: 'Categoria Padrão', icon: 'HelpCircle', level: 0 });
-                                  }
-                                  return opts.find(c => c.value === formData.categoryId) || null;
-                                })()}
-                                onChange={(selected: any) => setFormData({...formData, categoryId: selected?.value || ''})}
+                              <CategorySelect
+                                categories={categories}
+                                value={formData.categoryId}
+                                onChange={(val) => setFormData({...formData, categoryId: val})}
+                                typeFilter={formData.type}
                                 placeholder="Buscar..."
-                                isSearchable
-                                menuPosition="fixed"
-                                menuPortalTarget={document.body}
-                                formatOptionLabel={(option: any) => {
-                                  const Icon = getCategoryIcon(option.icon);
-                                  return (
-                                    <div className="flex items-center gap-2 overflow-hidden">
-                                      <Icon className="h-3 w-3 opacity-70 shrink-0" />
-                                      <span className="truncate">{option.label}</span>
-                                    </div>
-                                  );
-                                }}
-                                styles={{
-                                  control: (base) => ({
-                                    ...base,
-                                    minHeight: '48px',
-                                    borderRadius: '0.75rem',
-                                    border: 'none',
-                                    backgroundColor: 'rgb(249 250 251)',
-                                    boxShadow: 'none',
-                                  }),
-                                  menuPortal: base => ({ ...base, zIndex: 9999 }),
-                                  menu: (base) => ({ ...base, zIndex: 9999, minWidth: '280px' }),
-                                  option: (base, { data }) => ({
-                                    ...base,
-                                    paddingLeft: `${(data.level * 16) + 12}px`,
-                                    whiteSpace: 'normal',
-                                    wordBreak: 'break-word',
-                                    paddingTop: '8px',
-                                    paddingBottom: '8px',
-                                    lineHeight: '1.4'
-                                  })
-                                }}
                               />
                             </div>
                             <Button type="button" variant="outline" size="icon" onClick={() => setIsNewCategoryDialogOpen(true)} className="h-12 w-12 shrink-0 rounded-xl bg-muted border-none hover:bg-muted transition-all">

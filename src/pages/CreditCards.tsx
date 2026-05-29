@@ -15,6 +15,7 @@ import { MoneyInput } from '../components/MoneyInput';
 import { calculateInvoicePeriod, getNextPeriod, resolveAccountName } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
+import { CategorySelect } from '../components/CategorySelect';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1252,22 +1253,14 @@ export function CreditCards() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="new-category">Categoria</Label>
-                <Select
+                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Categoria</Label>
+                <CategorySelect
+                  categories={categories}
                   value={newTxFormData.categoryId}
-                  onValueChange={(value) => setNewTxFormData({ ...newTxFormData, categoryId: value })}
-                >
-                  <SelectTrigger id="new-category">
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => setNewTxFormData({ ...newTxFormData, categoryId: val })}
+                  typeFilter="expense"
+                  placeholder="Buscar categoria..."
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-invoice">Fatura</Label>
@@ -1453,22 +1446,14 @@ export function CreditCards() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-category">Categoria</Label>
-                <Select
+                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Categoria</Label>
+                <CategorySelect
+                  categories={categories}
                   value={editTxFormData.categoryId}
-                  onValueChange={(value) => setEditTxFormData({ ...editTxFormData, categoryId: value })}
-                >
-                  <SelectTrigger id="edit-category">
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => setEditTxFormData({ ...editTxFormData, categoryId: val })}
+                  typeFilter="expense"
+                  placeholder="Buscar categoria..."
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-invoice">Fatura</Label>
