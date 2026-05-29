@@ -745,7 +745,7 @@ Regras:
                 )}
               </div>
               <div className="p-3 bg-secondary/5 border-t border-border">
-                <Link to="/credit-cards" className="block text-center py-2 text-[11px] font-bold uppercase tracking-widest text-fiducia-blue hover:bg-fiducia-blue/5 rounded-lg transition-colors">Gerenciar Cartões</Link>
+                <Link to="/cards" className="block text-center py-2 text-[11px] font-bold uppercase tracking-widest text-fiducia-blue hover:bg-fiducia-blue/5 rounded-lg transition-colors">Gerenciar Cartões</Link>
               </div>
             </div>
         </div>
