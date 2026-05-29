@@ -2,7 +2,7 @@
 
 > Documentação viva de descobertas técnicas. Atualizada automaticamente durante o desenvolvimento.
 > **Stack**: Firebase, Firestore, TypeScript, React 19, Tailwind CSS 4, Shadcn/UI
-> **Última atualização**: 2026-05-27
+> **Última atualização**: 2026-05-28
 
 ---
 
@@ -39,6 +39,24 @@
 - **Data**: 2026-05-26
 - **Contexto**: DELETE de série recorrente/parcelado revertia saldo N vezes (uma por transação), mas o CREATE só atualizou saldo 1 vez.
 - **Solução**: DELETE agrupa transações por `parentId`, reverte saldo apenas 1× por série. Para parcelado, soma todas as parcelas (= total original). Para recorrente, usa o amount de qualquer uma.
+
+### Quick Confirm — Confirmação Rápida de Pendências
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-28
+- **Contexto**: Usuário precisava confirmar pagamentos pendentes sem abrir formulário de edição.
+- **Solução**: Botão verde `CheckCircle` na coluna de ações do Transactions, visível apenas para status `pendente`/`pending`. Usa `runTransaction` para atualizar status + debitar saldo atomicamente. Suporta expense, income e transferencia.
+
+### Dashboard — Card Contas com Busca e Card Cartões
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-28
+- **Contexto**: Card "Lançamentos Recentes" era inútil (ordem aleatória, sem filtro). Card lateral "Contas e Cartões" duplicava informação.
+- **Solução**: Substituído por dois cards na coluna esquerda: "Minhas Contas" (lista com saldo, clique → `/transactions` filtrado por conta+mês) e "Meus Cartões" (fatura prévia + limite disponível + barra de uso). Card lateral removido.
+
+### Navegação com preset de filtro
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-28
+- **Contexto**: Dashboard navegava para `/transactions` sem filtro — usuário precisava reaplicar filtro manualmente.
+- **Solução**: `navigate('/transactions', { state: { presetAccountId, presetMonth } })`. Transactions lê `location.state.presetAccountId`/`presetMonth` no mount e aplica os filtros automaticamente. Mesmo padrão do `editId`.
 
 ---
 
@@ -232,3 +250,57 @@
 - **Problema**: `allow update: false;` em Firestore rules causa `400 INVALID_ARGUMENT` — a API não indica qual é o erro de sintaxe.
 - **Sintoma**: POST `/rulesets` retorna 400 com mensagem genérica "Request contains an invalid argument." Mesmo logs detalhados do Google não mostram o erro real.
 - **Prevenção**: Sempre usar `allow <op>: if <expressão>;`. O `if` é obrigatório mesmo para literais booleanos. Incrementar mudanças uma a uma via API para isolar o erro.
+
+---
+
+## 🔄 Correções de Registro
+
+### CREATE parcelado debita total em vez da 1ª parcela
+- **Antes**: "Suporte a Parcelamento em Contas Corrente — aplica saldo apenas na primeira." (registrado como ✅ em 2026-05-26)
+- **Depois**: O código aplicava `amount` (total) como balance change, não o valor da 1ª parcela. Era INCONSISTENTE com o que o registro descrevia. Corrigido em 2026-05-28.
+- **Motivo**: Bug não detectado no registro original. O CREATE parcelado (`Transactions.tsx:721`) usava `const balanceChange = formData.type === 'receita' ? amount : -amount` onde `amount` é o total (ex: R$1050) e não `installmentBase + remainder` (R$150).
+
+### EDIT — sinal do delta de balance invertido
+- **Antes**: Registrado como funcionando corretamente.
+- **Depois**: A reversão do efeito antigo usava `- oldEffect` em vez de `+ oldEffect`. E a aplicação do novo efeito usava `formData.type === 'receita' ? -amount : amount` em vez do sinal do CREATE (`? amount : -amount`). Esses dois bugs se cancelavam PARCIALMENTE quando o valor não mudava, mas geravam saldo incorreto em qualquer alteração de valor.
+
+### Política de saldo: pendente NÃO afeta saldo
+- **Antes**: Todas as transações, independente do status, alteravam o saldo da conta. O card Disponível Seguro era o único responsável por contabilizar pendências.
+- **Depois**: Transações pendentes/canceladas NÃO alteram o saldo. O saldo reflete apenas o valor real em posse do usuário. Para previsão, usar Disponível Seguro (Dashboard) ou relatórios.
+- **Motivo**: Decisão do usuário após discussão — "transações pendentes não foram pagas, não podem afetar o saldo da conta."
+
+---
+
+## 📋 Decisões de Arquitetura
+
+### Saldo da conta reflete apenas transações pagas
+- **Escolha**: Transações com status `pendente` ou `cancelado` não alteram o saldo da conta. Apenas `pago`/`realizado`/`paid` afetam o saldo.
+- **Alternativas rejeitadas**: (1) Debitar pendências e usar Disponível Seguro para contabilizar — rejeitado porque polui o saldo real. (2) Debitar tudo e estornar ao cancelar — rejeitado por complexidade.
+- **Data**: 2026-05-28
+- **Impacto**: CREATE, EDIT, DELETE, Quick Confirm — todos os 4 fluxos de balanço foram alterados.
+
+### Transactions page = extrato bancário; Cartão fica na tela Cartões
+- **Escolha**: A tela Lançamentos mostra apenas transações de contas corrente (não-cartão). Compras de cartão são visíveis apenas na tela Cartões de Crédito e no Dashboard (consolidado).
+- **Alternativas rejeitadas**: (1) Mostrar tudo com filtro toggle — rejeitado porque o usuário quer o extrato limpo. (2) Separar por abas — rejeitado por simplicidade.
+- **Data**: 2026-05-28
+- **Observação**: Pagamento de fatura continua aparecendo no Transactions (é uma saída da conta corrente). O ícone deve ser de pagamento, não de transferência genérica.
+
+---
+
+## ⚠️ Armadilhas Conhecidas (Gotchas)
+
+### EDIT — sinal do delta de balance é contra-intuitivo
+- **Data**: 2026-05-28
+- **Problema**: No EDIT, o "reverse old" deve somar o efeito antigo (`+ oldEffect`), não subtrair (`- oldEffect`). E o "apply new" deve usar o mesmo sinal do CREATE (`type === 'receita' ? amount : -amount`), e não o inverso.
+- **Sintoma**: Editar valor de uma transação produzia saldo incorreto (especialmente ao mudar de expense para income ou vice-versa).
+- **Prevenção**: Sempre verificar a convenção de sinal do CREATE antes de escrever reversões. Criar uma helper `getBalanceChange(tx: any): number` unificada em vez de duplicar a lógica.
+
+### Parcelado: CREATE aplica balance no total da série, DELETE precisa saber disso
+- **Data**: 2026-05-28
+- **Problema**: CREATE parcelado aplica o balance UMA VEZ com o total da série. DELETE precisa reverter apenas esse total (antes: soma de todos os installment amounts). Se um único installment for deletado (não a série toda), o DELETE não deve alterar balance.
+- **Prevenção**: Tratar séries parceladas como grupos atômicos para fins de balance — só a 1ª parcela afeta o saldo.
+
+### `runTransaction` — reads BEFORE writes (Firestore enforcement)
+- **Data**: 2026-05-27 (confirmado 2026-05-28)
+- **Problema**: Firestore exige que TODOS os `transaction.get()` sejam executados antes de qualquer `transaction.set()`/`transaction.update()`/`transaction.delete()`. Violação causa erro silencioso.
+- **Prevenção**: Sempre coletar todos os snapshots primeiro em um loop, depois aplicar as escritas em um segundo loop.
