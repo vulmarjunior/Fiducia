@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
@@ -24,6 +25,7 @@ interface BankInfo {
 
 export function Accounts() {
   const { user, isAuthReady } = useAuth();
+  const location = useLocation();
   const [accounts, setAccounts] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -70,6 +72,17 @@ export function Accounts() {
 
     return () => unsubscribe();
   }, [user, isAuthReady]);
+
+  useEffect(() => {
+    const editId = (location.state as any)?.editId;
+    if (editId && accounts.length > 0) {
+      const account = accounts.find(a => a.id === editId);
+      if (account) {
+        openEdit(account);
+        window.history.replaceState({}, '');
+      }
+    }
+  }, [location.state, accounts]);
 
   const filteredBanks = banks.filter(b =>
     !bankSearch || b.name.toLowerCase().includes(bankSearch.toLowerCase()) || String(b.code).includes(bankSearch)

@@ -965,6 +965,24 @@ export function Transactions() {
     }
   };
 
+  const handleQuickConfirm = async (t: any) => {
+    if (isPeriodClosed(t.date, t.accountId, t.invoicePeriod)) {
+      toast.error('Não é possível confirmar um lançamento de um mês fechado.');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'transactions', t.id), {
+        status: 'pago',
+        updatedAt: new Date().toISOString()
+      });
+      logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: t.id, description: `Confirmação rápida: ${t.description}` }).catch(() => {});
+      toast.success('Lançamento confirmado como pago');
+    } catch (error) {
+      toast.error('Erro ao confirmar lançamento');
+      handleFirestoreError(error, OperationType.UPDATE, `transactions/${t.id}`);
+    }
+  };
+
   const resetForm = () => {
     setFormData({ 
       type: 'despesa', 
@@ -2601,6 +2619,11 @@ ${sample.map(t =>
                         )}
                         <td className="px-3 md:px-6 py-3 md:py-4 text-right">
                           <div className="flex justify-end space-x-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                            {(t.status === 'pendente' || t.status === 'pending') && (
+                              <button onClick={() => handleQuickConfirm(t)} disabled={isClosed} className={`p-2 rounded-lg bg-background shadow-sm border border-secondary/30 ${isClosed ? 'cursor-not-allowed opacity-50' : 'hover:text-fiducia-green hover:border-fiducia-green/30 transition-colors'}`} title="Confirmar pagamento">
+                                <CheckCircle className="h-4 w-4" />
+                              </button>
+                            )}
                             <button onClick={() => openEdit(t)} disabled={isClosed} className={`p-2 rounded-lg bg-background shadow-sm border border-secondary/30 ${isClosed ? 'cursor-not-allowed opacity-50' : 'hover:text-fiducia-blue hover:border-fiducia-blue/30 transition-colors'}`}>
                               <Edit className="h-4 w-4" />
                             </button>

@@ -2,12 +2,13 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, FileText, Calendar, HelpCircle, Sparkles, Loader2, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
+import { Wallet, CreditCard, Eye, EyeOff, Plus, Search, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, Sparkles, Loader2, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
-import { calculateInvoicePeriod, getPreviousPeriod, resolveAccountName } from '../lib/utils';
+import { calculateInvoicePeriod, getPreviousPeriod } from '../lib/utils';
 import { callGroq } from '../services/groqService';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
@@ -26,6 +27,7 @@ export function Dashboard() {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [periodFilter, setPeriodFilter] = useState<'week' | 'month' | 'year'>('month');
   const [extraSectionsOpen, setExtraSectionsOpen] = useState(false);
+  const [accountSearchTerm, setAccountSearchTerm] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -318,13 +320,6 @@ Regras:
   const overdueExpensesWithInvoices = allPendingExpenses.filter(t => t.date.split('T')[0] < currentDateStr);
 
   const totalPendingReceive = [...overdueIncomes, ...transactions.filter(t => isIncomeType(t) && isPendingStatus(t) && t.date.split('T')[0] >= currentDateStr && t.date.split('T')[0] <= thirtyDaysFromNow)].reduce((sum, t) => sum + t.amount, 0);
-
-  const formatShortDate = (dateStr: string) => {
-    const datePart = dateStr.split('T')[0];
-    const [year, month, day] = datePart.split('-');
-    const date = new Date(Number(year), Number(month) - 1, Number(day));
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
-  };
 
   const formatFullDate = (dateStr: string) => {
     const datePart = dateStr.split('T')[0];
@@ -673,61 +668,101 @@ Regras:
              </div>
            </div>
 
-           {/* Transactions Card */}
-           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-             <div className="flex items-center justify-between p-5 border-b border-border">
-               <div>
-                 <h3 className="text-[15px] font-bold text-foreground">Lançamentos Recentes</h3>
-                 <p className="text-[12px] text-muted-foreground">Últimas movimentações da sua conta</p>
-               </div>
-               <Link to="/transactions" className="text-[12px] text-fiducia-blue font-bold hover:underline">Ver todos</Link>
-             </div>
-             <div className="divide-y divide-border">
-                  {transactions.slice(0, 6).map(t => {
-                   const isIncome = t.type === 'receita' || t.type === 'income';
-                   const isTransfer = t.type === 'transferencia' || t.type === 'transfer';
-                   return (
-                   <div key={t.id} onClick={() => navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
-                     <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
-                       isIncome ? 'bg-fiducia-green/10 text-fiducia-green' :
-                       isTransfer ? 'bg-fiducia-blue/10 text-fiducia-blue' :
-                       'bg-fiducia-red/10 text-fiducia-red'
-                     }`}>
-                       {isIncome ? <ArrowUpRight className="w-5 h-5" /> :
-                        isTransfer ? <ArrowRightLeft className="w-5 h-5" /> :
-                        <ArrowDownRight className="w-5 h-5" />}
-                     </div>
-                     <div className="flex-1 min-w-0">
-                       <div className="text-[14px] font-semibold text-foreground truncate">{t.description}</div>
-                       <div className="text-[12px] text-muted-foreground truncate flex items-center gap-2">
-                         <span className="bg-secondary px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{categories.find(c => c.id === t.categoryId)?.name || 'Geral'}</span>
-                         <span>•</span>
-                         <span>{resolveAccountName(t.accountId, accounts, creditCards)}</span>
-                       </div>
-                     </div>
-                     <div className="text-right">
-                       <div className={`text-[15px] font-bold font-mono ${
-                         isIncome ? 'text-fiducia-green' :
-                         isTransfer ? 'text-fiducia-blue' :
-                         'text-foreground'
-                       }`}>
-                         {isIncome ? '+ ' : isTransfer ? '' : '- '}{formatCurrency(t.amount)}
-                       </div>
-                       <div className="text-[11px] text-muted-foreground font-medium">{formatShortDate(t.date)}</div>
-                     </div>
-                   </div>
-                   );
-                 })}
-               {transactions.length === 0 && (
-                 <div className="flex flex-col items-center justify-center p-12 text-center">
-                   <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-3">
-                     <FileText className="w-6 h-6 text-muted-foreground" />
-                   </div>
-                   <p className="text-[14px] font-medium text-muted-foreground">Nenhum lançamento encontrado</p>
-                 </div>
-               )}
-             </div>
-           </div>
+            {/* Accounts Card */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+              <div className="flex items-center justify-between p-5 border-b border-border">
+                <div>
+                  <h3 className="text-[15px] font-bold text-foreground">Contas</h3>
+                  <p className="text-[12px] text-muted-foreground">Busque e gerencie suas contas bancárias</p>
+                </div>
+                <Link to="/accounts" className="text-[12px] text-fiducia-blue font-bold hover:underline">Ver todas</Link>
+              </div>
+              <div className="p-3 border-b border-border">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar conta por nome, banco ou agência..."
+                    value={accountSearchTerm}
+                    onChange={(e) => setAccountSearchTerm(e.target.value)}
+                    className="pl-9 h-9 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
+                {(() => {
+                  const filtered = accountSearchTerm
+                    ? accounts.filter(a => {
+                        const term = accountSearchTerm.toLowerCase();
+                        return a.name.toLowerCase().includes(term)
+                          || (a.bankName || '').toLowerCase().includes(term)
+                          || (a.agency || '').toLowerCase().includes(term)
+                          || (a.accountNumber || '').toLowerCase().includes(term);
+                      })
+                    : accounts;
+
+                  if (filtered.length === 0) {
+                    if (accounts.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center p-12 text-center">
+                          <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-3">
+                            <Wallet className="w-6 h-6 text-muted-foreground" />
+                          </div>
+                          <p className="text-[14px] font-medium text-muted-foreground">Nenhuma conta cadastrada</p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="flex flex-col items-center justify-center p-8 text-center">
+                        <p className="text-[13px] font-medium text-muted-foreground">Nenhuma conta encontrada para "{accountSearchTerm}"</p>
+                      </div>
+                    );
+                  }
+
+                  return filtered.map(acc => {
+                    const typeLabel = acc.type === 'checking' || acc.type === 'corrente' ? 'Conta Corrente'
+                      : acc.type === 'savings' || acc.type === 'poupanca' ? 'Poupança'
+                      : acc.type === 'wallet' || acc.type === 'carteira' ? 'Carteira'
+                      : 'Investimento';
+                    return (
+                      <div key={acc.id} onClick={() => navigate('/accounts', { state: { editId: acc.id } })} className="flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                        <div className="w-10 h-10 rounded-xl bg-fiducia-blue/10 text-fiducia-blue flex items-center justify-center shrink-0">
+                          <Wallet className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[14px] font-semibold text-foreground truncate">{acc.name}</div>
+                          <div className="text-[12px] text-muted-foreground truncate">
+                            {typeLabel}
+                            {acc.bankName ? ` • ${acc.bankName}` : ''}
+                            {acc.agency ? ` • Ag ${acc.agency}` : ''}
+                            {acc.accountNumber ? ` • CC ${acc.accountNumber}` : ''}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-[15px] font-bold font-mono ${acc.balance >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                            {formatCurrency(acc.balance)}
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate('/accounts', { state: { editId: acc.id } }); }}
+                          className="p-2 rounded-lg opacity-0 group-hover:opacity-100 bg-background shadow-sm border border-secondary/30 hover:text-fiducia-blue hover:border-fiducia-blue/30 transition-all"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              <div className="p-3 bg-secondary/5 border-t border-border">
+                <Button
+                  variant="ghost"
+                  className="w-full text-[11px] font-bold uppercase tracking-widest text-fiducia-blue hover:bg-fiducia-blue/5"
+                  onClick={() => navigate('/accounts')}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Nova Conta
+                </Button>
+              </div>
+            </div>
         </div>
 
         {/* RIGHT COL */}
