@@ -723,7 +723,7 @@ Regras:
                   const periodName = new Date(cYear, cMonth - 1, 1).toLocaleDateString('pt-BR', { month: 'short' });
 
                   return (
-                    <div key={card.id} className="p-4 space-y-2">
+                    <div key={card.id} onClick={() => navigate('/cards', { state: { presetCardId: card.id } })} className="p-4 space-y-2 cursor-pointer hover:bg-secondary/50 transition-colors rounded-md">
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] font-bold text-foreground">{card.name}</span>
                         <span className={`text-[12px] font-mono font-bold ${invoiceTotal > 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>

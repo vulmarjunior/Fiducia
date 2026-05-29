@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, orderBy, writeBatch, runTransaction } from 'firebase/firestore';
@@ -121,6 +122,23 @@ export function CreditCards() {
       unsubscribeInv();
     };
   }, [user, isAuthReady]);
+
+  const location = useLocation();
+
+  useEffect(() => {
+    const presetCardId = (location.state as any)?.presetCardId;
+    if (presetCardId && cards.length > 0) {
+      const card = cards.find(c => c.id === presetCardId);
+      if (card) {
+        setSelectedCardForInvoice(card);
+        const currentPeriod = calculateInvoicePeriod(new Date(), card.closingDay, card.dueDay);
+        const [year, month] = currentPeriod.split('-').map(Number);
+        setSelectedInvoiceMonth(new Date(year, month - 1, 1));
+        setIsInvoiceModalOpen(true);
+        window.history.replaceState({}, '');
+      }
+    }
+  }, [location.state, cards]);
 
   const calculateInvoiceTotal = (cardId: string, closingDay: number, dueDay: number) => {
     const currentPeriod = calculateInvoicePeriod(new Date(), closingDay, dueDay);
