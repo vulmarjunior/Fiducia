@@ -270,6 +270,16 @@ export function Transactions() {
   }, [location.state, transactions]);
 
   useEffect(() => {
+    const presetAccountId = (location.state as any)?.presetAccountId;
+    const presetMonth = (location.state as any)?.presetMonth;
+    if (presetAccountId && transactions.length >= 0) {
+      setSelectedAccountFilter(presetAccountId);
+      if (presetMonth) setSelectedMonth(presetMonth);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state, transactions]);
+
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         const target = e.target as HTMLElement;

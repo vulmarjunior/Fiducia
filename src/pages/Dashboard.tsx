@@ -2,9 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { Wallet, CreditCard, Eye, EyeOff, Plus, Search, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, Sparkles, Loader2, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
+import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, Sparkles, Loader2, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
@@ -27,7 +26,6 @@ export function Dashboard() {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [periodFilter, setPeriodFilter] = useState<'week' | 'month' | 'year'>('month');
   const [extraSectionsOpen, setExtraSectionsOpen] = useState(false);
-  const [accountSearchTerm, setAccountSearchTerm] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -668,183 +666,92 @@ Regras:
              </div>
            </div>
 
-            {/* Accounts Card */}
+            {/* Minhas Contas Card */}
             <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
               <div className="flex items-center justify-between p-5 border-b border-border">
-                <div>
-                  <h3 className="text-[15px] font-bold text-foreground">Contas</h3>
-                  <p className="text-[12px] text-muted-foreground">Busque e gerencie suas contas bancárias</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-fiducia-blue/10 text-fiducia-blue flex items-center justify-center">
+                    <Wallet className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-[15px] font-bold text-foreground">Minhas Contas</h3>
                 </div>
-                <Link to="/accounts" className="text-[12px] text-fiducia-blue font-bold hover:underline">Ver todas</Link>
-              </div>
-              <div className="p-3 border-b border-border">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar conta por nome, banco ou agência..."
-                    value={accountSearchTerm}
-                    onChange={(e) => setAccountSearchTerm(e.target.value)}
-                    className="pl-9 h-9 text-sm"
-                  />
+                <div className="text-right">
+                  <div className="text-[14px] font-bold font-mono text-foreground">{formatCurrency(totalBalance)}</div>
+                  <div className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Saldo Total</div>
                 </div>
               </div>
-              <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
-                {(() => {
-                  const filtered = accountSearchTerm
-                    ? accounts.filter(a => {
-                        const term = accountSearchTerm.toLowerCase();
-                        return a.name.toLowerCase().includes(term)
-                          || (a.bankName || '').toLowerCase().includes(term)
-                          || (a.agency || '').toLowerCase().includes(term)
-                          || (a.accountNumber || '').toLowerCase().includes(term);
-                      })
-                    : accounts;
-
-                  if (filtered.length === 0) {
-                    if (accounts.length === 0) {
-                      return (
-                        <div className="flex flex-col items-center justify-center p-12 text-center">
-                          <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-3">
-                            <Wallet className="w-6 h-6 text-muted-foreground" />
-                          </div>
-                          <p className="text-[14px] font-medium text-muted-foreground">Nenhuma conta cadastrada</p>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div className="flex flex-col items-center justify-center p-8 text-center">
-                        <p className="text-[13px] font-medium text-muted-foreground">Nenhuma conta encontrada para "{accountSearchTerm}"</p>
-                      </div>
-                    );
-                  }
-
-                  return filtered.map(acc => {
-                    const typeLabel = acc.type === 'checking' || acc.type === 'corrente' ? 'Conta Corrente'
-                      : acc.type === 'savings' || acc.type === 'poupanca' ? 'Poupança'
-                      : acc.type === 'wallet' || acc.type === 'carteira' ? 'Carteira'
-                      : 'Investimento';
-                    return (
-                      <div key={acc.id} onClick={() => navigate('/accounts', { state: { editId: acc.id } })} className="flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
-                        <div className="w-10 h-10 rounded-xl bg-fiducia-blue/10 text-fiducia-blue flex items-center justify-center shrink-0">
-                          <Wallet className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[14px] font-semibold text-foreground truncate">{acc.name}</div>
-                          <div className="text-[12px] text-muted-foreground truncate">
-                            {typeLabel}
-                            {acc.bankName ? ` • ${acc.bankName}` : ''}
-                            {acc.agency ? ` • Ag ${acc.agency}` : ''}
-                            {acc.accountNumber ? ` • CC ${acc.accountNumber}` : ''}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className={`text-[15px] font-bold font-mono ${acc.balance >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
-                            {formatCurrency(acc.balance)}
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); navigate('/accounts', { state: { editId: acc.id } }); }}
-                          className="p-2 rounded-lg opacity-0 group-hover:opacity-100 bg-background shadow-sm border border-secondary/30 hover:text-fiducia-blue hover:border-fiducia-blue/30 transition-all"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      </div>
-                    );
-                  });
-                })()}
+              <div className="divide-y divide-border">
+                {accounts.map(acc => (
+                  <div key={acc.id} onClick={() => navigate('/transactions', { state: { presetAccountId: acc.id, presetMonth: currentMonthStr } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold text-foreground truncate">{acc.name}</div>
+                      <div className="text-[11px] text-muted-foreground truncate capitalize">{acc.type === 'checking' || acc.type === 'corrente' ? 'Conta Corrente' : acc.type === 'savings' || acc.type === 'poupanca' ? 'Poupança' : acc.type === 'wallet' || acc.type === 'carteira' ? 'Carteira' : 'Investimento'}</div>
+                    </div>
+                    <div className={`text-[15px] font-bold font-mono ${acc.balance >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                      {formatCurrency(acc.balance)}
+                    </div>
+                  </div>
+                ))}
+                {accounts.length === 0 && (
+                  <div className="text-center p-6 text-[13px] text-muted-foreground italic">Nenhuma conta cadastrada</div>
+                )}
               </div>
               <div className="p-3 bg-secondary/5 border-t border-border">
-                <Button
-                  variant="ghost"
-                  className="w-full text-[11px] font-bold uppercase tracking-widest text-fiducia-blue hover:bg-fiducia-blue/5"
-                  onClick={() => navigate('/accounts')}
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Nova Conta
-                </Button>
+                <Link to="/accounts" className="block text-center py-2 text-[11px] font-bold uppercase tracking-widest text-fiducia-blue hover:bg-fiducia-blue/5 rounded-lg transition-colors">Gerenciar Contas</Link>
+              </div>
+            </div>
+
+            {/* Meus Cartões Card */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+              <div className="flex items-center gap-2 p-5 border-b border-border">
+                <div className="w-8 h-8 rounded-lg bg-fiducia-amber/10 text-fiducia-amber flex items-center justify-center">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <h3 className="text-[15px] font-bold text-foreground">Meus Cartões</h3>
+              </div>
+              <div className="divide-y divide-border">
+                {creditCards.map(card => {
+                  const currentPeriod = calculateInvoicePeriod(new Date(), card.closingDay, card.dueDay);
+                  const periodTx = transactions.filter(t => (t.accountId === card.id || t.destinationAccountId === card.id) && t.invoicePeriod === currentPeriod);
+                  const expenses = periodTx.filter(t => t.type === 'expense' || t.type === 'despesa').reduce((acc, t) => acc + t.amount, 0);
+                  const payments = periodTx.filter(t => (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === card.id).reduce((acc, t) => acc + t.amount, 0);
+                  const incomes = periodTx.filter(t => (t.type === 'income' || t.type === 'receita') && t.accountId === card.id).reduce((acc, t) => acc + t.amount, 0);
+                  const invoiceTotal = Math.max(0, expenses - payments - incomes);
+                  const availableLimit = card.limit - invoiceTotal;
+                  const usagePct = card.limit > 0 ? (invoiceTotal / card.limit * 100) : 0;
+                  const [cYear, cMonth] = currentPeriod.split('-').map(Number);
+                  const periodName = new Date(cYear, cMonth - 1, 1).toLocaleDateString('pt-BR', { month: 'short' });
+
+                  return (
+                    <div key={card.id} className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] font-bold text-foreground">{card.name}</span>
+                        <span className={`text-[12px] font-mono font-bold ${invoiceTotal > 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
+                          {formatCurrency(invoiceTotal)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-muted-foreground">Disponível: {formatCurrency(Math.max(0, availableLimit))}</span>
+                        <span className="text-muted-foreground">{periodName}</span>
+                      </div>
+                      <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-fiducia-amber" style={{ width: `${Math.min(usagePct, 100)}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {creditCards.length === 0 && (
+                  <div className="text-center p-6 text-[13px] text-muted-foreground italic">Nenhum cartão cadastrado</div>
+                )}
+              </div>
+              <div className="p-3 bg-secondary/5 border-t border-border">
+                <Link to="/credit-cards" className="block text-center py-2 text-[11px] font-bold uppercase tracking-widest text-fiducia-blue hover:bg-fiducia-blue/5 rounded-lg transition-colors">Gerenciar Cartões</Link>
               </div>
             </div>
         </div>
 
         {/* RIGHT COL */}
         <div className="flex flex-col gap-6">
-          {/* Accounts */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-            <div className="flex items-center justify-between p-5 border-b border-border bg-secondary/10">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-fiducia-blue/10 text-fiducia-blue flex items-center justify-center">
-                  <Wallet className="w-4 h-4" />
-                </div>
-                <h3 className="text-[15px] font-bold text-foreground">Contas e Cartões</h3>
-              </div>
-              <div className="text-right">
-                <div className="text-[14px] font-bold font-mono text-foreground">{formatCurrency(totalBalance)}</div>
-                <div className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Saldo em Contas</div>
-              </div>
-            </div>
-            <div className="divide-y divide-border">
-              {accounts.map(acc => (
-                <div key={acc.id} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold text-foreground truncate">{acc.name}</div>
-                    <div className="text-[11px] text-muted-foreground truncate capitalize">{acc.type === 'corrente' || acc.type === 'checking' ? 'Conta Corrente' : acc.type === 'poupanca' || acc.type === 'savings' ? 'Poupança' : 'Carteira'}</div>
-                  </div>
-                  <div className={`text-[15px] font-bold font-mono ${acc.balance >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
-                    {formatCurrency(acc.balance)}
-                  </div>
-                </div>
-              ))}
-              
-              {creditCards.length > 0 && (
-                <>
-                  <div className="px-4 py-2 bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Cartões de Crédito</div>
-                  {creditCards.map(card => {
-                    const currentPeriod = calculateInvoicePeriod(new Date(), card.closingDay, card.dueDay);
-                    const previousPeriod = getPreviousPeriod(currentPeriod);
-                    
-                    const calculateBalance = (period: string) => {
-                      const periodTx = transactions.filter(t => (t.accountId === card.id || t.destinationAccountId === card.id) && t.invoicePeriod === period);
-                      const expenses = periodTx.filter(t => t.type === 'expense' || t.type === 'despesa').reduce((acc, t) => acc + t.amount, 0);
-                      const payments = periodTx.filter(t => (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === card.id).reduce((acc, t) => acc + t.amount, 0);
-                      const incomes = periodTx.filter(t => (t.type === 'income' || t.type === 'receita') && t.accountId === card.id).reduce((acc, t) => acc + t.amount, 0);
-                      return expenses - payments - incomes;
-                    };
-
-                    const prevBalance = calculateBalance(previousPeriod);
-                    
-                    let displayPeriod = currentPeriod;
-                    if (prevBalance > 0.01) {
-                      displayPeriod = previousPeriod;
-                    }
-
-                    const [pYear, pMonth] = displayPeriod.split('-').map(Number);
-                    const periodName = new Date(pYear, pMonth - 1, 1).toLocaleDateString('pt-BR', { month: 'long' });
-                    
-                    const invoiceTotal = calculateBalance(displayPeriod);
-                    
-                    return (
-                      <div key={card.id} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-bold text-foreground truncate">{card.name}</div>
-                          <div className="text-[11px] text-muted-foreground truncate capitalize">Fatura de {periodName}</div>
-                        </div>
-                        <div className={`text-[15px] font-bold font-mono ${displayPeriod === previousPeriod ? 'text-fiducia-red' : 'text-foreground'}`}>
-                          {formatCurrency(invoiceTotal)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-
-              {accounts.length === 0 && creditCards.length === 0 && (
-                <div className="text-center p-6 text-[13px] text-muted-foreground italic">Nenhuma conta ou cartão cadastrado</div>
-              )}
-            </div>
-            <div className="p-3 bg-secondary/5 border-t border-border flex gap-2">
-              <Link to="/accounts" className="flex-1 text-center py-2 text-[11px] font-bold uppercase tracking-widest text-fiducia-blue hover:bg-fiducia-blue/5 rounded-lg transition-colors">Contas</Link>
-              <Link to="/credit-cards" className="flex-1 text-center py-2 text-[11px] font-bold uppercase tracking-widest text-fiducia-blue hover:bg-fiducia-blue/5 rounded-lg transition-colors">Cartões</Link>
-            </div>
-          </div>
 
           {/* Bills to Pay */}
           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
