@@ -50,7 +50,13 @@
 - **Status**: ✅ Confirmado
 - **Data**: 2026-05-28
 - **Contexto**: Card "Lançamentos Recentes" era inútil (ordem aleatória, sem filtro). Card lateral "Contas e Cartões" duplicava informação.
-- **Solução**: Substituído por dois cards na coluna esquerda: "Minhas Contas" (lista com saldo, clique → `/transactions` filtrado por conta+mês) e "Meus Cartões" (fatura prévia + limite disponível + barra de uso). Card lateral removido.
+- **Solução**: Substituído por dois cards na coluna esquerda: "Minhas Contas" (lista com saldo, clique → `/transactions` filtrado por conta+mês) e "Meus Cartões" (fatura prévia + limite disponível + barra de uso, clique → `/cards` com modal de fatura aberto). Card lateral removido.
+
+### CategorySelect — Componente Compartilhado de Categoria
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-28
+- **Contexto**: Modal de lançamento do cartão de crédito usava shadcn Select simples sem ícones, busca ou hierarquia. Modal de lançamentos usava react-select com busca, ícones e hierarquia — comportamento e visual divergentes.
+- **Solução**: Extraído `CategorySelect` (`src/components/CategorySelect.tsx`) com react-select, busca textual, ícones por categoria e suporte a hierarquia pai/filho. Usado tanto no modal de lançamentos quanto nos modais do cartão (novo e edição). Funções duplicadas `renderCategoryOptions` e `getCategoryOptions` removidas do Transactions.
 
 ### Navegação com preset de filtro
 - **Status**: ✅ Confirmado
