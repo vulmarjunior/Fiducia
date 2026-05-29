@@ -2,21 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, orderBy, writeBatch, runTransaction } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
-import { calculateInvoicePeriod, getNextPeriod, resolveAccountName } from '../lib/utils';
+import { calculateInvoicePeriod, resolveAccountName } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
-import { CategorySelect } from '../components/CategorySelect';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,8 +23,10 @@ import {
 } from '../components/ui/dropdown-menu';
 import { getCategoryIcon } from '../lib/categoryIcons';
 import { getCardBrandDetails } from '../utils/cardBrandUtils';
+import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 
 export function CreditCards() {
+  const { open: openTxDialog } = useTransactionDialog();
   const { user, isAuthReady } = useAuth();
   const [cards, setCards] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -49,27 +49,6 @@ export function CreditCards() {
   const [categories, setCategories] = useState<any[]>([]);
   const [closedPeriods, setClosedPeriods] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [isEditTxDialogOpen, setIsEditTxDialogOpen] = useState(false);
-  const [isNewTxDialogOpen, setIsNewTxDialogOpen] = useState(false);
-  const [editingTx, setEditingTx] = useState<any>(null);
-  const [editTxFormData, setEditTxFormData] = useState({
-    description: '',
-    amount: 0,
-    date: '',
-    categoryId: '',
-    invoicePeriod: ''
-  });
-  const [newTxFormData, setNewTxFormData] = useState({
-    description: '',
-    amount: 0,
-    date: new Date().toISOString().split('T')[0],
-    categoryId: '',
-    invoicePeriod: '',
-    ccRecurrenceType: 'avulso',
-    installmentsCount: '2',
-    frequency: 'mensal',
-    billingDay: new Date().getDate().toString()
-  });
   const [txToDelete, setTxToDelete] = useState<any>(null);
   const [deleteScope, setDeleteScope] = useState('only');
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
@@ -306,169 +285,6 @@ export function CreditCards() {
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'transactions');
       toast.error('Erro ao registrar pagamento');
-    }
-  };
-
-  const handleNewTxSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCardForInvoice || !user) return;
-
-    if (isPeriodClosed(newTxFormData.date, selectedCardForInvoice.id)) {
-      toast.error('Não é possível adicionar um lançamento em um mês fechado.');
-      return;
-    }
-
-    const amount = newTxFormData.amount;
-    
-    try {
-      const batch = writeBatch(db);
-      const baseDate = new Date(newTxFormData.date);
-      const initialInvoicePeriod = newTxFormData.invoicePeriod || calculateInvoicePeriod(newTxFormData.date, selectedCardForInvoice.closingDay, selectedCardForInvoice.dueDay);
-
-      if (newTxFormData.ccRecurrenceType === 'parcelado') {
-        const installments = parseInt(newTxFormData.installmentsCount) || 2;
-        const installmentId = crypto.randomUUID();
-        const installmentBase = Math.floor((amount / installments) * 100) / 100;
-        const remainder = Math.round((amount - (installmentBase * installments)) * 100) / 100;
-
-        let currentInvoicePeriod = initialInvoicePeriod;
-
-        for (let i = 1; i <= installments; i++) {
-          const date = new Date(newTxFormData.date);
-          date.setUTCMonth(date.getUTCMonth() + (i - 1));
-          const dateStr = date.toISOString();
-
-          const txRef = doc(collection(db, 'transactions'));
-          const currentAmount = i === 1 ? installmentBase + remainder : installmentBase;
-          
-          const txData = {
-            userId: user.uid,
-            type: 'expense',
-            description: `${newTxFormData.description} (${i}/${installments})`,
-            amount: currentAmount,
-            date: dateStr,
-            categoryId: newTxFormData.categoryId,
-            accountId: selectedCardForInvoice.id,
-            status: 'realizado',
-            invoicePeriod: currentInvoicePeriod,
-            creditCardId: selectedCardForInvoice.id,
-            installmentId,
-            installmentNumber: i,
-            totalInstallments: installments,
-            ccRecurrenceType: 'parcelado',
-            createdAt: new Date().toISOString()
-          };
-          batch.set(txRef, txData);
-          currentInvoicePeriod = getNextPeriod(currentInvoicePeriod);
-        }
-      } else if (newTxFormData.ccRecurrenceType === 'fixo') {
-        // 1. Create Recurrence Rule
-        const ruleRef = doc(collection(db, 'recurrenceRules'));
-        const ruleData = {
-          userId: user.uid,
-          accountId: selectedCardForInvoice.id,
-          categoryId: newTxFormData.categoryId,
-          amount,
-          description: newTxFormData.description,
-          frequency: newTxFormData.frequency,
-          billingDay: parseInt(newTxFormData.billingDay),
-          status: 'active',
-          type: 'expense',
-          createdAt: new Date().toISOString(),
-          startDate: new Date(newTxFormData.date).toISOString()
-        };
-        batch.set(ruleRef, ruleData);
-
-        // 2. Create First Transaction
-        const txRef = doc(collection(db, 'transactions'));
-        const txData = {
-          userId: user.uid,
-          type: 'expense',
-          description: newTxFormData.description,
-          amount: amount,
-          date: baseDate.toISOString(),
-          categoryId: newTxFormData.categoryId,
-          accountId: selectedCardForInvoice.id,
-          status: 'realizado',
-          invoicePeriod: initialInvoicePeriod,
-          creditCardId: selectedCardForInvoice.id,
-          parentId: ruleRef.id,
-          ccRecurrenceType: 'fixo',
-          createdAt: new Date().toISOString()
-        };
-        batch.set(txRef, txData);
-      } else {
-        // Avulso
-        const txRef = doc(collection(db, 'transactions'));
-        const txData = {
-          userId: user.uid,
-          type: 'expense',
-          description: newTxFormData.description,
-          amount: amount,
-          date: baseDate.toISOString(),
-          categoryId: newTxFormData.categoryId,
-          accountId: selectedCardForInvoice.id,
-          status: 'realizado',
-          invoicePeriod: initialInvoicePeriod,
-          creditCardId: selectedCardForInvoice.id,
-          ccRecurrenceType: 'avulso',
-          createdAt: new Date().toISOString()
-        };
-        batch.set(txRef, txData);
-      }
-
-      await batch.commit();
-      logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: 'batch', description: `Lançamento adicionado na fatura: ${newTxFormData.description}` }).catch(() => {});
-      toast.success('Lançamento(s) adicionado(s) com sucesso');
-      setIsNewTxDialogOpen(false);
-      setNewTxFormData({
-        description: '',
-        amount: 0,
-        date: new Date().toISOString().split('T')[0],
-        categoryId: '',
-        invoicePeriod: '',
-        ccRecurrenceType: 'avulso',
-        installmentsCount: '2',
-        frequency: 'mensal',
-        billingDay: new Date().getDate().toString()
-      });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'transactions');
-      toast.error('Erro ao adicionar lançamento(s)');
-    }
-  };
-
-  const handleEditTxSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingTx || !selectedCardForInvoice) return;
-
-    if (isPeriodClosed(editingTx.date, editingTx.accountId)) {
-      toast.error('Não é possível editar um lançamento de um mês fechado.');
-      return;
-    }
-
-    const amount = editTxFormData.amount;
-    const batch = writeBatch(db);
-    
-    try {
-      const updateData: any = {
-        description: editTxFormData.description,
-        amount: amount,
-        date: new Date(editTxFormData.date).toISOString(),
-        categoryId: editTxFormData.categoryId,
-        updatedAt: new Date().toISOString(),
-        invoicePeriod: editTxFormData.invoicePeriod || calculateInvoicePeriod(editTxFormData.date, selectedCardForInvoice.closingDay, selectedCardForInvoice.dueDay),
-        creditCardId: selectedCardForInvoice.id
-      };
-
-      batch.update(doc(db, 'transactions', editingTx.id), updateData);
-      await batch.commit();
-      logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingTx.id, description: `Lançamento editado na fatura: ${updateData.description}` }).catch(() => {});
-      toast.success('Lançamento atualizado com sucesso');
-      setIsEditTxDialogOpen(false);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'transactions');
-      toast.error('Erro ao atualizar lançamento');
     }
   };
 
@@ -874,7 +690,10 @@ export function CreditCards() {
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => setIsNewTxDialogOpen(true)}>
+                <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => {
+                  const period = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
+                  openTxDialog({ presetAccountId: selectedCardForInvoice?.id, presetMonth: period });
+                }}>
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline">Novo Lançamento</span>
                 </Button>
@@ -1083,17 +902,7 @@ export function CreditCards() {
                                           Mover p/ Seguinte
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
-                                          onClick={() => {
-                                            setEditingTx(t);
-                                            setEditTxFormData({
-                                              description: t.description,
-                                              amount: t.amount.toString().replace('.', ','),
-                                              date: t.date.split('T')[0],
-                                              categoryId: t.categoryId || '',
-                                              invoicePeriod: t.invoicePeriod || ''
-                                            });
-                                            setIsEditTxDialogOpen(true);
-                                          }}
+                                          onClick={() => openTxDialog({ editId: t.id })}
                                         >
                                           <Edit className="w-4 h-4 mr-2" />
                                           Editar
@@ -1218,281 +1027,6 @@ export function CreditCards() {
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete}>Excluir</Button>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* New Transaction Dialog */}
-      <Dialog open={isNewTxDialogOpen} onOpenChange={setIsNewTxDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-fiducia-blue" />
-              Novo Lançamento
-            </DialogTitle>
-            <DialogDescription>
-              Adicione um novo lançamento na fatura do cartão.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleNewTxSubmit} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-desc">Descrição</Label>
-              <Input
-                id="new-desc"
-                value={newTxFormData.description}
-                onChange={(e) => setNewTxFormData({ ...newTxFormData, description: e.target.value })}
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <MoneyInput
-                id="new-amount"
-                label="Valor"
-                value={newTxFormData.amount}
-                onChange={(v) => setNewTxFormData({ ...newTxFormData, amount: v })}
-                required
-              />
-              <div className="space-y-2">
-                <Label htmlFor="new-date">Data</Label>
-                <Input
-                  id="new-date"
-                  type="date"
-                  value={newTxFormData.date}
-                  onChange={(e) => {
-                    const newDate = e.target.value;
-                    let newInvoicePeriod = newTxFormData.invoicePeriod;
-                    if (selectedCardForInvoice) {
-                      newInvoicePeriod = calculateInvoicePeriod(newDate, selectedCardForInvoice.closingDay, selectedCardForInvoice.dueDay);
-                    }
-                    setNewTxFormData({ ...newTxFormData, date: newDate, invoicePeriod: newInvoicePeriod });
-                  }}
-                  required
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Categoria</Label>
-                <CategorySelect
-                  categories={categories}
-                  value={newTxFormData.categoryId}
-                  onChange={(val) => setNewTxFormData({ ...newTxFormData, categoryId: val })}
-                  typeFilter="expense"
-                  placeholder="Buscar categoria..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-invoice">Fatura</Label>
-                <Input
-                  id="new-invoice"
-                  type="month"
-                  value={newTxFormData.invoicePeriod}
-                  onChange={(e) => setNewTxFormData({ ...newTxFormData, invoicePeriod: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-3 pt-2 border-t">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Recorrência</Label>
-                <div className="flex bg-secondary/30 p-1 rounded-lg gap-1">
-                  <Button 
-                    type="button"
-                    variant={newTxFormData.ccRecurrenceType === 'avulso' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="h-7 text-[10px] font-bold uppercase px-3"
-                    onClick={() => setNewTxFormData({ ...newTxFormData, ccRecurrenceType: 'avulso' })}
-                  >
-                    Avulso
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant={newTxFormData.ccRecurrenceType === 'parcelado' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="h-7 text-[10px] font-bold uppercase px-3"
-                    onClick={() => setNewTxFormData({ ...newTxFormData, ccRecurrenceType: 'parcelado' })}
-                  >
-                    Parcelado
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant={newTxFormData.ccRecurrenceType === 'fixo' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="h-7 text-[10px] font-bold uppercase px-3"
-                    onClick={() => setNewTxFormData({ ...newTxFormData, ccRecurrenceType: 'fixo' })}
-                  >
-                    Fixo
-                  </Button>
-                </div>
-              </div>
-
-              {newTxFormData.ccRecurrenceType === 'parcelado' && (
-                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 space-y-1.5">
-                      <Label htmlFor="installments" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Número de Parcelas</Label>
-                      <Input
-                        id="installments"
-                        type="number"
-                        min="2"
-                        max="99"
-                        value={newTxFormData.installmentsCount}
-                        onChange={(e) => setNewTxFormData({ ...newTxFormData, installmentsCount: e.target.value })}
-                        className="h-10"
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Preview das parcelas */}
-                  {(() => {
-                    const total = newTxFormData.amount || 0;
-                    const count = parseInt(newTxFormData.installmentsCount) || 2;
-                    if (total <= 0) return null;
-                    
-                    const installmentBase = Math.floor((total / count) * 100) / 100;
-                    const remainder = Math.round((total - (installmentBase * count)) * 100) / 100;
-                    const firstInstallment = installmentBase + remainder;
-                    
-                    return (
-                      <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 space-y-1">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-gray-500">Parcela 1:</span>
-                          <span className="font-bold text-primary">{firstInstallment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                        </div>
-                        {count > 1 && (
-                          <div className="flex justify-between text-[11px]">
-                            <span className="text-gray-500">Demais {count - 1} parcelas:</span>
-                            <span className="font-medium text-gray-700">{installmentBase.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                          </div>
-                        )}
-                        <div className="pt-1 mt-1 border-t border-primary/10 flex justify-between text-[11px] font-bold text-gray-800">
-                          <span>Total:</span>
-                          <span>{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} em {count} parcelas</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {newTxFormData.ccRecurrenceType === 'fixo' && (
-                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="frequency" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Frequência</Label>
-                    <Select value={newTxFormData.frequency} onValueChange={(v) => setNewTxFormData({...newTxFormData, frequency: v})}>
-                      <SelectTrigger id="frequency" className="h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mensal">Mensal</SelectItem>
-                        <SelectItem value="semanal">Semanal</SelectItem>
-                        <SelectItem value="anual">Anual</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="billingDay" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Dia de Cobrança</Label>
-                    <Input 
-                      id="billingDay" 
-                      type="number" 
-                      min="1" 
-                      max="31"
-                      value={newTxFormData.billingDay} 
-                      onChange={(e) => setNewTxFormData({...newTxFormData, billingDay: e.target.value})} 
-                      className="h-10"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsNewTxDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">Salvar</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Transaction Dialog */}
-      <Dialog open={isEditTxDialogOpen} onOpenChange={setIsEditTxDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="w-5 h-5 text-fiducia-blue" />
-              Editar Lançamento
-            </DialogTitle>
-            <DialogDescription>
-              Altere os dados do lançamento do cartão de crédito.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditTxSubmit} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-desc">Descrição</Label>
-              <Input
-                id="edit-desc"
-                value={editTxFormData.description}
-                onChange={(e) => setEditTxFormData({ ...editTxFormData, description: e.target.value })}
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <MoneyInput
-                id="edit-amount"
-                label="Valor"
-                value={editTxFormData.amount}
-                onChange={(v) => setEditTxFormData({ ...editTxFormData, amount: v })}
-                required
-              />
-              <div className="space-y-2">
-                <Label htmlFor="edit-date">Data</Label>
-                <Input
-                  id="edit-date"
-                  type="date"
-                  value={editTxFormData.date}
-                  onChange={(e) => {
-                    const newDate = e.target.value;
-                    let newInvoicePeriod = editTxFormData.invoicePeriod;
-                    if (selectedCardForInvoice) {
-                      newInvoicePeriod = calculateInvoicePeriod(newDate, selectedCardForInvoice.closingDay, selectedCardForInvoice.dueDay);
-                    }
-                    setEditTxFormData({ ...editTxFormData, date: newDate, invoicePeriod: newInvoicePeriod });
-                  }}
-                  required
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Categoria</Label>
-                <CategorySelect
-                  categories={categories}
-                  value={editTxFormData.categoryId}
-                  onChange={(val) => setEditTxFormData({ ...editTxFormData, categoryId: val })}
-                  typeFilter="expense"
-                  placeholder="Buscar categoria..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-invoice">Fatura</Label>
-                <Input
-                  id="edit-invoice"
-                  type="month"
-                  value={editTxFormData.invoicePeriod}
-                  onChange={(e) => setEditTxFormData({ ...editTxFormData, invoicePeriod: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsEditTxDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" className="bg-fiducia-blue hover:bg-fiducia-blue/90">
-                Salvar Alterações
-              </Button>
-            </DialogFooter>
-          </form>
         </DialogContent>
       </Dialog>
 

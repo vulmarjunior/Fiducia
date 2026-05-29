@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, Sparkles, Loader2, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
@@ -13,6 +14,7 @@ import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
  
 export function Dashboard() {
+  const { open: openTxDialog } = useTransactionDialog();
   const { user, isAuthReady } = useAuth();
   const [accounts, setAccounts] = useState<any[]>([]);
   const [creditCards, setCreditCards] = useState<any[]>([]);
@@ -434,7 +436,7 @@ Regras:
               { label: "Dica IA", desc: "O assistente financeiro analisa seus dados e sugere alertas personalizados sobre seus gastos." },
             ]}
           />
-          <Button nativeButton={false} className="h-10 px-4 text-sm font-semibold rounded-xl gap-2 bg-primary text-primary-foreground hover:opacity-90 transition-opacity" render={<Link to="/transactions" />}>
+          <Button className="h-10 px-4 text-sm font-semibold rounded-xl gap-2 bg-primary text-primary-foreground hover:opacity-90 transition-opacity" onClick={() => openTxDialog()}>
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo lançamento</span>
           </Button>
         </div>
@@ -769,7 +771,7 @@ Regras:
             </div>
             <div className="divide-y divide-border">
               {overdueExpensesWithInvoices.map(t => (
-                <div key={t.id} onClick={() => !t.isInvoice && navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <div key={t.id} onClick={() => !t.isInvoice && openTxDialog({ editId: t.id })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
                   <div className="w-1.5 h-1.5 rounded-full bg-fiducia-red shrink-0 animate-pulse" />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-bold text-foreground truncate">{t.description}</div>
@@ -779,7 +781,7 @@ Regras:
                 </div>
               ))}
               {upcomingExpensesWithInvoices.map(t => (
-                <div key={t.id} onClick={() => !t.isInvoice && navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <div key={t.id} onClick={() => !t.isInvoice && openTxDialog({ editId: t.id })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
                   <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.isInvoice ? 'bg-fiducia-blue' : 'bg-fiducia-amber'}`} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-bold text-foreground truncate">{t.description}</div>
@@ -810,7 +812,7 @@ Regras:
             </div>
             <div className="divide-y divide-border">
               {overdueIncomes.map(t => (
-                <div key={t.id} onClick={() => navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <div key={t.id} onClick={() => openTxDialog({ editId: t.id })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
                   <div className="w-1.5 h-1.5 rounded-full bg-fiducia-red shrink-0 animate-pulse" />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-bold text-foreground truncate">{t.description}</div>
@@ -820,7 +822,7 @@ Regras:
                 </div>
               ))}
               {upcomingIncomes.map(t => (
-                <div key={t.id} onClick={() => navigate('/transactions', { state: { editId: t.id } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <div key={t.id} onClick={() => openTxDialog({ editId: t.id })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
                   <div className="w-1.5 h-1.5 rounded-full bg-fiducia-green shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-bold text-foreground truncate">{t.description}</div>

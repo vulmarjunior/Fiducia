@@ -1,5 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { TransactionDialogProvider } from '../contexts/TransactionDialogContext';
+import { TransactionDialog } from './TransactionDialog';
 import { LayoutDashboard, Receipt, CreditCard, Wallet, LogOut, Menu, Tags, PieChart, Target, FileText, Download, Tag, ListChecks, History, Settings, Sun, Moon } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
@@ -77,6 +79,8 @@ export function Layout() {
     : user?.email?.[0].toUpperCase() || 'U';
 
   return (
+    <TransactionDialogProvider>
+    <TransactionDialog />
     <div className="flex h-screen bg-background text-foreground font-sans">
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-[240px] bg-card border-r border-border flex flex-col transform transition-transform duration-200 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:relative shrink-0`}>
@@ -207,5 +211,6 @@ export function Layout() {
         />
       )}
     </div>
+    </TransactionDialogProvider>
   );
 }
