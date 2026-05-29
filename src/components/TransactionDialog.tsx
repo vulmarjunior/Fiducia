@@ -785,29 +785,29 @@ export function TransactionDialog() {
                     <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Categoria</Label>
                     <div className="flex gap-1.5 items-center">
                       <div className="flex-1 min-w-0">
-                        <CategorySelect
-                          categories={categories}
-                          value={formData.categoryId}
-                          onChange={(val) => setFormData({ ...formData, categoryId: val })}
-                          typeFilter={formData.type}
-                          placeholder="Buscar..."
-                        />
+                          <CategorySelect
+                            categories={categories}
+                            value={formData.categoryId}
+                            onChange={(val) => setFormData({ ...formData, categoryId: val })}
+                            typeFilter={formData.type}
+                            placeholder="Buscar..."
+                          />
+                        </div>
+                        <Button type="button" variant="outline" size="icon" onClick={() => setIsNewCategoryOpen(true)} className="h-12 w-12 shrink-0 rounded-xl bg-muted border-none hover:bg-muted">
+                          <Plus className="h-5 w-5 text-muted-foreground" />
+                        </Button>
                       </div>
-                      <Button type="button" variant="outline" size="icon" onClick={() => setIsNewCategoryOpen(true)} className="h-12 w-12 shrink-0 rounded-xl bg-muted border-none hover:bg-muted">
-                        <Plus className="h-5 w-5 text-muted-foreground" />
-                      </Button>
-                    </div>
-                  </>
-                ) : isCreditCard ? (
-                  <>
-                    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Categoria</Label>
-                    <div className="flex gap-1.5 items-center">
-                      <div className="flex-1 min-w-0">
-                        <CategorySelect
-                          categories={categories}
-                          value={formData.categoryId}
-                          onChange={(val) => setFormData({ ...formData, categoryId: val })}
-                          typeFilter="expense"
+                    </>
+                  ) : isCreditCard ? (
+                    <>
+                      <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Categoria</Label>
+                      <div className="flex gap-1.5 items-center">
+                        <div className="flex-1 min-w-0">
+                          <CategorySelect
+                            categories={categories}
+                            value={formData.categoryId}
+                            onChange={(val) => setFormData({ ...formData, categoryId: val })}
+                            typeFilter="despesa"
                           placeholder="Buscar..."
                         />
                       </div>

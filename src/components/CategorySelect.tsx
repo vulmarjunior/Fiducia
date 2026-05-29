@@ -32,7 +32,12 @@ const getCategoryOptions = (cats: any[], parentId: string | null = null, level: 
 };
 
 export function CategorySelect({ categories, value, onChange, typeFilter, placeholder }: CategorySelectProps) {
-  const filtered = typeFilter ? categories.filter(c => c.type === typeFilter) : categories;
+  const filtered = typeFilter ? categories.filter(c => {
+    if (c.type === typeFilter) return true;
+    if ((typeFilter === 'expense' || typeFilter === 'despesa') && (c.type === 'expense' || c.type === 'despesa')) return true;
+    if ((typeFilter === 'income' || typeFilter === 'receita') && (c.type === 'income' || c.type === 'receita')) return true;
+    return false;
+  }) : categories;
   const opts = getCategoryOptions(filtered);
 
   if (opts.length === 0) {
