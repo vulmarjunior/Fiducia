@@ -10,7 +10,7 @@ import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, Selec
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { MoneyInput } from './MoneyInput';
 import { CategorySelect } from './CategorySelect';
-import { calculateInvoicePeriod, getNextPeriod } from '../lib/utils';
+import { calculateInvoicePeriod, getNextPeriod, dateToLocalISOString, parseLocalDate } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { toast } from 'sonner';
 import { Repeat, MessageSquare, Tag, Paperclip, ThumbsUp, ThumbsDown, Plus } from 'lucide-react';
@@ -314,8 +314,8 @@ export function TransactionDialog() {
             : calculateInvoicePeriod(formData.date, card?.closingDay || 1, card?.dueDay || 1);
 
           for (let i = 0; i < numInstallments; i++) {
-            const date = new Date(formData.date);
-            date.setUTCMonth(date.getUTCMonth() + i);
+            const date = parseLocalDate(formData.date);
+            date.setMonth(date.getMonth() + i);
             const dateStr = date.toISOString();
             const instAmount = i === 0 ? installmentBase + remainder : installmentBase;
 
@@ -368,16 +368,16 @@ export function TransactionDialog() {
           status: 'active',
           type: 'expense',
           createdAt: new Date().toISOString(),
-          startDate: new Date(formData.date).toISOString()
+          startDate: dateToLocalISOString(formData.date)
         };
         const ruleRef = doc(collection(db, 'recurrenceRules'));
         batch.set(ruleRef, ruleData);
 
         for (let i = 0; i < iterations; i++) {
-          const date = new Date(formData.date);
-          if (formData.frequency === 'semanal') date.setUTCDate(date.getUTCDate() + (i * 7));
-          else if (formData.frequency === 'mensal') date.setUTCMonth(date.getUTCMonth() + i);
-          else if (formData.frequency === 'anual') date.setUTCFullYear(date.getUTCFullYear() + i);
+          const date = parseLocalDate(formData.date);
+          if (formData.frequency === 'semanal') date.setDate(date.getDate() + (i * 7));
+          else if (formData.frequency === 'mensal') date.setMonth(date.getMonth() + i);
+          else if (formData.frequency === 'anual') date.setFullYear(date.getFullYear() + i);
           const dateStr = date.toISOString();
 
           const tData: any = {
@@ -412,11 +412,11 @@ export function TransactionDialog() {
           }
 
           for (let i = 0; i < iterations; i++) {
-            const date = new Date(formData.date);
+            const date = parseLocalDate(formData.date);
             if (!isCreditCard && formData.isRecurring && i > 0) {
-              if (formData.frequency === 'semanal') date.setUTCDate(date.getUTCDate() + (i * 7));
-              else if (formData.frequency === 'mensal') date.setUTCMonth(date.getUTCMonth() + i);
-              else if (formData.frequency === 'anual') date.setUTCFullYear(date.getUTCFullYear() + i);
+              if (formData.frequency === 'semanal') date.setDate(date.getDate() + (i * 7));
+              else if (formData.frequency === 'mensal') date.setMonth(date.getMonth() + i);
+              else if (formData.frequency === 'anual') date.setFullYear(date.getFullYear() + i);
             }
             const dateStr = date.toISOString();
 
@@ -493,7 +493,7 @@ export function TransactionDialog() {
         type: formData.type,
         amount,
         description: formData.description,
-        date: new Date(formData.date).toISOString(),
+        date: dateToLocalISOString(formData.date),
         categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
         status: isCreditCard ? 'realizado' : formData.status,
         tags: formData.tagIds.length > 0 ? formData.tagIds : [],

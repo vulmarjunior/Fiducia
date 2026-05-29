@@ -65,6 +65,16 @@ export function getNextPeriod(period: string) {
   return `${nextYear}-${nextMonth.toString().padStart(2, '0')}`;
 }
 
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('T')[0].split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+export function dateToLocalISOString(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d).toISOString();
+}
+
 export function resolveAccountName(accountId: string | undefined, accounts: any[], creditCards: any[]) {
   if (!accountId) return 'Desconhecida';
   const account = accounts.find(a => a.id === accountId);

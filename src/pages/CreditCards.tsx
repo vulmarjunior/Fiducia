@@ -12,7 +12,7 @@ import { Badge } from '../components/ui/badge';
 import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
-import { calculateInvoicePeriod, resolveAccountName } from '../lib/utils';
+import { calculateInvoicePeriod, resolveAccountName, parseLocalDate } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
 import {
@@ -873,7 +873,7 @@ export function CreditCards() {
                             return (
                               <tr key={t.id} className="hover:bg-muted/30 transition-colors">
                                 <td className="p-3 whitespace-nowrap text-muted-foreground font-medium">
-                                  {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                  {parseLocalDate(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                                 </td>
                                 <td className="p-3">
                                   <div className="flex flex-col">
@@ -1046,7 +1046,7 @@ export function CreditCards() {
             <div className="bg-muted/50 p-4 rounded-lg border space-y-1">
               <p className="text-sm font-bold">{txToDelete?.description}</p>
               <p className="text-xs text-muted-foreground">
-                {txToDelete?.date && new Date(txToDelete.date).toLocaleDateString('pt-BR')} - R$ {txToDelete?.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                {txToDelete?.date && parseLocalDate(txToDelete.date).toLocaleDateString('pt-BR')} - R$ {txToDelete?.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
             
