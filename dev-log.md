@@ -2,7 +2,7 @@
 
 > Documentação viva de descobertas técnicas. Atualizada automaticamente durante o desenvolvimento.
 > **Stack**: Firebase, Firestore, TypeScript, React 19, Tailwind CSS 4, Shadcn/UI
-> **Última atualização**: 2026-05-28
+> **Última atualização**: 2026-05-29
 
 ---
 
@@ -310,3 +310,24 @@
 - **Data**: 2026-05-27 (confirmado 2026-05-28)
 - **Problema**: Firestore exige que TODOS os `transaction.get()` sejam executados antes de qualquer `transaction.set()`/`transaction.update()`/`transaction.delete()`. Violação causa erro silencioso.
 - **Prevenção**: Sempre coletar todos os snapshots primeiro em um loop, depois aplicar as escritas em um segundo loop.
+
+---
+
+## ✅ O que Funciona (continuação)
+
+### TransactionDialog — Modal Unificado de Transações
+- **Status**: ✅ Implementado
+- **Data**: 2026-05-29
+- **Contexto**: Sistema tinha dois modais de transação (Transactions.tsx e CreditCards.tsx) com capacidades diferentes. Edição de parcelas não propagava alterações. Invoice period não era editável no modal padrão.
+- **Solução**: Criado `TransactionDialog` (`src/components/TransactionDialog.tsx`) + `TransactionDialogContext` (`src/contexts/TransactionDialogContext.tsx`). Modal único para criação e edição em todo o sistema. Invoice period sempre visível e editável para cartão. Propagação de descrição/categoria/tags/obs em séries parceladas. Preservação de metadados na edição. Submit unificado via `runTransaction`.
+- **Removido**: ~1200 linhas de dialog inline do Transactions.tsx, ~500 linhas de dialogs do CreditCards.tsx.
+
+---
+
+## 🔄 Correções de Registro
+
+### Categorias não apareciam para cartão de crédito no TransactionDialog
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-29
+- **Causa Raiz**: Categorias são armazenadas no Firestore com `type` em português (`'despesa'`/`'receita'`), mas o `TransactionDialog` usava `typeFilter="expense"` (inglês) para o CategorySelect do cartão de crédito. O CategorySelect fazia `categories.filter(c => c.type === typeFilter)` com `===` estrito, resultando em zero resultados.
+- **Solução**: `CategorySelect` agora normaliza ambos os idiomas no filtro. `TransactionDialog` passou a usar `typeFilter="despesa"` (português) para o cartão.
