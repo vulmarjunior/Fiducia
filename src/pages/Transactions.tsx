@@ -605,25 +605,25 @@ export function Transactions() {
           // Compute net balance delta per account (old effect reversed + new effect applied)
           const accountDeltas: Record<string, number> = {};
 
-          // Reverse old balance effect
-          if (!creditCards.some(cc => cc.id === oldT.accountId)) {
+          // Reverse old balance effect (only if old was paid)
+          if (isEffectivelyPaid(oldT) && !creditCards.some(cc => cc.id === oldT.accountId)) {
             if (oldT.type === 'transferencia') {
               if (oldT.accountId) accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) + oldT.amount;
               if (oldT.destinationAccountId) accountDeltas[oldT.destinationAccountId] = (accountDeltas[oldT.destinationAccountId] || 0) - oldT.amount;
             } else {
               const oldEffect = oldT.type === 'receita' ? -oldT.amount : oldT.amount;
-              accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) - oldEffect;
+              accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) + oldEffect;
             }
           }
 
-          // Apply new balance effect
-          if (!isCreditCard) {
+          // Apply new balance effect (only if new is paid)
+          if (isEffectivelyPaid({ status: finalStatus }) && !isCreditCard) {
             if (formData.type === 'transferencia') {
               if (formData.accountId) accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) - amount;
               if (formData.destinationAccountId) accountDeltas[formData.destinationAccountId] = (accountDeltas[formData.destinationAccountId] || 0) + amount;
             } else {
-              const newEffect = formData.type === 'receita' ? -amount : amount;
-              accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) + newEffect;
+              const newChange = formData.type === 'receita' ? amount : -amount;
+              accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) + newChange;
             }
           }
 
@@ -717,8 +717,9 @@ export function Transactions() {
               transaction.set(doc(collection(db, 'transactions')), tData);
             }
 
-            if (accountSnap?.exists()) {
-              const balanceChange = formData.type === 'receita' ? amount : -amount;
+            if (accountSnap?.exists() && isEffectivelyPaid({ status: finalStatus })) {
+              const firstInstAmount = installmentBase + remainder;
+              const balanceChange = formData.type === 'receita' ? firstInstAmount : -firstInstAmount;
               transaction.update(doc(db, 'accounts', formData.accountId), { balance: (accountSnap.data().balance || 0) + balanceChange });
             }
           });
@@ -820,11 +821,11 @@ export function Transactions() {
               transaction.set(doc(collection(db, 'transactions')), tData);
             }
 
-            if (srcSnap?.exists()) {
+            if (srcSnap?.exists() && isEffectivelyPaid({ status: finalStatus })) {
               const balanceChange = formData.type === 'receita' ? amount : -amount;
               transaction.update(doc(db, 'accounts', formData.accountId), { balance: (srcSnap.data().balance || 0) + balanceChange });
             }
-            if (destSnap?.exists()) {
+            if (destSnap?.exists() && isEffectivelyPaid({ status: finalStatus })) {
               transaction.update(doc(db, 'accounts', formData.destinationAccountId), { balance: (destSnap.data().balance || 0) + amount });
             }
           });
@@ -913,8 +914,9 @@ export function Transactions() {
       accountBalanceChanges[accId] = (accountBalanceChanges[accId] || 0) + change;
     };
 
-    // Standalone transactions: revert each individually
+    // Standalone transactions: revert each individually (only if was paid)
     for (const tx of standaloneTxs) {
+      if (!isEffectivelyPaid(tx)) continue;
       if (tx.type === 'transferencia') {
         applyChange(tx.accountId, tx.amount);
         applyChange(tx.destinationAccountId, -tx.amount);
@@ -923,21 +925,23 @@ export function Transactions() {
       }
     }
 
-    // Series: revert balance ONLY ONCE per group
+    // Series: revert balance ONLY ONCE per group (only if was paid)
     for (const [_, series] of seriesGroups) {
-      const firstTx = series[0];
-      const isParcelado = firstTx.installmentNumber != null && firstTx.totalInstallments != null;
-      // For parcelado, reversal = sum of all installments (= original total)
-      // For recurring, reversal = any single transaction's amount (all same)
-      const reversalAmount = isParcelado
-        ? series.reduce((sum, tx) => sum + tx.amount, 0)
-        : firstTx.amount;
+      const paidTx = series.find(tx => isEffectivelyPaid(tx));
+      if (!paidTx) continue;
 
-      if (firstTx.type === 'transferencia') {
-        applyChange(firstTx.accountId, reversalAmount);
-        applyChange(firstTx.destinationAccountId, -reversalAmount);
+      const isParcelado = paidTx.installmentNumber != null && paidTx.totalInstallments != null;
+      // Parcelado: only installment 1 ever affected balance
+      // Non-parcelado (recurring): only the first occurrence affected balance
+      const reversalAmount = isParcelado
+        ? (series.find(tx => tx.installmentNumber === 1)?.amount || paidTx.amount)
+        : paidTx.amount;
+
+      if (paidTx.type === 'transferencia') {
+        applyChange(paidTx.accountId, reversalAmount);
+        applyChange(paidTx.destinationAccountId, -reversalAmount);
       } else {
-        applyChange(firstTx.accountId, firstTx.type === 'receita' ? -reversalAmount : reversalAmount);
+        applyChange(paidTx.accountId, paidTx.type === 'receita' ? -reversalAmount : reversalAmount);
       }
     }
 
@@ -981,9 +985,28 @@ export function Transactions() {
       return;
     }
     try {
-      await updateDoc(doc(db, 'transactions', t.id), {
-        status: 'pago',
-        updatedAt: new Date().toISOString()
+      await runTransaction(db, async (transaction) => {
+        const txRef = doc(db, 'transactions', t.id);
+        const accountDeltas: Record<string, number> = {};
+
+        if (t.type === 'transferencia') {
+          if (t.accountId) accountDeltas[t.accountId] = (accountDeltas[t.accountId] || 0) - t.amount;
+          if (t.destinationAccountId) accountDeltas[t.destinationAccountId] = (accountDeltas[t.destinationAccountId] || 0) + t.amount;
+        } else if (t.accountId) {
+          const change = t.type === 'receita' ? t.amount : -t.amount;
+          accountDeltas[t.accountId] = (accountDeltas[t.accountId] || 0) + change;
+        }
+
+        for (const [accId, delta] of Object.entries(accountDeltas)) {
+          if (delta === 0) continue;
+          const accRef = doc(db, 'accounts', accId);
+          const accSnap = await transaction.get(accRef);
+          if (accSnap.exists()) {
+            transaction.update(accRef, { balance: (accSnap.data().balance || 0) + delta });
+          }
+        }
+
+        transaction.update(txRef, { status: 'pago', updatedAt: new Date().toISOString() });
       });
       logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: t.id, description: `Confirmação rápida: ${t.description}` }).catch(() => {});
       toast.success('Lançamento confirmado como pago');
