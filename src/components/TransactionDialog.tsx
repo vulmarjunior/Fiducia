@@ -710,8 +710,14 @@ export function TransactionDialog() {
                 </Label>
                 <Select
                   options={[
-                    ...accounts.map((a: any) => ({ value: a.id, label: a.name, type: 'account' })),
-                    ...(formData.type !== 'transferencia' ? creditCards.map((c: any) => ({ value: c.id, label: c.name, type: 'card' })) : [])
+                    {
+                      label: 'Contas',
+                      options: accounts.map((a: any) => ({ value: a.id, label: a.name }))
+                    },
+                    ...(formData.type !== 'transferencia' ? [{
+                      label: 'Cartões de Crédito',
+                      options: creditCards.map((c: any) => ({ value: c.id, label: c.name }))
+                    }] : [])
                   ]}
                   value={
                     [...accounts.map((a: any) => ({ value: a.id, label: a.name })),
@@ -736,6 +742,7 @@ export function TransactionDialog() {
                     control: (base: any) => ({ ...base, minHeight: '48px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'rgb(249 250 251)', boxShadow: 'none' }),
                     menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
                     menu: (base: any) => ({ ...base, zIndex: 9999, minWidth: '280px' }),
+                    groupHeading: (base: any) => ({ ...base, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', paddingTop: '10px', paddingBottom: '4px', paddingLeft: '12px' }),
                     option: (base: any) => ({ ...base, whiteSpace: 'normal', wordBreak: 'break-word', paddingTop: '8px', paddingBottom: '8px' })
                   }}
                 />
