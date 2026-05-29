@@ -331,3 +331,9 @@
 - **Data**: 2026-05-29
 - **Causa Raiz**: Categorias são armazenadas no Firestore com `type` em português (`'despesa'`/`'receita'`), mas o `TransactionDialog` usava `typeFilter="expense"` (inglês) para o CategorySelect do cartão de crédito. O CategorySelect fazia `categories.filter(c => c.type === typeFilter)` com `===` estrito, resultando em zero resultados.
 - **Solução**: `CategorySelect` agora normaliza ambos os idiomas no filtro. `TransactionDialog` passou a usar `typeFilter="despesa"` (português) para o cartão.
+
+### Datas registradas um dia antes — timezone UTC vs BRT
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-05-29
+- **Causa Raiz**: `new Date("YYYY-MM-DD")` no JavaScript é interpretado como meia-noite UTC (ISO 8601 date-only). No Brasil (BRT, UTC-3), meia-noite UTC = 21h do dia anterior. Ao converter para ISO string com `.toISOString()`, a data ficava como `2026-05-29T00:00:00.000Z` em UTC, mas ao exibir com `.toLocaleDateString('pt-BR')` o JS convertia para BRT, mostrando `28/05/2026`.
+- **Solução**: Criadas funções `parseLocalDate()` e `dateToLocalISOString()` em `src/lib/utils.ts` que constroem a data como meia-noite no fuso local usando `new Date(y, m-1, d)`. Substituídos todos os `new Date(formData.date)` nos fluxos do `TransactionDialog`. Corrigida exibição no `CreditCards.tsx`.
