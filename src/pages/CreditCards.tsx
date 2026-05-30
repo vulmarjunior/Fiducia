@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 import { calculateInvoicePeriod, resolveAccountName, parseLocalDate } from '../lib/utils';
@@ -24,6 +24,8 @@ import {
 import { getCategoryIcon } from '../lib/categoryIcons';
 import { getCardBrandDetails } from '../utils/cardBrandUtils';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
+import { extractTextFromPdf, parseInvoiceWithGroq, PdfTransaction } from '../services/pdfInvoiceService';
+import { PdfImportReviewDialog } from '../components/PdfImportReviewDialog';
 
 export function CreditCards() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -52,6 +54,13 @@ export function CreditCards() {
   const [txToDelete, setTxToDelete] = useState<any>(null);
   const [deleteScope, setDeleteScope] = useState('only');
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
+
+  // PDF Import state
+  const [isPdfReviewOpen, setIsPdfReviewOpen] = useState(false);
+  const [pdfTransactions, setPdfTransactions] = useState<PdfTransaction[]>([]);
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [pdfLoadingStep, setPdfLoadingStep] = useState<'extracting' | 'analyzing' | null>(null);
+  const pdfInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -448,6 +457,92 @@ export function CreditCards() {
     }
   };
 
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedCardForInvoice) return;
+    e.target.value = '';
+
+    setIsPdfLoading(true);
+    setPdfLoadingStep('extracting');
+    setIsPdfReviewOpen(true);
+    setPdfTransactions([]);
+
+    try {
+      const rawText = await extractTextFromPdf(file);
+      if (!rawText.trim()) {
+        toast.error('Não foi possível extrair texto deste PDF. Verifique se o arquivo não é uma imagem escaneada.');
+        setIsPdfReviewOpen(false);
+        return;
+      }
+
+      setPdfLoadingStep('analyzing');
+      const parsed = await parseInvoiceWithGroq(rawText, selectedCardForInvoice.name);
+      setPdfTransactions(parsed);
+
+      if (parsed.length === 0) {
+        toast.error('A IA não encontrou transações neste PDF.');
+      } else {
+        toast.success(`${parsed.length} transação(ões) encontrada(s). Revise e confirme.`);
+      }
+    } catch (err) {
+      console.error('PDF import error:', err);
+      toast.error('Erro ao processar o PDF. Tente novamente.');
+      setIsPdfReviewOpen(false);
+    } finally {
+      setIsPdfLoading(false);
+      setPdfLoadingStep(null);
+    }
+  };
+
+  const handleConfirmPdfImport = async (selected: PdfTransaction[]) => {
+    if (!user || !selectedCardForInvoice) return;
+
+    try {
+      const batch = writeBatch(db);
+
+      for (const tx of selected) {
+        const invoicePeriod = calculateInvoicePeriod(
+          tx.date,
+          selectedCardForInvoice.closingDay,
+          selectedCardForInvoice.dueDay
+        );
+
+        const txRef = doc(collection(db, 'transactions'));
+        batch.set(txRef, {
+          userId: user.uid,
+          type: tx.type === 'receita' ? 'receita' : 'despesa',
+          amount: tx.amount,
+          date: tx.date + 'T12:00:00.000Z',
+          description: tx.description + (tx.installmentInfo ? ` (${tx.installmentInfo})` : ''),
+          creditCardId: selectedCardForInvoice.id,
+          accountId: selectedCardForInvoice.id,
+          invoicePeriod,
+          status: 'realizado',
+          reconciliationStatus: 'conciliado',
+          categoryId: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      await batch.commit();
+
+      logActivity({
+        userId: user.uid,
+        action: 'create',
+        entityType: 'transaction',
+        entityId: selectedCardForInvoice.id,
+        description: `${selected.length} lançamento(s) importado(s) de PDF para ${selectedCardForInvoice.name}`,
+      }).catch(() => {});
+
+      toast.success(`${selected.length} lançamento(s) importado(s) com sucesso!`);
+    } catch (err) {
+      console.error('Firestore PDF import error:', err);
+      toast.error('Erro ao salvar os lançamentos. Tente novamente.');
+      throw err;
+    }
+  };
+
   const resetForm = () => {
     setFormData({ name: '', limit: 0, closingDay: '1', dueDay: '10' });
     setEditingId(null);
@@ -697,6 +792,23 @@ export function CreditCards() {
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline">Novo Lançamento</span>
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-2 border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-950/40"
+                  onClick={() => pdfInputRef.current?.click()}
+                  disabled={isPdfLoading}
+                >
+                  <FileUp className="h-4 w-4" />
+                  <span className="hidden sm:inline">Importar PDF</span>
+                </Button>
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={handlePdfUpload}
+                />
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => window.print()}>
                   <Printer className="h-4 w-4" />
                 </Button>
@@ -1077,6 +1189,19 @@ export function CreditCards() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PdfImportReviewDialog
+        open={isPdfReviewOpen}
+        onOpenChange={(open) => {
+          setIsPdfReviewOpen(open);
+          if (!open) setPdfTransactions([]);
+        }}
+        transactions={pdfTransactions}
+        isLoading={isPdfLoading}
+        loadingStep={pdfLoadingStep}
+        cardName={selectedCardForInvoice?.name ?? ''}
+        onConfirm={handleConfirmPdfImport}
+      />
     </div>
   );
 }

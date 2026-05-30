@@ -315,6 +315,16 @@
 
 ## ✅ O que Funciona (continuação)
 
+### Importador de Fatura PDF — Cartões de Crédito
+- **Status**: ✅ Implementado
+- **Data**: 2026-05-30
+- **Contexto**: Usuário precisava importar faturas de cartão diretamente do PDF, sem precisar de OFX ou CSV.
+- **Solução**: `pdfjs-dist` extrai texto do PDF no browser (zero servidor). O texto bruto é enviado à Groq (`llama-3.3-70b-versatile`) com um system prompt especializado em faturas brasileiras. Retorna JSON com `[{date, description, amount, type, installmentInfo}]`. Dialog de revisão permite selecionar/desmarcar transações antes de confirmar. Import via `writeBatch` + `activityLog`.
+- **Arquivos criados**: `src/services/pdfInvoiceService.ts`, `src/components/PdfImportReviewDialog.tsx`
+- **Modificado**: `src/pages/CreditCards.tsx` — botão "Importar PDF" no header do modal de fatura
+- **Acesso**: Cartões → Ver Detalhes da Fatura → botão roxo "Importar PDF"
+- **Limitação conhecida**: PDFs escaneados (imagem) não têm texto extraível — toast de erro informativo é exibido.
+
 ### TransactionDialog — Modal Unificado de Transações
 - **Status**: ✅ Implementado
 - **Data**: 2026-05-29
