@@ -296,6 +296,14 @@ O sistema deve manter dois fluxos analíticos separados, alimentados pela mesma 
 
 Esses dois fluxos nunca devem ser misturados em um mesmo gráfico sem sinalização clara ao usuário.
 
+### 8.6 Importação de Fatura via PDF
+
+O sistema oferece uma rotina inteligente de leitura de faturas em formato PDF.
+1. O PDF é processado localmente e o texto extraído é submetido à IA (Groq).
+2. A IA identifica e estrutura os Fatos Geradores, categorizando-os automaticamente com base na lista de categorias do usuário.
+3. Se detectadas compras parceladas (ex: `2/6`), o sistema propõe a expansão da série, que gerará todas as parcelas futuras necessárias e as vinculará usando a entidade `parentId`.
+4. Os lançamentos importados respeitam o cálculo de `invoicePeriod` automaticamente, deduzindo a data da transação em relação às datas de fechamento e vencimento do cartão.
+
 ---
 
 *Fim do documento. Versão 2.0.*

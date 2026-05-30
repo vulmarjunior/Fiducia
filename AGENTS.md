@@ -13,7 +13,7 @@
 | Linguagem | TypeScript 5.8 |
 | UI | React 19, Tailwind CSS 4, Shadcn/UI (Base UI) |
 | Backend | Firebase (Firestore + Auth) |
-| IA | Gemini API (insights), Groq (relatórios) |
+| IA | Gemini API (insights), Groq (relatórios, extração de fatura PDF) |
 | Build | `npm run dev` (dev), `npm run build` (prod) |
 | Testes | Vitest |
 | Lint | `tsc --noEmit` |
@@ -52,6 +52,7 @@ src/
 ├── services/
 │   ├── importService.ts  # CSV/Excel parsing (xlsx)
 │   ├── ofxService.ts
+│   ├── pdfInvoiceService.ts # Extração de PDF e Groq parsing
 │   ├── groqService.ts
 ├── lib/
 │   ├── utils.ts          # cn(), calculateInvoicePeriod(), etc.
