@@ -14,6 +14,7 @@ export interface PdfTransaction {
   amount: number;
   type: 'despesa' | 'receita';
   installmentInfo?: string;
+  suggestedCategoryId?: string;
 }
 
 /**
@@ -39,31 +40,58 @@ export async function extractTextFromPdf(file: File): Promise<string> {
   return textParts.join('\n');
 }
 
+export interface CategoryHint {
+  id: string;
+  name: string;
+  type: 'despesa' | 'receita' | 'expense' | 'income';
+}
+
 /**
  * Envia o texto bruto de uma fatura para a Groq e retorna
- * as transações estruturadas em JSON.
+ * as transações estruturadas em JSON, com sugestão de categoria.
  */
 export async function parseInvoiceWithGroq(
   rawText: string,
-  cardName: string
+  cardName: string,
+  categories: CategoryHint[] = []
 ): Promise<PdfTransaction[]> {
   // Trunca o texto para ~12.000 caracteres para não explodir o contexto da Groq
-  const truncated = rawText.length > 12000 ? rawText.substring(0, 12000) + '\n[... texto truncado ...]' : rawText;
+  const truncated = rawText.length > 12000
+    ? rawText.substring(0, 12000) + '\n[... texto truncado ...]'
+    : rawText;
+
+  // Monta lista de categorias de despesa para o prompt (máximo 40 para não poluir)
+  const expenseCategories = categories
+    .filter(c => c.type === 'despesa' || c.type === 'expense')
+    .slice(0, 40)
+    .map(c => `{"id":"${c.id}","name":"${c.name}"}`)
+    .join(', ');
+
+  const incomeCategories = categories
+    .filter(c => c.type === 'receita' || c.type === 'income')
+    .slice(0, 20)
+    .map(c => `{"id":"${c.id}","name":"${c.name}"}`)
+    .join(', ');
+
+  const categorySection = categories.length > 0
+    ? `\nCategorias de despesa disponíveis: [${expenseCategories}]\nCategorias de receita disponíveis: [${incomeCategories}]\n\nPara cada transação, escolha o id da categoria mais adequada em "suggestedCategoryId". Se nenhuma se encaixar, use null.`
+    : '';
 
   const systemPrompt = `Você é um extrator especializado em faturas de cartão de crédito brasileiras.
 Sua tarefa é analisar o texto bruto de uma fatura e retornar APENAS um array JSON válido com as transações encontradas.
 
 Regras obrigatórias:
 - Retorne SOMENTE o array JSON, sem markdown, sem explicações, sem blocos de código
-- Cada item deve ter: date (YYYY-MM-DD), description (string), amount (número positivo), type ("despesa" ou "receita"), installmentInfo (string "X/Y" se parcelado, ou null)
+- Cada item deve ter: date (YYYY-MM-DD), description (string), amount (número positivo), type ("despesa" ou "receita"), installmentInfo (string "X/Y" se parcelado, ou null), suggestedCategoryId (string ou null)
 - Ignore linhas de cabeçalho, rodapé, totais, saldo anterior, encargos genéricos sem valor individual
 - Créditos, estornos e pagamentos = "receita". Compras e débitos = "despesa"
 - Datas no formato DD/MM/AAAA devem ser convertidas para YYYY-MM-DD
 - Se não encontrar nenhuma transação, retorne []
 - Valores monetários: ignore "R$", vírgula decimal → ponto decimal (ex: "1.234,56" → 1234.56)
+${categorySection}
 
 Formato de saída (exemplo):
-[{"date":"2026-05-10","description":"UBER TRIP","amount":28.90,"type":"despesa","installmentInfo":null},{"date":"2026-05-12","description":"ESTORNO IFOOD","amount":45.00,"type":"receita","installmentInfo":null},{"date":"2026-05-15","description":"AMAZON PRIME 2/3","amount":99.00,"type":"despesa","installmentInfo":"2/3"}]`;
+[{"date":"2026-05-10","description":"UBER TRIP","amount":28.90,"type":"despesa","installmentInfo":null,"suggestedCategoryId":"cat-transporte-id"},{"date":"2026-05-12","description":"ESTORNO IFOOD","amount":45.00,"type":"receita","installmentInfo":null,"suggestedCategoryId":null}]`;
 
   const userPrompt = `Fatura do cartão: ${cardName}
 
@@ -96,5 +124,6 @@ ${truncated}`;
       amount: Math.abs(item.amount),
       type: item.type === 'receita' ? 'receita' : 'despesa',
       installmentInfo: item.installmentInfo ?? undefined,
+      suggestedCategoryId: item.suggestedCategoryId ?? undefined,
     }));
 }

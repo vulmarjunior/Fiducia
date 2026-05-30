@@ -476,7 +476,7 @@ export function CreditCards() {
       }
 
       setPdfLoadingStep('analyzing');
-      const parsed = await parseInvoiceWithGroq(rawText, selectedCardForInvoice.name);
+      const parsed = await parseInvoiceWithGroq(rawText, selectedCardForInvoice.name, categories);
       setPdfTransactions(parsed);
 
       if (parsed.length === 0) {
@@ -494,11 +494,16 @@ export function CreditCards() {
     }
   };
 
-  const handleConfirmPdfImport = async (selected: PdfTransaction[]) => {
+  const handleConfirmPdfImport = async (
+    selected: PdfTransaction[],
+    categoryMap: Record<string, string>,
+    expandedSeries: Array<{ txId: string; installmentNumber: number; totalInstallments: number }>
+  ) => {
     if (!user || !selectedCardForInvoice) return;
 
     try {
       const batch = writeBatch(db);
+      let totalCreated = 0;
 
       for (const tx of selected) {
         const invoicePeriod = calculateInvoicePeriod(
@@ -507,10 +512,19 @@ export function CreditCards() {
           selectedCardForInvoice.dueDay
         );
 
+        const resolvedCategoryId = categoryMap[tx.id] && categoryMap[tx.id] !== 'none'
+          ? categoryMap[tx.id]
+          : '';
+
+        // Verifica se o usuário quer expandir a série para este tx
+        const seriesInfo = expandedSeries.find((s) => s.txId === tx.id);
+        const parentId = seriesInfo ? doc(collection(db, 'transactions')).id : undefined;
+
+        // Transação principal (a que está na fatura atual)
         const txRef = doc(collection(db, 'transactions'));
         batch.set(txRef, {
           userId: user.uid,
-          type: tx.type === 'receita' ? 'receita' : 'despesa',
+          type: tx.type,
           amount: tx.amount,
           date: tx.date + 'T12:00:00.000Z',
           description: tx.description + (tx.installmentInfo ? ` (${tx.installmentInfo})` : ''),
@@ -519,23 +533,79 @@ export function CreditCards() {
           invoicePeriod,
           status: 'realizado',
           reconciliationStatus: 'conciliado',
-          categoryId: '',
+          categoryId: resolvedCategoryId,
+          ...(seriesInfo && {
+            parentId,
+            installmentNumber: seriesInfo.installmentNumber,
+            totalInstallments: seriesInfo.totalInstallments,
+          }),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
+        totalCreated++;
+
+        // Parcelas futuras (se expandir série foi ativado)
+        if (seriesInfo) {
+          const { installmentNumber, totalInstallments } = seriesInfo;
+          const remaining = totalInstallments - installmentNumber;
+
+          for (let i = 1; i <= remaining; i++) {
+            // Calcula a data da parcela futura: avança i meses a partir da data original
+            const [year, month, day] = tx.date.split('-').map(Number);
+            let futureMonth = month + i;
+            let futureYear = year;
+            while (futureMonth > 12) {
+              futureMonth -= 12;
+              futureYear++;
+            }
+            const futureDate = `${futureYear}-${String(futureMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const futurePeriod = calculateInvoicePeriod(
+              futureDate,
+              selectedCardForInvoice.closingDay,
+              selectedCardForInvoice.dueDay
+            );
+            const futureInstallment = installmentNumber + i;
+
+            const futureRef = doc(collection(db, 'transactions'));
+            batch.set(futureRef, {
+              userId: user.uid,
+              type: tx.type,
+              amount: tx.amount,
+              date: futureDate + 'T12:00:00.000Z',
+              description: `${tx.description} (${futureInstallment}/${totalInstallments})`,
+              creditCardId: selectedCardForInvoice.id,
+              accountId: selectedCardForInvoice.id,
+              invoicePeriod: futurePeriod,
+              status: 'pendente',
+              reconciliationStatus: 'nao_conciliado',
+              categoryId: resolvedCategoryId,
+              parentId,
+              installmentNumber: futureInstallment,
+              totalInstallments,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+            totalCreated++;
+          }
+        }
       }
 
       await batch.commit();
+
+      const seriesCount = expandedSeries.filter((s) => selected.some((t) => t.id === s.txId)).length;
 
       logActivity({
         userId: user.uid,
         action: 'create',
         entityType: 'transaction',
         entityId: selectedCardForInvoice.id,
-        description: `${selected.length} lançamento(s) importado(s) de PDF para ${selectedCardForInvoice.name}`,
+        description: `${totalCreated} lançamento(s) importado(s) de PDF para ${selectedCardForInvoice.name}${seriesCount > 0 ? ` (${seriesCount} série(s) expandida(s))` : ''}`,
       }).catch(() => {});
 
-      toast.success(`${selected.length} lançamento(s) importado(s) com sucesso!`);
+      const msg = seriesCount > 0
+        ? `${selected.length} lançamento(s) importado(s) + ${totalCreated - selected.length} parcela(s) futura(s) criada(s)!`
+        : `${selected.length} lançamento(s) importado(s) com sucesso!`;
+      toast.success(msg);
     } catch (err) {
       console.error('Firestore PDF import error:', err);
       toast.error('Erro ao salvar os lançamentos. Tente novamente.');
@@ -1200,6 +1270,7 @@ export function CreditCards() {
         isLoading={isPdfLoading}
         loadingStep={pdfLoadingStep}
         cardName={selectedCardForInvoice?.name ?? ''}
+        categories={categories}
         onConfirm={handleConfirmPdfImport}
       />
     </div>
