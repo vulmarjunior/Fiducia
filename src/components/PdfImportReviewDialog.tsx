@@ -9,8 +9,7 @@ import {
 import { PdfTransaction } from '../services/pdfInvoiceService';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-
+import { CategorySelect } from './CategorySelect';
 interface Category {
   id: string;
   name: string;
@@ -228,7 +227,7 @@ export function PdfImportReviewDialog({
                 </button>
                 <span className="w-20 shrink-0">Data</span>
                 <span className="flex-1">Descrição</span>
-                <span className="w-44 shrink-0">Categoria</span>
+                <span className="w-56 shrink-0">Categoria</span>
                 <span className="w-24 text-right shrink-0">Valor</span>
               </div>
 
@@ -287,28 +286,16 @@ export function PdfImportReviewDialog({
                       </div>
 
                       {/* Select de categoria */}
-                      <div className="w-44 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <Select
+                      <div 
+                        className={`w-56 shrink-0 ${!isSelected ? 'pointer-events-none opacity-50' : ''}`} 
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <CategorySelect
+                          categories={txCategories}
                           value={currentCategory}
-                          onValueChange={(val) =>
-                            setCategoryMap((prev) => ({ ...prev, [tx.id]: val }))
-                          }
-                          disabled={!isSelected}
-                        >
-                          <SelectTrigger className="h-7 text-xs border-dashed">
-                            <SelectValue placeholder="Sem categoria" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">
-                              <span className="text-muted-foreground">Sem categoria</span>
-                            </SelectItem>
-                            {txCategories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>
-                                {cat.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          onChange={(val) => setCategoryMap((prev) => ({ ...prev, [tx.id]: val }))}
+                          placeholder="Sem categoria"
+                        />
                       </div>
 
                       {/* Valor */}
