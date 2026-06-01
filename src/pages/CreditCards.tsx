@@ -12,7 +12,7 @@ import { Badge } from '../components/ui/badge';
 import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
-import { calculateInvoicePeriod, resolveAccountName, parseLocalDate } from '../lib/utils';
+import { calculateInvoicePeriod, resolveAccountName, parseLocalDate, dateToLocalISOString } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
 import {
@@ -505,6 +505,12 @@ export function CreditCards() {
       const batch = writeBatch(db);
       let totalCreated = 0;
 
+      // Pré-processa quais transações expandir
+      const expandMap = new Map<string, boolean>();
+      for (const s of expandedSeries) {
+        expandMap.set(s.txId, true);
+      }
+
       for (const tx of selected) {
         const invoicePeriod = calculateInvoicePeriod(
           tx.date,
@@ -516,9 +522,24 @@ export function CreditCards() {
           ? categoryMap[tx.id]
           : '';
 
-        // Verifica se o usuário quer expandir a série para este tx
-        const seriesInfo = expandedSeries.find((s) => s.txId === tx.id);
-        const parentId = seriesInfo ? doc(collection(db, 'transactions')).id : undefined;
+        const origDate = parseLocalDate(tx.date);
+        const shouldExpand = expandMap.has(tx.id);
+
+        // Extrai installmentInfo mesmo se não expandir — sempre salva metadados
+        let mainInstallmentNumber: number | undefined;
+        let mainTotalInstallments: number | undefined;
+
+        if (tx.installmentInfo) {
+          const match = tx.installmentInfo.match(/(\d+)\/(\d+)/);
+          if (match) {
+            mainInstallmentNumber = parseInt(match[1]);
+            mainTotalInstallments = parseInt(match[2]);
+          }
+        }
+
+        const parentId = mainInstallmentNumber !== undefined
+          ? doc(collection(db, 'transactions')).id
+          : undefined;
 
         // Transação principal (a que está na fatura atual)
         const txRef = doc(collection(db, 'transactions'));
@@ -526,7 +547,7 @@ export function CreditCards() {
           userId: user.uid,
           type: tx.type,
           amount: tx.amount,
-          date: tx.date + 'T12:00:00.000Z',
+          date: dateToLocalISOString(tx.date),
           description: tx.description + (tx.installmentInfo ? ` (${tx.installmentInfo})` : ''),
           creditCardId: selectedCardForInvoice.id,
           accountId: selectedCardForInvoice.id,
@@ -534,76 +555,71 @@ export function CreditCards() {
           status: 'realizado',
           reconciliationStatus: 'conciliado',
           categoryId: resolvedCategoryId,
-          ...(seriesInfo && {
+          ...(mainInstallmentNumber !== undefined && {
             parentId,
-            installmentNumber: seriesInfo.installmentNumber,
-            totalInstallments: seriesInfo.totalInstallments,
+            installmentNumber: mainInstallmentNumber,
+            totalInstallments: mainTotalInstallments,
           }),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
         totalCreated++;
 
-        // Parcelas futuras (se expandir série foi ativado)
-        if (seriesInfo) {
-          const { installmentNumber, totalInstallments } = seriesInfo;
-          const remaining = totalInstallments - installmentNumber;
+        // Parcelas futuras — cria apenas se o usuário expandiu a série
+        if (shouldExpand && mainInstallmentNumber !== undefined && mainTotalInstallments !== undefined) {
+          const remaining = mainTotalInstallments - mainInstallmentNumber;
 
-          for (let i = 1; i <= remaining; i++) {
-            // Calcula a data da parcela futura: avança i meses a partir da data original
-            const [year, month, day] = tx.date.split('-').map(Number);
-            let futureMonth = month + i;
-            let futureYear = year;
-            while (futureMonth > 12) {
-              futureMonth -= 12;
-              futureYear++;
+            for (let i = 1; i <= remaining; i++) {
+              const futureDate = new Date(origDate);
+              futureDate.setMonth(futureDate.getMonth() + i);
+              const futureYear = futureDate.getFullYear();
+              const futureMonth = String(futureDate.getMonth() + 1).padStart(2, '0');
+              const futureDay = String(futureDate.getDate()).padStart(2, '0');
+              const futureDateStr = `${futureYear}-${futureMonth}-${futureDay}`;
+              const futurePeriod = calculateInvoicePeriod(
+                futureDateStr,
+                selectedCardForInvoice.closingDay,
+                selectedCardForInvoice.dueDay
+              );
+              const futureInstallment = mainInstallmentNumber + i;
+
+              const futureRef = doc(collection(db, 'transactions'));
+              batch.set(futureRef, {
+                userId: user.uid,
+                type: tx.type,
+                amount: tx.amount,
+                date: dateToLocalISOString(futureDateStr),
+                description: `${tx.description} (${futureInstallment}/${mainTotalInstallments})`,
+                creditCardId: selectedCardForInvoice.id,
+                accountId: selectedCardForInvoice.id,
+                invoicePeriod: futurePeriod,
+                status: 'pendente',
+                reconciliationStatus: 'nao_conciliado',
+                categoryId: resolvedCategoryId,
+                parentId,
+                installmentNumber: futureInstallment,
+                totalInstallments: mainTotalInstallments,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+              totalCreated++;
             }
-            const futureDate = `${futureYear}-${String(futureMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const futurePeriod = calculateInvoicePeriod(
-              futureDate,
-              selectedCardForInvoice.closingDay,
-              selectedCardForInvoice.dueDay
-            );
-            const futureInstallment = installmentNumber + i;
-
-            const futureRef = doc(collection(db, 'transactions'));
-            batch.set(futureRef, {
-              userId: user.uid,
-              type: tx.type,
-              amount: tx.amount,
-              date: futureDate + 'T12:00:00.000Z',
-              description: `${tx.description} (${futureInstallment}/${totalInstallments})`,
-              creditCardId: selectedCardForInvoice.id,
-              accountId: selectedCardForInvoice.id,
-              invoicePeriod: futurePeriod,
-              status: 'pendente',
-              reconciliationStatus: 'nao_conciliado',
-              categoryId: resolvedCategoryId,
-              parentId,
-              installmentNumber: futureInstallment,
-              totalInstallments,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
-            totalCreated++;
           }
         }
-      }
 
       await batch.commit();
-
-      const seriesCount = expandedSeries.filter((s) => selected.some((t) => t.id === s.txId)).length;
 
       logActivity({
         userId: user.uid,
         action: 'create',
         entityType: 'transaction',
         entityId: selectedCardForInvoice.id,
-        description: `${totalCreated} lançamento(s) importado(s) de PDF para ${selectedCardForInvoice.name}${seriesCount > 0 ? ` (${seriesCount} série(s) expandida(s))` : ''}`,
+        description: `${totalCreated} lançamento(s) importado(s) de PDF para ${selectedCardForInvoice.name}`,
       }).catch(() => {});
 
-      const msg = seriesCount > 0
-        ? `${selected.length} lançamento(s) importado(s) + ${totalCreated - selected.length} parcela(s) futura(s) criada(s)!`
+      const installmentCount = totalCreated - selected.length;
+      const msg = installmentCount > 0
+        ? `${selected.length} lançamento(s) importado(s) + ${installmentCount} parcela(s) futura(s) criada(s)!`
         : `${selected.length} lançamento(s) importado(s) com sucesso!`;
       toast.success(msg);
     } catch (err) {

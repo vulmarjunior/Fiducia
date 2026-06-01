@@ -77,21 +77,27 @@ export async function parseInvoiceWithGroq(
     ? `\nCategorias de despesa disponíveis: [${expenseCategories}]\nCategorias de receita disponíveis: [${incomeCategories}]\n\nPara cada transação, escolha o id da categoria mais adequada em "suggestedCategoryId". Se nenhuma se encaixar, use null.`
     : '';
 
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = String(today.getMonth() + 1).padStart(2, '0');
+
   const systemPrompt = `Você é um extrator especializado em faturas de cartão de crédito brasileiras.
 Sua tarefa é analisar o texto bruto de uma fatura e retornar APENAS um array JSON válido com as transações encontradas.
+Data de referência: ${currentYear}-${currentMonth}.
 
 Regras obrigatórias:
 - Retorne SOMENTE o array JSON, sem markdown, sem explicações, sem blocos de código
 - Cada item deve ter: date (YYYY-MM-DD), description (string), amount (número positivo), type ("despesa" ou "receita"), installmentInfo (string "X/Y" se parcelado, ou null), suggestedCategoryId (string ou null)
 - Ignore linhas de cabeçalho, rodapé, totais, saldo anterior, encargos genéricos sem valor individual
 - Créditos, estornos e pagamentos = "receita". Compras e débitos = "despesa"
-- Datas no formato DD/MM/AAAA devem ser convertidas para YYYY-MM-DD
+- Datas no formato DD/MM/AAAA devem ser convertidas para YYYY-MM-DD. PRESERVE o ano original — o ano da fatura é ${currentYear}
+- Preença meses e dias com dois dígitos (ex: 2026-01-05, não 2026-1-5)
 - Se não encontrar nenhuma transação, retorne []
 - Valores monetários: ignore "R$", vírgula decimal → ponto decimal (ex: "1.234,56" → 1234.56)
 ${categorySection}
 
 Formato de saída (exemplo):
-[{"date":"2026-05-10","description":"UBER TRIP","amount":28.90,"type":"despesa","installmentInfo":null,"suggestedCategoryId":"cat-transporte-id"},{"date":"2026-05-12","description":"ESTORNO IFOOD","amount":45.00,"type":"receita","installmentInfo":null,"suggestedCategoryId":null}]`;
+[{"date":"${currentYear}-05-10","description":"UBER TRIP","amount":28.90,"type":"despesa","installmentInfo":null,"suggestedCategoryId":"cat-transporte-id"},{"date":"${currentYear}-05-12","description":"ESTORNO IFOOD","amount":45.00,"type":"receita","installmentInfo":null,"suggestedCategoryId":null}]`;
 
   const userPrompt = `Fatura do cartão: ${cardName}
 
@@ -115,15 +121,38 @@ ${truncated}`;
 
   const raw: any[] = JSON.parse(jsonMatch[0]);
 
+  const now = new Date();
+  const minYear = now.getFullYear() - 1;
+  const maxYear = now.getFullYear() + 1;
+
   return raw
     .filter((item) => item.date && item.description && typeof item.amount === 'number')
-    .map((item, index) => ({
-      id: `pdf-${Date.now()}-${index}`,
-      date: item.date,
-      description: String(item.description).trim(),
-      amount: Math.abs(item.amount),
-      type: item.type === 'receita' ? 'receita' : 'despesa',
-      installmentInfo: item.installmentInfo ?? undefined,
-      suggestedCategoryId: item.suggestedCategoryId ?? undefined,
-    }));
+    .map((item, index) => {
+      let dateStr = String(item.date).trim();
+
+      // Normaliza formato: garante que meses e dias tenham 2 dígitos
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const y = parts[0];
+        const m = parts[1].padStart(2, '0');
+        const d = parts[2].padStart(2, '0');
+        dateStr = `${y}-${m}-${d}`;
+
+        // Valida ano — se estiver fora do intervalo aceitável, usa o ano corrente
+        const year = parseInt(y);
+        if (isNaN(year) || year < minYear || year > maxYear) {
+          dateStr = `${now.getFullYear()}-${m}-${d}`;
+        }
+      }
+
+      return {
+        id: `pdf-${Date.now()}-${index}`,
+        date: dateStr,
+        description: String(item.description).trim(),
+        amount: Math.abs(item.amount),
+        type: item.type === 'receita' ? 'receita' : 'despesa',
+        installmentInfo: item.installmentInfo ?? undefined,
+        suggestedCategoryId: item.suggestedCategoryId ?? undefined,
+      };
+    });
 }

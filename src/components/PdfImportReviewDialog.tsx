@@ -59,6 +59,9 @@ export function PdfImportReviewDialog({
         }
       });
       setCategoryMap(initialCategories);
+
+      // Auto-expand todas as transações parceladas
+      setExpandedSeries(new Set(transactions.filter((t) => t.installmentInfo).map((t) => t.id)));
     }
   }, [transactions]);
 
