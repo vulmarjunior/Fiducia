@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { resolveAccountName } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -23,6 +23,8 @@ export function Audit() {
   const [closedPeriods, setClosedPeriods] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [closePeriodDialogOpen, setClosePeriodDialogOpen] = useState(false);
+  const [closePeriodData, setClosePeriodData] = useState({ entityId: '', month: new Date().toISOString().slice(0, 7) });
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -119,6 +121,47 @@ export function Audit() {
     }
   };
 
+  const handleClosePeriod = async () => {
+    if (!closePeriodData.entityId || !closePeriodData.month) {
+      toast.error('Selecione uma conta e um mês');
+      return;
+    }
+
+    const isCard = creditCards.some(c => c.id === closePeriodData.entityId);
+
+    try {
+      if (isCard) {
+        const existingInvoice = invoices.find(i => i.cardId === closePeriodData.entityId && i.period === closePeriodData.month);
+        if (existingInvoice) {
+          await updateDoc(doc(db, 'invoices', existingInvoice.id), { status: 'fechada', closedAt: new Date().toISOString() });
+        } else {
+          await addDoc(collection(db, 'invoices'), {
+            userId: user.uid,
+            cardId: closePeriodData.entityId,
+            period: closePeriodData.month,
+            status: 'fechada',
+            totalAmount: 0,
+            closedAt: new Date().toISOString(),
+          });
+        }
+      } else {
+        await addDoc(collection(db, 'closedPeriods'), {
+          userId: user.uid,
+          accountId: closePeriodData.entityId,
+          period: closePeriodData.month,
+          closedAt: new Date().toISOString(),
+        });
+      }
+
+      logActivity({ userId: user.uid, action: 'create', entityType: isCard ? 'transaction' : 'account', entityId: closePeriodData.entityId, description: `Período fechado: ${closePeriodData.month}` }).catch(() => {});
+      toast.success('Período fechado com sucesso');
+      setClosePeriodDialogOpen(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, isCard ? 'invoices' : 'closedPeriods');
+      toast.error('Erro ao fechar período');
+    }
+  };
+
   const handleUnlockPeriod = (periodId: string) => {
     setConfirmDialog({
       isOpen: true,
@@ -178,12 +221,17 @@ export function Audit() {
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lock className="h-5 w-5 text-amber-500" />
-              Períodos Fechados (Contas)
-            </CardTitle>
-            <CardDescription>Bloqueios de edição para contas correntes</CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-amber-500" />
+                Períodos Fechados (Contas)
+              </CardTitle>
+              <CardDescription>Bloqueios de edição para contas correntes</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" className="shrink-0 h-8 gap-1.5 text-xs" onClick={() => setClosePeriodDialogOpen(true)}>
+              <Lock className="h-3.5 w-3.5" /> Fechar Período
+            </Button>
           </CardHeader>
           <CardContent>
             {closedPeriods.length === 0 ? (
@@ -339,6 +387,46 @@ export function Audit() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}>Cancelar</Button>
             <Button onClick={confirmDialog.onConfirm}>Confirmar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={closePeriodDialogOpen} onOpenChange={setClosePeriodDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Fechar Período</DialogTitle>
+            <DialogDescription>
+              Bloqueia edições em lançamentos deste período para a conta ou cartão selecionado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conta / Cartão</Label>
+              <ShadcnSelect value={closePeriodData.entityId} onValueChange={(v) => setClosePeriodData(prev => ({ ...prev, entityId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.map(acc => (
+                    <SelectItem key={acc.id} value={acc.id}>{resolveAccountName(acc.id, accounts, creditCards)}</SelectItem>
+                  ))}
+                  {creditCards.map(cc => (
+                    <SelectItem key={cc.id} value={cc.id}>{resolveAccountName(cc.id, accounts, creditCards)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </ShadcnSelect>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mês</Label>
+              <input
+                type="month"
+                value={closePeriodData.month}
+                onChange={(e) => setClosePeriodData(prev => ({ ...prev, month: e.target.value }))}
+                className="flex h-11 w-full rounded-md border border-secondary/30 bg-white px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClosePeriodDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleClosePeriod}>Fechar Período</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

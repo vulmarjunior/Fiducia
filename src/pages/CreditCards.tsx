@@ -2,17 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, runTransaction, setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
-import { calculateInvoicePeriod, resolveAccountName, parseLocalDate, dateToLocalISOString } from '../lib/utils';
+import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
 import {
@@ -247,8 +247,8 @@ export function CreditCards() {
       const invoice = invoices.find(i => i.cardId === accountId && i.period === periodToCheck);
       return invoice ? (invoice.status === 'fechada' || invoice.status === 'paga') : false;
     }
-    const month = date.substring(0, 7);
-    return closedPeriods.some(cp => cp.month === month && cp.accountId === accountId);
+    const period = date.substring(0, 7);
+    return closedPeriods.some(cp => (cp.period === period || cp.month === period) && cp.accountId === accountId);
   };
 
   const handlePayInvoice = async () => {
@@ -257,19 +257,40 @@ export function CreditCards() {
       return;
     }
 
-    if (!paymentData.accountId) return;
+    // Período correto baseado no mês selecionado no modal
+    const currentPeriod = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
+    const nextPeriod = getNextPeriod(currentPeriod);
+
+    // Referências candidatas (podem estar obsoletas — a transaction confirma)
+    const existingInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === currentPeriod);
+    const existingNextInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === nextPeriod);
 
     let paymentTxRef: any;
     try {
       await runTransaction(db, async (transaction) => {
-        // Read source account balance first (Firestore requires all reads before writes)
+        // 1. TODAS AS LEITURAS primeiro
         const accRef = doc(db, 'accounts', paymentData.accountId);
         const accSnap = await transaction.get(accRef);
         if (!accSnap.exists()) throw new Error('Conta de origem não encontrada');
         const currentBalance = accSnap.data().balance || 0;
 
-        // Create transfer transaction
-        const tData = {
+        let invSnap: any = null;
+        let invDocRef: any = null;
+        if (existingInvoice) {
+          invDocRef = doc(db, 'invoices', existingInvoice.id);
+          invSnap = await transaction.get(invDocRef);
+        }
+
+        let nextInvSnap: any = null;
+        let nextInvDocRef: any = null;
+        if (existingNextInvoice) {
+          nextInvDocRef = doc(db, 'invoices', existingNextInvoice.id);
+          nextInvSnap = await transaction.get(nextInvDocRef);
+        }
+
+        // 2. TODAS AS ESCRITAS depois
+        paymentTxRef = doc(collection(db, 'transactions'));
+        transaction.set(paymentTxRef, {
           userId: user.uid,
           type: 'transferencia',
           amount: paymentData.amount,
@@ -279,13 +300,44 @@ export function CreditCards() {
           destinationAccountId: selectedCardForInvoice.id,
           categoryId: 'Pagamento de Cartão',
           status: 'pago',
-          invoicePeriod: calculateInvoicePeriod(selectedInvoiceMonth, selectedCardForInvoice.closingDay, selectedCardForInvoice.dueDay),
+          invoicePeriod: currentPeriod,
           createdAt: new Date().toISOString()
-        };
+        });
 
-        paymentTxRef = doc(collection(db, 'transactions'));
-        transaction.set(paymentTxRef, tData);
         transaction.update(accRef, { balance: currentBalance - paymentData.amount });
+
+        // Atualiza/cria invoice atual como paga
+        if (invSnap?.exists()) {
+          transaction.update(invDocRef, {
+            status: 'paga',
+            totalAmount: paymentData.amount,
+            paymentTransactionId: paymentTxRef.id,
+            closedAt: new Date().toISOString(),
+          });
+        } else {
+          const ref = doc(collection(db, 'invoices'));
+          transaction.set(ref, {
+            userId: user.uid,
+            cardId: selectedCardForInvoice.id,
+            period: currentPeriod,
+            status: 'paga',
+            totalAmount: paymentData.amount,
+            paymentTransactionId: paymentTxRef.id,
+            closedAt: new Date().toISOString(),
+          });
+        }
+
+        // Cria invoice do próximo período se não existir
+        if (!nextInvSnap?.exists()) {
+          const ref = nextInvDocRef || doc(collection(db, 'invoices'));
+          transaction.set(ref, {
+            userId: user.uid,
+            cardId: selectedCardForInvoice.id,
+            period: nextPeriod,
+            status: 'aberta',
+            totalAmount: 0,
+          });
+        }
       });
 
       logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: paymentTxRef?.id, description: `Pagamento de fatura: ${selectedCardForInvoice.name}` }).catch(() => {});
@@ -738,16 +790,18 @@ export function CreditCards() {
           
           const prevBalance = calculatePeriodBalance(card.id, previousPeriod);
           const currentBalance = calculatePeriodBalance(card.id, currentPeriod);
+          const netOutstanding = prevBalance + currentBalance;
           
-          let displayAmount = currentBalance;
-          let displayLabel = "Fatura Atual (Aberta)";
-          let displayPeriod = currentPeriod;
+          let displayAmount: number;
+          let displayLabel: string;
+          let displayPeriod: string;
           let isOverdue = false;
 
           if (prevBalance > 0.01) {
-            displayAmount = prevBalance;
-            displayLabel = "Fatura Fechada (A pagar)";
-            displayPeriod = previousPeriod;
+            // Soma saldos de períodos anteriores + atual para mostrar total devido
+            displayAmount = Math.max(0, netOutstanding);
+            displayLabel = "Saldo Devedor";
+            displayPeriod = currentPeriod;
             
             const [pYear, pMonth] = previousPeriod.split('-').map(Number);
             const dueDate = new Date(pYear, pMonth - 1, card.dueDay);
@@ -755,6 +809,10 @@ export function CreditCards() {
               isOverdue = true;
               displayLabel = "Fatura Atrasada";
             }
+          } else {
+            displayAmount = currentBalance;
+            displayLabel = "Fatura Atual (Aberta)";
+            displayPeriod = currentPeriod;
           }
 
           const totalUsage = calculateTotalLimitUsage(card.id);
@@ -974,6 +1032,29 @@ export function CreditCards() {
               const isPaid = invoice ? invoice.status === 'paga' : (totalInvoice <= 0 && periodPayments > 0);
               const isClosed = invoice ? (invoice.status === 'fechada' || invoice.status === 'paga') : (new Date() > new Date(selectedInvoiceMonth.getFullYear(), selectedInvoiceMonth.getMonth(), selectedCardForInvoice.closingDay));
 
+              const handleCloseInvoice = async () => {
+                if (!selectedCardForInvoice) return;
+                try {
+                  if (invoice) {
+                    await updateDoc(doc(db, 'invoices', invoice.id), { status: 'fechada', closedAt: new Date().toISOString() });
+                  } else {
+                    await addDoc(collection(db, 'invoices'), {
+                      userId: user.uid,
+                      cardId: selectedCardForInvoice.id,
+                      period: currentPeriod,
+                      status: 'fechada',
+                      totalAmount: Math.max(0, totalInvoice),
+                      closedAt: new Date().toISOString(),
+                    });
+                  }
+                  logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: invoice?.id || 'new', description: `Fatura fechada: ${selectedCardForInvoice.name} - ${currentPeriod}` }).catch(() => {});
+                  toast.success('Fatura fechada com sucesso');
+                } catch (error) {
+                  handleFirestoreError(error, OperationType.UPDATE, 'invoices');
+                  toast.error('Erro ao fechar fatura');
+                }
+              };
+
               const handleReopenInvoice = async () => {
                 if (!invoice) return;
                 try {
@@ -1032,6 +1113,11 @@ export function CreditCards() {
                         <Badge className="bg-fiducia-red/10 text-fiducia-red border-fiducia-red/20 hover:bg-fiducia-red/20">Fatura Fechada</Badge>
                       ) : (
                         <Badge className="bg-fiducia-blue/10 text-fiducia-blue border-fiducia-blue/20 hover:bg-fiducia-blue/20">Fatura Aberta</Badge>
+                      )}
+                      {(!invoice || invoice.status === 'aberta') && totalInvoice > 0 && (
+                        <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleCloseInvoice}>
+                          <Lock className="h-3 w-3" /> FECHAR FATURA
+                        </Button>
                       )}
                       {invoice && (invoice.status === 'fechada' || invoice.status === 'paga') && (
                         <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={handleReopenInvoice}>
