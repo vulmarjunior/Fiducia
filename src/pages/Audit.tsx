@@ -403,7 +403,14 @@ export function Audit() {
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conta / Cartão</Label>
               <ShadcnSelect value={closePeriodData.entityId} onValueChange={(v) => setClosePeriodData(prev => ({ ...prev, entityId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione">
+                    {(() => {
+                      const found = accounts.find(a => a.id === closePeriodData.entityId) || creditCards.find(c => c.id === closePeriodData.entityId);
+                      return found ? found.name : null;
+                    })()}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   {accounts.map(acc => (
                     <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
