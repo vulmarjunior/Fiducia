@@ -406,10 +406,10 @@ export function Audit() {
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {accounts.map(acc => (
-                    <SelectItem key={acc.id} value={acc.id}>{resolveAccountName(acc.id, accounts, creditCards)}</SelectItem>
+                    <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
                   ))}
                   {creditCards.map(cc => (
-                    <SelectItem key={cc.id} value={cc.id}>{resolveAccountName(cc.id, accounts, creditCards)}</SelectItem>
+                    <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>
                   ))}
                 </SelectContent>
               </ShadcnSelect>
