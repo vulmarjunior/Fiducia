@@ -402,24 +402,19 @@ export function Audit() {
           <div className="space-y-4 py-4">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conta / Cartão</Label>
-              <ShadcnSelect value={closePeriodData.entityId} onValueChange={(v) => setClosePeriodData(prev => ({ ...prev, entityId: v }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione">
-                    {(() => {
-                      const found = accounts.find(a => a.id === closePeriodData.entityId) || creditCards.find(c => c.id === closePeriodData.entityId);
-                      return found ? found.name : null;
-                    })()}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map(acc => (
-                    <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
-                  ))}
-                  {creditCards.map(cc => (
-                    <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </ShadcnSelect>
+              <select
+                className="flex h-11 w-full rounded-md border border-secondary/30 bg-white px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50"
+                value={closePeriodData.entityId}
+                onChange={(e) => setClosePeriodData(prev => ({ ...prev, entityId: e.target.value }))}
+              >
+                <option value="">Selecione</option>
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name}</option>
+                ))}
+                {creditCards.map(cc => (
+                  <option key={cc.id} value={cc.id}>{cc.name}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mês</Label>
