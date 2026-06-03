@@ -235,8 +235,8 @@ export function CreditCards() {
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
-      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'creditCards');
       toast.error('Falha ao salvar cartão de crédito');
+      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'creditCards');
     }
   };
 
@@ -344,8 +344,8 @@ export function CreditCards() {
       toast.success('Pagamento registrado com sucesso');
       setIsPayInvoiceDialogOpen(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'transactions');
       toast.error('Erro ao registrar pagamento');
+      handleFirestoreError(error, OperationType.CREATE, 'transactions');
     }
   };
 
@@ -384,8 +384,8 @@ export function CreditCards() {
       logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: tx.id, description: `Lançamento movido para fatura ${newInvoicePeriod}: ${tx.description}` }).catch(() => {});
       toast.success(`Lançamento movido para a fatura de ${month.toString().padStart(2, '0')}/${year}`);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'transactions');
       toast.error('Erro ao mover lançamento');
+      handleFirestoreError(error, OperationType.UPDATE, 'transactions');
     }
   };
 
@@ -457,8 +457,8 @@ export function CreditCards() {
       setTxToDelete(null);
       setDeleteScope('only');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'transactions');
       toast.error('Erro ao excluir lançamento(s)');
+      handleFirestoreError(error, OperationType.DELETE, 'transactions');
     }
   };
 
@@ -504,8 +504,8 @@ export function CreditCards() {
         toast.info('Nenhum lançamento precisava ser atualizado.');
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'transactions');
       toast.error('Erro ao atualizar faturas');
+      handleFirestoreError(error, OperationType.UPDATE, 'transactions');
     }
   };
 
@@ -660,6 +660,13 @@ export function CreditCards() {
         }
 
       await batch.commit();
+
+      const suspiciousInstallments = selected
+        .filter(t => t.installmentInfo && t.amount > 5000)
+        .map(t => `${t.description} (${t.installmentInfo}, R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`);
+      if (suspiciousInstallments.length > 0) {
+        toast.warning(`Valores de parcela elevados detectados:\n${suspiciousInstallments.join('\n')}\n\nVerifique se os valores estão corretos — cada parcela deve ter o valor individual, não o total da compra.`, { duration: 8000 });
+      }
 
       logActivity({
         userId: user.uid,

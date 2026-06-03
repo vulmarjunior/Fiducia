@@ -94,10 +94,11 @@ Regras obrigatórias:
 - Preença meses e dias com dois dígitos (ex: 2026-01-05, não 2026-1-5)
 - Se não encontrar nenhuma transação, retorne []
 - Valores monetários: ignore "R$", vírgula decimal → ponto decimal (ex: "1.234,56" → 1234.56)
+- **IMPORTANTE para compras parceladas**: o "amount" deve ser o VALOR INDIVIDUAL DA PARCELA exibido na linha da fatura, NÃO o valor total da compra. Ex: se a fatura mostra "COMPRA X (2/6) ... R$ 175,00", amount deve ser 175.00, e installmentInfo = "2/6"
 ${categorySection}
 
 Formato de saída (exemplo):
-[{"date":"${currentYear}-05-10","description":"UBER TRIP","amount":28.90,"type":"despesa","installmentInfo":null,"suggestedCategoryId":"cat-transporte-id"},{"date":"${currentYear}-05-12","description":"ESTORNO IFOOD","amount":45.00,"type":"receita","installmentInfo":null,"suggestedCategoryId":null}]`;
+[{"date":"${currentYear}-05-10","description":"UBER TRIP","amount":28.90,"type":"despesa","installmentInfo":null,"suggestedCategoryId":"cat-transporte-id"},{"date":"${currentYear}-05-12","description":"COMPRA LOJA (2/6)","amount":175.00,"type":"despesa","installmentInfo":"2/6","suggestedCategoryId":"cat-compras-id"},{"date":"${currentYear}-05-12","description":"ESTORNO IFOOD","amount":45.00,"type":"receita","installmentInfo":null,"suggestedCategoryId":null}]`;
 
   const userPrompt = `Fatura do cartão: ${cardName}
 
