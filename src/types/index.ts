@@ -11,6 +11,7 @@ export interface Account {
   name: string;
   type: 'checking' | 'savings' | 'wallet' | 'investment';
   balance: number;
+  initialBalance?: number;
   agency?: string;
   accountNumber?: string;
   bankCode?: string;

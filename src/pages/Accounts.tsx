@@ -109,6 +109,7 @@ export function Accounts() {
         name: formData.name,
         type: formData.type,
         balance: formData.balance,
+        initialBalance: formData.balance,
         excludeFromCashFlow: formData.excludeFromCashFlow,
         createdAt: new Date().toISOString()
       };
@@ -335,7 +336,9 @@ export function Accounts() {
         await runTransaction(db, async (transaction) => {
           const snap = await transaction.get(doc(db, 'accounts', acc.id));
           if (snap.exists()) {
-            transaction.update(doc(db, 'accounts', acc.id), { balance: netEffect });
+            const data = snap.data();
+            const initialBalance = data.initialBalance ?? 0;
+            transaction.update(doc(db, 'accounts', acc.id), { balance: initialBalance + netEffect });
           }
         });
       }
