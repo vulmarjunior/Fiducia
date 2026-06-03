@@ -908,10 +908,10 @@ export function TransactionDialog() {
                   menuPosition="fixed"
                   menuPortalTarget={document.body}
                   styles={{
-                    control: (base: any) => ({ ...base, minHeight: '48px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'rgb(249 250 251)', boxShadow: 'none' }),
+                    control: (base: any) => ({ ...base, minHeight: '48px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'hsl(var(--muted))', boxShadow: 'none' }),
                     menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
                     menu: (base: any) => ({ ...base, zIndex: 9999, minWidth: '280px' }),
-                    groupHeading: (base: any) => ({ ...base, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', paddingTop: '10px', paddingBottom: '4px', paddingLeft: '12px' }),
+                    groupHeading: (base: any) => ({ ...base, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', paddingTop: '10px', paddingBottom: '4px', paddingLeft: '12px' }),
                     option: (base: any) => ({ ...base, whiteSpace: 'normal', wordBreak: 'break-word', paddingTop: '8px', paddingBottom: '8px' })
                   }}
                 />
@@ -943,7 +943,7 @@ export function TransactionDialog() {
                       menuPosition="fixed"
                       menuPortalTarget={document.body}
                       styles={{
-                        control: (base: any) => ({ ...base, minHeight: '48px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'rgb(249 250 251)', boxShadow: 'none' }),
+                        control: (base: any) => ({ ...base, minHeight: '48px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'hsl(var(--muted))', boxShadow: 'none' }),
                         menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
                         menu: (base: any) => ({ ...base, zIndex: 9999, minWidth: '280px' })
                       }}
@@ -1194,7 +1194,7 @@ export function TransactionDialog() {
                     menuPosition="fixed"
                     menuPortalTarget={document.body}
                     styles={{
-                      control: (base: any) => ({ ...base, minHeight: '40px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'white', boxShadow: 'none' }),
+                      control: (base: any) => ({ ...base, minHeight: '40px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'hsl(var(--muted))', boxShadow: 'none' }),
                       menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
                       multiValue: (base: any, state: any) => ({ ...base, backgroundColor: state.data.color + '20', borderRadius: '4px' }),
                       multiValueLabel: (base: any, state: any) => ({ ...base, color: state.data.color, fontWeight: 600 }),
