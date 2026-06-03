@@ -27,12 +27,18 @@ src/
 ├── firebase.ts          # Init Firebase + handleFirestoreError
 ├── index.css            # Tailwind + tema (light/dark) + Fiducia custom colors
 ├── contexts/
-│   └── AuthContext.tsx   # Google Auth + user profile sync
+│   ├── AuthContext.tsx
+│   └── TransactionDialogContext.tsx
 ├── components/
 │   ├── ui/              # Shadcn/UI primitives (button, dialog, input, etc.)
 │   ├── Layout.tsx       # Sidebar + nav + Outlet
 │   ├── Logo.tsx
 │   ├── MoneyInput.tsx
+│   ├── CalcPopover.tsx
+│   ├── CategorySelect.tsx
+│   ├── TransactionDialog.tsx
+│   ├── PdfImportReviewDialog.tsx
+│   ├── PageHelp.tsx
 │   └── ConfirmDialog.tsx
 ├── pages/
 │   ├── Login.tsx
@@ -55,7 +61,7 @@ src/
 │   ├── pdfInvoiceService.ts # Extração de PDF e Groq parsing
 │   ├── groqService.ts
 ├── lib/
-│   ├── utils.ts          # cn(), calculateInvoicePeriod(), etc.
+│   ├── utils.ts          # cn(), calculateInvoicePeriod(), isEffectivelyPaid(), isPeriodClosed(), formatCurrency(), parseLocalDate(), etc.
 │   ├── ofxParser.ts
 │   ├── defaultCategories.ts
 │   └── categoryIcons.tsx

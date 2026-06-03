@@ -2,7 +2,7 @@
 
 > Documentação viva de descobertas técnicas. Atualizada automaticamente durante o desenvolvimento.
 > **Stack**: Firebase, Firestore, TypeScript, React 19, Tailwind CSS 4, Shadcn/UI
-> **Última atualização**: 2026-05-29
+> **Última atualização**: 2026-06-02
 
 ---
 
@@ -347,3 +347,105 @@
 - **Data**: 2026-05-29
 - **Causa Raiz**: `new Date("YYYY-MM-DD")` no JavaScript é interpretado como meia-noite UTC (ISO 8601 date-only). No Brasil (BRT, UTC-3), meia-noite UTC = 21h do dia anterior. Ao converter para ISO string com `.toISOString()`, a data ficava como `2026-05-29T00:00:00.000Z` em UTC, mas ao exibir com `.toLocaleDateString('pt-BR')` o JS convertia para BRT, mostrando `28/05/2026`.
 - **Solução**: Criadas funções `parseLocalDate()` e `dateToLocalISOString()` em `src/lib/utils.ts` que constroem a data como meia-noite no fuso local usando `new Date(y, m-1, d)`. Substituídos todos os `new Date(formData.date)` nos fluxos do `TransactionDialog`. Corrigida exibição no `CreditCards.tsx`.
+
+---
+
+## ✅ O que Funciona (continuação)
+
+### CalcPopover — Calculadora Rápida Inline
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-02
+- **Contexto**: Usuário precisava fazer cálculos básicos sem sair do modal de lançamento.
+- **Solução**: Criado `CalcPopover` (`src/components/CalcPopover.tsx`) — popover com input de expressão aritmética. Parser recursivo seguro (sem `eval()`/`new Function()`). Preview ao vivo formatado em R$. Enter = aplicar, Escape = fechar.
+- **Integração**: Adicionado botão de calculadora (ícone `Calculator`) no `MoneyInput` via prop `showCalc` (default `true`). Botão oculto quando `disabled=true`. Todos os campos monetários do sistema ganharam o atalho automaticamente — sem alterar nenhuma página.
+
+### remainderPosition — Seletor de Posição da Diferença de Centavos
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-02
+- **Contexto**: Ao parcelar R$100 em 3x, a 1ª parcela sempre recebia os centavos extras (R$33,34 / R$33,33 / R$33,33). Mas isso depende do banco — o usuário precisava de liberdade para escolher.
+- **Solução**: Novo campo `remainderPosition` (`'first'` | `'last'` | `'spread'`) no `formData` do TransactionDialog:
+  - `first` (padrão): centavos extras na 1ª parcela
+  - `last`: centavos extras na última parcela
+  - `spread`: distribui 1 centavo por parcela da esquerda pra direita
+- **UI**: Select "Diferença de Centavos" visível **somente quando `remainder > 0`** (divisão não-exata).
+- **Atingido em**: `handleCreateSubmit` (cartão e conta), ambos os blocos de conversão avulso→parcelado.
+- **Helpers**: `computeInstallmentParts(total, count)` e `getInstallmentAmount(i, position, count, base, remainder)` extraídos para reuso.
+
+### Conversão Avulso → Parcelado na Edição
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-02
+- **Contexto**: Usuário tentava editar um lançamento de R$1.779,45 para mudar de avulso para parcelado em 3x. O sistema retornava "Lançamento atualizado" mas nada mudava.
+- **Causa Raiz**: `handleEditSubmit` não tinha código para converter avulso→parcelado. O `updateData` não incluía `parentId`, `installmentNumber`, `totalInstallments`. Nenhuma parcela nova era criada. O Firestore atualizava o documento com os mesmos dados (sem mudança real), mas a transação não falhava → toast falso-positivo.
+- **Solução**: Dois novos blocos de early return no `handleEditSubmit`, antes dos caminhos existentes:
+  - **Cartão de crédito**: original → parcela 1 (`realizado`), cria N−1 parcelas (`pendente`) em faturas sequenciais com `getNextPeriod()`.
+  - **Conta corrente**: lê saldo, calcula `delta = efeitoParcelado − efeitoAvulso`, ajusta saldo, cria N−1 pendentes.
+- **Transferência**: Bloqueada com toast "Não é possível parcelar uma transferência".
+
+### Correção Prompt Groq — Valor Individual da Parcela
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: Importador de fatura PDF lançava compras parceladas com valor total em vez do valor individual da parcela.
+- **Causa Raiz**: Prompt da Groq não instruía explicitamente que `amount` deve ser o valor individual visível na linha da fatura, não o total da compra.
+- **Solução**: Prompt atualizado com regra explícita e exemplo de transação parcelada (`amount: 175.00` para "COMPRA LOJA (2/6)").
+- **Validação adicional**: `handleConfirmPdfImport` agora exibe `toast.warning` de 8s se alguma parcela > R$5.000, alertando para verificar valor individual vs total.
+
+---
+
+## 🔄 Correções de Registro (Auditoria 2026-06-02)
+
+### 24 catch blocks com ordem toast/handleFirestoreError invertida
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: Auditoria completa encontrou 24 blocos catch onde `handleFirestoreError()` (que dá throw) era chamada ANTES de `toast.error()`, impedindo o toast de executar.
+- **Arquivos afetados**: `Categories.tsx` (6), `Budgets.tsx` (2), `Goals.tsx` (2), `Tags.tsx` (2), `Audit.tsx` (4), `Settings.tsx` (2), `CreditCards.tsx` (3 remanescentes).
+- **Solução**: Ordem invertida em todos — `toast.error()` primeiro, `handleFirestoreError()` depois. Mesmo padrão já aplicado em Transactions, Dashboard e TransactionDialog.
+
+### XSS — dangerouslySetInnerHTML com conteúdo de IA
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: `Reports.tsx:298` inseria resposta da Groq diretamente no DOM com `dangerouslySetInnerHTML`, apenas convertendo `\n` → `<br/>`. Um ataque de prompt injection poderia injetar `<script>`.
+- **Solução**: HTML escaping completo antes de inserir: `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`, `"` → `&quot;`. Depois converte `\n` → `<br/>`. Só `<br/>` chega ao DOM.
+
+### CalcPopover — Substituição de new Function() por parser recursivo
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: `CalcPopover.tsx:13` usava `new Function(\`"use strict"; return (${sanitized})\`)()` para avaliar expressões. Flagged por scanners de segurança.
+- **Solução**: Parser aritmético recursivo (recursive descent) implementado — suporta +, −, *, /, parênteses, números negativos e decimais. Zero dependências, ~50 linhas.
+
+### Deduplicação de Utilitários
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: Funções idênticas definidas múltiplas vezes em arquivos diferentes:
+  - `isEffectivelyPaid`: 4 definições (TransactionDialog, Dashboard, Transactions, Accounts)
+  - `isPeriodClosed`: 3 definições (TransactionDialog, Transactions, CreditCards)
+  - `formatCurrency`: 3 definições (Dashboard, Transactions, Reports)
+  - `getPreviousPeriod`: 2 definições (utils.ts exportado, CreditCards.tsx duplicado)
+- **Solução**: Todas extraídas para `src/lib/utils.ts` como funções exportadas. Consumidores importam de `@/lib/utils`. `isPeriodClosed` unificada com parâmetros explícitos para os arrays de lookup (elimina dependência de estado do componente).
+
+### Dark Mode — Reconciliation.tsx
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: Reconciliation.tsx usava 24 classes hardcoded (`bg-white`, `text-gray-500`, `border-gray-200`) sem variantes dark, tornando a página ilegível em dark mode.
+- **Solução**: Substituídas por tokens Shadcn (`bg-card`, `text-muted-foreground`, `border-border`) + variantes `dark:` para cores de status.
+
+### onSnapshot Duplicado — Transactions.tsx
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: Transactions.tsx assinava a mesma query `transactions` duas vezes (linha 144 para dados, linha 182 para sync de fatura). Cada listener recebia o dataset completo do usuário.
+- **Solução**: Listener duplicado removido. Lógica de sync de fatura movida para dentro do primeiro callback, guardada por `if (invoices.length > 0)`.
+- **Bônus**: Adicionado `isLoading` state com spinner "Carregando..." no lugar do flash de tabela vazia.
+
+---
+
+## 💡 Padrões Descobertos
+
+### Funções utilitárias compartilhadas → lib/utils.ts
+- **Data**: 2026-06-02
+- **Padrão**: Toda função utilitária usada por 2+ arquivos deve ser exportada de `lib/utils.ts`. Exemplos: `isEffectivelyPaid`, `isPeriodClosed`, `formatCurrency`, `resolveAccountName`, `calculateInvoicePeriod`.
+- **Assinatura de `isPeriodClosed`**: Recebe os arrays de lookup como parâmetros (`creditCards`, `invoices`, `closedPeriods`) em vez de acessar estado do componente. Isso permite uso em qualquer contexto.
+- **Cuidado**: `CreditCards.tsx` usa `cards` (não `creditCards`) como nome de estado — mapear no call site.
+
+### Conversão avulso→parcelado — early return no handleEditSubmit
+- **Data**: 2026-06-02
+- **Padrão**: Detecção de mudança de tipo de recorrência ANTES dos caminhos existentes, com `return` após executar. Evita que o código de update normal processe a conversão incorretamente.
+- **Cuidado**: Sempre chamar `close()` e `resetForm()` antes do `return`. Usar `toast.success()` com mensagem específica ("Convertido para N parcelas") para distinguir de update normal.
