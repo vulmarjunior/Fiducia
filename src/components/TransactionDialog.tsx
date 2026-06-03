@@ -27,6 +27,19 @@ const getBalanceChange = (type: string, amount: number) => {
   return type === 'receita' ? amount : -amount;
 };
 
+function computeInstallmentParts(total: number, count: number) {
+  const base = Math.floor((total / count) * 100) / 100;
+  const remainder = Math.round((total - (base * count)) * 100) / 100;
+  return { base, remainder };
+}
+
+function getInstallmentAmount(i: number, position: string, count: number, base: number, remainder: number): number {
+  if (position === 'first' && i === 0) return base + remainder;
+  if (position === 'last' && i === count - 1) return base + remainder;
+  if (position === 'spread' && i < Math.round(remainder * 100)) return base + 0.01;
+  return base;
+}
+
 export function TransactionDialog() {
   const { isOpen, options, close } = useTransactionDialog();
   const { user } = useAuth();
@@ -90,6 +103,7 @@ export function TransactionDialog() {
     observation: '',
     isRecurring: false,
     installments: 1,
+    remainderPosition: 'first' as 'first' | 'last' | 'spread',
   });
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -129,6 +143,7 @@ export function TransactionDialog() {
       observation: '',
       isRecurring: false,
       installments: 1,
+      remainderPosition: 'first',
     });
     setEditingId(null);
     setEditingTx(null);
@@ -158,6 +173,7 @@ export function TransactionDialog() {
       observation: tx.observation || '',
       isRecurring: !!tx.parentId,
       installments: tx.totalInstallments || 1,
+      remainderPosition: 'first',
     });
     setEditingId(tx.id);
     setEditingTx(tx);
@@ -299,8 +315,7 @@ export function TransactionDialog() {
     try {
       if (formData.ccRecurrenceType === 'parcelado') {
         const numInstallments = parseInt(formData.installmentsCount) || 2;
-        const installmentBase = Math.floor((amount / numInstallments) * 100) / 100;
-        const remainder = Math.round((amount - (installmentBase * numInstallments)) * 100) / 100;
+        const { base: installmentBase, remainder } = computeInstallmentParts(amount, numInstallments);
         const parentId = crypto.randomUUID();
 
         await runTransaction(db, async (transaction) => {
@@ -317,7 +332,7 @@ export function TransactionDialog() {
             const date = parseLocalDate(formData.date);
             date.setMonth(date.getMonth() + i);
             const dateStr = date.toISOString();
-            const instAmount = i === 0 ? installmentBase + remainder : installmentBase;
+            const instAmount = getInstallmentAmount(i, formData.remainderPosition, numInstallments, installmentBase, remainder);
 
             const tData: any = {
               ...baseTData,
@@ -345,7 +360,7 @@ export function TransactionDialog() {
           }
 
           if (accountSnap?.exists() && isEffectivelyPaid({ status: finalStatus })) {
-            const firstAmount = installmentBase + remainder;
+            const firstAmount = getInstallmentAmount(0, formData.remainderPosition, numInstallments, installmentBase, remainder);
             const change = getBalanceChange(formData.type, firstAmount);
             transaction.update(doc(db, 'accounts', formData.accountId), { balance: (accountSnap.data().balance || 0) + change });
           }
@@ -498,9 +513,8 @@ export function TransactionDialog() {
         const numInstallments = parseInt(formData.installmentsCount) || 2;
         if (numInstallments < 2) { toast.error('Mínimo de 2 parcelas'); return; }
 
-        const installmentBase = Math.floor((amount / numInstallments) * 100) / 100;
-        const remainder = Math.round((amount - (installmentBase * numInstallments)) * 100) / 100;
-        const firstAmount = installmentBase + remainder;
+        const { base: installmentBase, remainder } = computeInstallmentParts(amount, numInstallments);
+        const firstAmount = getInstallmentAmount(0, formData.remainderPosition, numInstallments, installmentBase, remainder);
         const parentId = crypto.randomUUID();
 
         await runTransaction(db, async (transaction) => {
@@ -534,11 +548,12 @@ export function TransactionDialog() {
             const futureDate = new Date(origDate);
             futureDate.setMonth(futureDate.getMonth() + i);
             currentPeriod = getNextPeriod(currentPeriod);
+            const instAmount = getInstallmentAmount(i, formData.remainderPosition, numInstallments, installmentBase, remainder);
 
             transaction.set(doc(collection(db, 'transactions')), {
               userId: user.uid,
               type: formData.type,
-              amount: installmentBase,
+              amount: instAmount,
               date: futureDate.toISOString(),
               description: `${formData.description} (${i + 1}/${numInstallments})`,
               creditCardId: formData.accountId,
@@ -571,9 +586,8 @@ export function TransactionDialog() {
         const numInstallments = parseInt(formData.installmentsCount) || 2;
         if (numInstallments < 2) { toast.error('Mínimo de 2 parcelas'); return; }
 
-        const installmentBase = Math.floor((amount / numInstallments) * 100) / 100;
-        const remainder = Math.round((amount - (installmentBase * numInstallments)) * 100) / 100;
-        const firstAmount = installmentBase + remainder;
+        const { base: installmentBase, remainder } = computeInstallmentParts(amount, numInstallments);
+        const firstAmount = getInstallmentAmount(0, formData.remainderPosition, numInstallments, installmentBase, remainder);
         const parentId = crypto.randomUUID();
 
         await runTransaction(db, async (transaction) => {
@@ -617,11 +631,12 @@ export function TransactionDialog() {
           for (let i = 1; i < numInstallments; i++) {
             const futureDate = new Date(origDate);
             futureDate.setMonth(futureDate.getMonth() + i);
+            const instAmount = getInstallmentAmount(i, formData.remainderPosition, numInstallments, installmentBase, remainder);
 
             transaction.set(doc(collection(db, 'transactions')), {
               userId: user.uid,
               type: formData.type,
-              amount: installmentBase,
+              amount: instAmount,
               date: futureDate.toISOString(),
               description: `${formData.description} (${i + 1}/${numInstallments})`,
               accountId: formData.accountId,
@@ -1036,6 +1051,22 @@ export function TransactionDialog() {
                           </div>
                         </div>
                       )}
+                      {formData.ccRecurrenceType === 'parcelado' && (() => {
+                        const parts = computeInstallmentParts(formData.amount || 0, parseInt(formData.installmentsCount) || 2);
+                        return parts.remainder > 0 ? (
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold text-muted-foreground uppercase">Diferença de Centavos</Label>
+                            <ShadcnSelect value={formData.remainderPosition} onValueChange={(v) => setFormData({ ...formData, remainderPosition: v as any })}>
+                              <SelectTrigger className="bg-background border-none h-10 rounded-xl text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="first">1ª parcela (+R$ {parts.remainder.toFixed(2)})</SelectItem>
+                                <SelectItem value="last">Última parcela (+R$ {parts.remainder.toFixed(2)})</SelectItem>
+                                <SelectItem value="spread">Distribuído</SelectItem>
+                              </SelectContent>
+                            </ShadcnSelect>
+                          </div>
+                        ) : null;
+                      })()}
                       {formData.ccRecurrenceType === 'fixo' && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
@@ -1086,6 +1117,22 @@ export function TransactionDialog() {
                           </div>
                         </div>
                       )}
+                      {formData.ccRecurrenceType === 'parcelado' && (() => {
+                        const parts = computeInstallmentParts(formData.amount || 0, parseInt(formData.installmentsCount) || 2);
+                        return parts.remainder > 0 ? (
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold text-muted-foreground uppercase">Diferença de Centavos</Label>
+                            <ShadcnSelect value={formData.remainderPosition} onValueChange={(v) => setFormData({ ...formData, remainderPosition: v as any })}>
+                              <SelectTrigger className="bg-background border-none h-10 rounded-xl text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="first">1ª parcela (+R$ {parts.remainder.toFixed(2)})</SelectItem>
+                                <SelectItem value="last">Última parcela (+R$ {parts.remainder.toFixed(2)})</SelectItem>
+                                <SelectItem value="spread">Distribuído</SelectItem>
+                              </SelectContent>
+                            </ShadcnSelect>
+                          </div>
+                        ) : null;
+                      })()}
                       {formData.isRecurring && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
