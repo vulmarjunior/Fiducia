@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore';
-import { resolveAccountName } from '../lib/utils';
+import { resolveAccountName, isEffectivelyPaid } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -82,7 +82,9 @@ export function Audit() {
 
   const runningBalanceTransactions = useMemo(() => {
     let balance = 0;
-    return accountTransactions.map(t => {
+    return accountTransactions
+      .filter(t => isEffectivelyPaid(t))
+      .map(t => {
       const isDestination = t.destinationAccountId === selectedAccountId;
       const isSource = t.accountId === selectedAccountId;
       

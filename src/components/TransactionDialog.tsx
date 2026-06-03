@@ -37,6 +37,18 @@ function getInstallmentAmount(i: number, position: string, count: number, base: 
   return base;
 }
 
+function getRecurrenceParams(frequency: string): { iterations: number; advanceDate: (d: Date, i: number) => void } {
+  switch (frequency) {
+    case 'semanal': return { iterations: 52, advanceDate: (d, i) => d.setDate(d.getDate() + i * 7) };
+    case 'mensal': return { iterations: 12, advanceDate: (d, i) => d.setMonth(d.getMonth() + i) };
+    case 'bimestral': return { iterations: 6, advanceDate: (d, i) => d.setMonth(d.getMonth() + i * 2) };
+    case 'trimestral': return { iterations: 4, advanceDate: (d, i) => d.setMonth(d.getMonth() + i * 3) };
+    case 'semestral': return { iterations: 2, advanceDate: (d, i) => d.setMonth(d.getMonth() + i * 6) };
+    case 'anual': return { iterations: 5, advanceDate: (d, i) => d.setFullYear(d.getFullYear() + i) };
+    default: return { iterations: 12, advanceDate: (d, i) => d.setMonth(d.getMonth() + i) };
+  }
+}
+
 export function TransactionDialog() {
   const { isOpen, options, close } = useTransactionDialog();
   const { user } = useAuth();
@@ -162,7 +174,7 @@ export function TransactionDialog() {
       destinationAccountId: tx.destinationAccountId || '',
       status: tx.status || 'pago',
       invoicePeriod: tx.invoicePeriod || '',
-      ccRecurrenceType: tx.ccRecurrenceType || (tx.parentId ? (tx.totalInstallments ? 'parcelado' : 'fixo') : 'avulso'),
+      ccRecurrenceType: tx.ccRecurrenceType || (tx.parentId ? 'avulso' : 'avulso'),
       installmentsCount: tx.totalInstallments?.toString() || '2',
       frequency: tx.frequency || 'mensal',
       billingDay: tx.billingDay || tx.date?.split('T')[0]?.split('-')[2] || new Date().getDate().toString(),
@@ -354,7 +366,7 @@ export function TransactionDialog() {
         logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: parentId, description: `${numInstallments} parcelas: ${formData.description}` }).catch(() => {});
         toast.success(`${numInstallments} parcelas geradas`);
       } else if (isCreditCard && card && formData.ccRecurrenceType === 'fixo') {
-        const iterations = formData.frequency === 'mensal' ? 12 : (formData.frequency === 'semanal' ? 52 : 5);
+        const { iterations, advanceDate } = getRecurrenceParams(formData.frequency);
         const batch = writeBatch(db);
 
         const ruleData = {
@@ -375,9 +387,7 @@ export function TransactionDialog() {
 
         for (let i = 0; i < iterations; i++) {
           const date = parseLocalDate(formData.date);
-          if (formData.frequency === 'semanal') date.setDate(date.getDate() + (i * 7));
-          else if (formData.frequency === 'mensal') date.setMonth(date.getMonth() + i);
-          else if (formData.frequency === 'anual') date.setFullYear(date.getFullYear() + i);
+          advanceDate(date, i);
           const dateStr = date.toISOString();
 
           const tData: any = {
@@ -398,7 +408,7 @@ export function TransactionDialog() {
         toast.success('Lançamento fixo configurado');
       } else {
         const iterations = !isCreditCard && formData.isRecurring
-          ? (formData.frequency === 'mensal' ? 12 : (formData.frequency === 'semanal' ? 52 : 5))
+          ? getRecurrenceParams(formData.frequency).iterations
           : 1;
 
         await runTransaction(db, async (transaction) => {
@@ -414,9 +424,8 @@ export function TransactionDialog() {
           for (let i = 0; i < iterations; i++) {
             const date = parseLocalDate(formData.date);
             if (!isCreditCard && formData.isRecurring && i > 0) {
-              if (formData.frequency === 'semanal') date.setDate(date.getDate() + (i * 7));
-              else if (formData.frequency === 'mensal') date.setMonth(date.getMonth() + i);
-              else if (formData.frequency === 'anual') date.setFullYear(date.getFullYear() + i);
+              const { advanceDate } = getRecurrenceParams(formData.frequency);
+              advanceDate(date, i);
             }
             const dateStr = date.toISOString();
 
@@ -1007,14 +1016,21 @@ export function TransactionDialog() {
                 <div className="p-4 bg-muted rounded-2xl space-y-4">
                   {isCreditCard ? (
                     <div className="space-y-4">
+                      {editingId && editingTx?.parentId && editingTx.installmentNumber && editingTx.totalInstallments && (
+                        <div className="text-xs font-bold text-muted-foreground bg-background rounded-xl p-3 text-center border border-border/50">
+                          Parcela {editingTx.installmentNumber} de {editingTx.totalInstallments} — série original
+                        </div>
+                      )}
+                      {!(editingId && editingTx?.parentId) && (
                       <div className="flex gap-2">
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'avulso' })}
                           className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'avulso' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>AVULSO</button>
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'parcelado' })}
                           className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'parcelado' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>PARCELADO</button>
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'fixo' })}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'fixo' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>FIXO</button>
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'fixo' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>RECORRENTE</button>
                       </div>
+                      )}
                       {formData.ccRecurrenceType === 'parcelado' && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
@@ -1029,29 +1045,13 @@ export function TransactionDialog() {
                               {(() => {
                                 const total = formData.amount || 0;
                                 const count = parseInt(formData.installmentsCount) || 2;
-                                const base = Math.floor((total / count) * 100) / 100;
-                                return base.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                                const parts = computeInstallmentParts(total, count);
+                                return getInstallmentAmount(0, formData.remainderPosition, count, parts.base, parts.remainder).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                               })()}
                             </div>
                           </div>
                         </div>
                       )}
-                      {formData.ccRecurrenceType === 'parcelado' && (() => {
-                        const parts = computeInstallmentParts(formData.amount || 0, parseInt(formData.installmentsCount) || 2);
-                        return parts.remainder > 0 ? (
-                          <div className="space-y-1.5">
-                            <Label className="text-[10px] font-bold text-muted-foreground uppercase">Diferença de Centavos</Label>
-                            <ShadcnSelect value={formData.remainderPosition} onValueChange={(v) => setFormData({ ...formData, remainderPosition: v as any })}>
-                              <SelectTrigger className="bg-background border-none h-10 rounded-xl text-xs"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="first">1ª parcela (+R$ {parts.remainder.toFixed(2)})</SelectItem>
-                                <SelectItem value="last">Última parcela (+R$ {parts.remainder.toFixed(2)})</SelectItem>
-                                <SelectItem value="spread">Distribuído</SelectItem>
-                              </SelectContent>
-                            </ShadcnSelect>
-                          </div>
-                        ) : null;
-                      })()}
                       {formData.ccRecurrenceType === 'fixo' && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
@@ -1060,7 +1060,9 @@ export function TransactionDialog() {
                               <SelectTrigger className="bg-background border-none h-10 rounded-xl"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="mensal">Mensal</SelectItem>
-                                <SelectItem value="semanal">Semanal</SelectItem>
+                                <SelectItem value="bimestral">Bimestral</SelectItem>
+                                <SelectItem value="trimestral">Trimestral</SelectItem>
+                                <SelectItem value="semestral">Semestral</SelectItem>
                                 <SelectItem value="anual">Anual</SelectItem>
                               </SelectContent>
                             </ShadcnSelect>
@@ -1076,12 +1078,19 @@ export function TransactionDialog() {
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {editingId && editingTx?.parentId && editingTx.installmentNumber && editingTx.totalInstallments && (
+                        <div className="text-xs font-bold text-muted-foreground bg-background rounded-xl p-3 text-center border border-border/50">
+                          Parcela {editingTx.installmentNumber} de {editingTx.totalInstallments} — série original
+                        </div>
+                      )}
+                      {!(editingId && editingTx?.parentId) && (
                       <div className="flex gap-2">
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'parcelado', isRecurring: false })}
                           className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${!formData.isRecurring && formData.ccRecurrenceType === 'parcelado' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>PARCELADO</button>
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'avulso', isRecurring: !formData.isRecurring })}
                           className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.isRecurring ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>RECORRENTE</button>
                       </div>
+                      )}
                       {formData.ccRecurrenceType === 'parcelado' && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
@@ -1096,7 +1105,8 @@ export function TransactionDialog() {
                               {(() => {
                                 const total = formData.amount || 0;
                                 const count = parseInt(formData.installmentsCount) || 2;
-                                return (total / count).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                                const parts = computeInstallmentParts(total, count);
+                                return getInstallmentAmount(0, formData.remainderPosition, count, parts.base, parts.remainder).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                               })()}
                             </div>
                           </div>
@@ -1126,7 +1136,9 @@ export function TransactionDialog() {
                               <SelectTrigger className="bg-background border-none h-10 rounded-xl"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="mensal">Mensal</SelectItem>
-                                <SelectItem value="semanal">Semanal</SelectItem>
+                                <SelectItem value="bimestral">Bimestral</SelectItem>
+                                <SelectItem value="trimestral">Trimestral</SelectItem>
+                                <SelectItem value="semestral">Semestral</SelectItem>
                                 <SelectItem value="anual">Anual</SelectItem>
                               </SelectContent>
                             </ShadcnSelect>

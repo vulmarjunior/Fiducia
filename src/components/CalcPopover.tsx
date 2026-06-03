@@ -7,7 +7,11 @@ interface CalcPopoverProps {
 }
 
 function evaluate(expr: string): number | null {
-  const sanitized = expr.replace(/[^0-9+\-*/().\s]/g, '').trim();
+  let sanitized = expr;
+  if (sanitized.includes(',')) {
+    sanitized = sanitized.replace(/\./g, '').replace(',', '.');
+  }
+  sanitized = sanitized.replace(/[^0-9+\-*/().\s]/g, '').trim();
   if (!sanitized) return null;
   try {
     const result = parseExpression(sanitized);

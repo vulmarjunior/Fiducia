@@ -37,7 +37,6 @@ export function Accounts() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [resetConfirmId, setResetConfirmId] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
-  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const [banks, setBanks] = useState<BankInfo[]>([]);
   const [bankSearch, setBankSearch] = useState('');
@@ -176,7 +175,7 @@ export function Accounts() {
     if (!resetConfirmId || !user) return;
     setIsResetting(true);
     try {
-      const batch = writeBatch(db);
+      let batch = writeBatch(db);
       const affectedAccounts: Record<string, number> = {};
       let opCount = 0;
       const MAX_BATCH = 450;
@@ -184,6 +183,8 @@ export function Accounts() {
       const commitBatch = async () => {
         if (opCount > 0) {
           await batch.commit();
+          batch = writeBatch(db);
+          opCount = 0;
         }
       };
 
@@ -209,7 +210,7 @@ export function Accounts() {
         seenIds.add(docSnap.id);
         const data = docSnap.data();
 
-        if (data.type === 'transferencia') {
+        if (data.type === 'transferencia' && isEffectivelyPaid(data)) {
           if (data.accountId === resetConfirmId && data.destinationAccountId) {
             const destId = data.destinationAccountId;
             affectedAccounts[destId] = (affectedAccounts[destId] || 0) - data.amount;
@@ -263,78 +264,6 @@ export function Accounts() {
     setBankSearch('');
     setShowBankDropdown(false);
     setEditingId(null);
-  };
-
-  const recalculateBalances = async () => {
-    if (!user) return;
-    setIsRecalculating(true);
-    try {
-      const txsSnap = await getDocs(query(collection(db, 'transactions'), where('userId', '==', user.uid)));
-      const allTx = txsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const accsSnap = await getDocs(query(collection(db, 'accounts'), where('userId', '==', user.uid)));
-      const allAcc = accsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-      const seriesMap = new Map<string, any[]>();
-      for (const tx of allTx) {
-        if (tx.parentId && tx.installmentNumber != null && tx.totalInstallments != null) {
-          if (!seriesMap.has(tx.parentId)) seriesMap.set(tx.parentId, []);
-          seriesMap.get(tx.parentId)!.push(tx);
-        }
-      }
-
-
-      const updates: Record<string, number> = {};
-
-      for (const acc of allAcc) {
-        let correction = 0;
-        const accTx = allTx.filter(t => t.accountId === acc.id || t.destinationAccountId === acc.id);
-
-        for (const tx of accTx) {
-          if (tx.creditCardId) continue;
-          const isPaid = isEffectivelyPaid(tx);
-
-          if (!isPaid) {
-            if (tx.type === 'expense' || tx.type === 'despesa') {
-              if (tx.accountId === acc.id) correction += tx.amount;
-            } else if (tx.type === 'income' || tx.type === 'receita') {
-              if (tx.accountId === acc.id) correction -= tx.amount;
-            } else if (tx.type === 'transferencia' || tx.type === 'transfer') {
-              if (tx.accountId === acc.id) correction += tx.amount;
-              if (tx.destinationAccountId === acc.id) correction -= tx.amount;
-            }
-          } else if (tx.parentId && seriesMap.has(tx.parentId) && tx.installmentNumber === 1) {
-            const series = seriesMap.get(tx.parentId)!;
-            if (tx.installmentNumber === 1) {
-              const totalSum = series.reduce((s: number, t: any) => s + t.amount, 0);
-              const excess = totalSum - tx.amount;
-              if (excess > 0) {
-                if (tx.type === 'expense' || tx.type === 'despesa') correction += excess;
-                else if (tx.type === 'income' || tx.type === 'receita') correction -= excess;
-              }
-            }
-          }
-        }
-
-        if (correction !== 0) updates[acc.id] = (acc.balance || 0) + correction;
-      }
-
-      if (Object.keys(updates).length === 0) {
-        toast.info('Nenhuma correção necessária');
-        return;
-      }
-
-      const batch = writeBatch(db);
-      for (const [accId, newBalance] of Object.entries(updates)) {
-        batch.update(doc(db, 'accounts', accId), { balance: newBalance });
-      }
-      await batch.commit();
-      toast.success(`${Object.keys(updates).length} conta(s) corrigida(s)`);
-    } catch (error) {
-      console.error('Recalculation error:', error);
-      toast.error('Erro ao recalcular saldos');
-    } finally {
-      setIsRecalculating(false);
-    }
   };
 
   const openEdit = (account: any) => {
@@ -397,10 +326,6 @@ export function Accounts() {
           />
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={recalculateBalances} disabled={isRecalculating} className="text-xs">
-            <RotateCcw className={`mr-2 h-4 w-4 ${isRecalculating ? 'animate-spin' : ''}`} />
-            {isRecalculating ? 'Recalculando...' : 'Recalcular Saldos'}
-          </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) resetForm();
