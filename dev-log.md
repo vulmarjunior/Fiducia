@@ -340,6 +340,39 @@
 - **Causa Raiz**: `overdueExpenses` (linha 232), `upcomingExpenses` (linha 237) e o filtro inline em `allPendingExpenses` (linha 313) não tinham guarda contra transações de cartão. Já `contasPendentes` (Disponível Seguro) tinha os guards corretos.
 - **Solução**: Adicionado `!t.creditCardId && !creditCards.some(c => c.id === t.accountId)` nos 3 filtros. Variável não-utilizada `totalPendingPay` removida.
 
+### Edição de série — controle de parcelamento removido
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: Ao editar um lançamento já parcelado, o formulário mostrava controles de parcelamento como se a parcela fosse ser re-parcelada. `ccRecurrenceType` era setado como `'parcelado'` via `populateEdit`.
+- **Solução**: `populateEdit` mantém `ccRecurrenceType = 'avulso'` quando `editingTx.parentId` existe. Badge "Parcela X/Y da série original" substitui os botões de tipo de recorrência em ambos os blocos (cartão e conta).
+
+### Calculadora — separador decimal brasileiro
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: `CalcPopover` removia vírgulas no sanitizador, tratando `1.250,50` como `125050`.
+- **Solução**: Normalizador adicionado: se há vírgula → remove pontos (milhar), troca vírgula por ponto. Ex: `1.250,50` → `1250.50`. Se não há vírgula, mantém formato original (ponto como decimal).
+
+### Recorrência — novas frequências + label consistente
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: Select de frequência só tinha mensal/semanal/anual. Botão de cartão usava "FIXO" enquanto conta usava "RECORRENTE".
+- **Solução**: Adicionadas `bimestral` (6×), `trimestral` (4×), `semestral` (2×). Botão "FIXO" → "RECORRENTE". Helper `getRecurrenceParams(frequency)` extraído para unificar cálculo de iterations + advanceDate nos 4 pontos de uso.
+
+### Display de centavos — valor da parcela corrigido
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: Dropdown "Diferença de Centavos" alterava a distribuição mas o display "Valor Parcela" ignorava `remainderPosition`, sempre mostrando o base.
+- **Solução**: Display agora usa `getInstallmentAmount(0, formData.remainderPosition, ...)` em ambos os blocos (cartão e conta).
+
+### Recálculo de saldo — funções quebradas removidas/corrigidas
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: `Accounts.recalculateBalances` processava só transações NÃO-pagas com sinais invertidos; `Audit.handleRecalculateBalance` incluía pendentes e sobrescrevia saldo com zero; `Accounts.handleReset` não recriava batch após commit.
+- **Solução**:
+  - `recalculateBalances` removido junto com o botão "Recalcular Saldos"
+  - `handleRecalculateBalance` agora filtra `isEffectivelyPaid` antes do cálculo
+  - `handleReset` recria `writeBatch` após cada `commit()` e filtra só transferências pagas para reversão
+
 ---
 
 ## 💡 Padrões Descobertos
