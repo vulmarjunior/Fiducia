@@ -373,6 +373,14 @@
   - `handleRecalculateBalance` agora filtra `isEffectivelyPaid` antes do cálculo
   - `handleReset` recria `writeBatch` após cada `commit()` e filtra só transferências pagas para reversão
 
+### EDIT — sinal de reversão do oldEffect corrigido (+ → -)
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-03
+- **Contexto**: Saldos de contas corrente apresentavam valores irreais (R$-426k, R$-271k, R$-609k). Extrato mostrava lançamentos corretos mas saldo acumulado impossível.
+- **Causa Raiz**: `handleEditSubmit:726` usava `+ getBalanceChange(oldT.type, oldT.amount)` para reverter o efeito antigo. `getBalanceChange` já retorna o valor com sinal (ex: `-6000` para despesa). Somar `-6000` debita novamente em vez de estornar. A cada edição de um lançamento, o saldo despencava no valor do lançamento.
+- **Solução**: Trocado `+` por `-` na linha 726. Agora `-(-6000) = +6000` → estorna corretamente.
+- **Recuperação**: Adicionado botão "Corrigir Saldos" em Accounts.tsx com função `fixBalances` que recalcula o saldo de cada conta a partir do efeito líquido de todas as transações pagas/realizadas (usa `getDocs` para snapshot fresco + `runTransaction` por conta para atomicidade). Botão temporário — remove após uso.
+
 ---
 
 ## 💡 Padrões Descobertos
