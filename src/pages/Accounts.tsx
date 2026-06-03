@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, writeBatch, runTransaction } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -310,6 +310,44 @@ export function Accounts() {
     }
   };
 
+  const [isFixingBalances, setIsFixingBalances] = useState(false);
+
+  const fixBalances = async () => {
+    if (!user) return;
+    setIsFixingBalances(true);
+    try {
+      const txSnap = await getDocs(query(collection(db, 'transactions'), where('userId', '==', user.uid)));
+      const allTx = txSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      for (const acc of accounts) {
+        const netEffect = allTx
+          .filter(t => isEffectivelyPaid(t) && !t.creditCardId &&
+            (t.accountId === acc.id || t.destinationAccountId === acc.id))
+          .reduce((sum, t) => {
+            if ((t.type === 'transferencia' || t.type === 'transfer')) {
+              if (t.accountId === acc.id) return sum - t.amount;
+              if (t.destinationAccountId === acc.id) return sum + t.amount;
+              return sum;
+            }
+            return sum + (t.type === 'receita' || t.type === 'income' ? t.amount : -t.amount);
+          }, 0);
+
+        await runTransaction(db, async (transaction) => {
+          const snap = await transaction.get(doc(db, 'accounts', acc.id));
+          if (snap.exists()) {
+            transaction.update(doc(db, 'accounts', acc.id), { balance: netEffect });
+          }
+        });
+      }
+      toast.success('Saldos corrigidos com sucesso');
+    } catch (error) {
+      toast.error('Erro ao corrigir saldos');
+      handleFirestoreError(error, OperationType.UPDATE, 'accounts');
+    } finally {
+      setIsFixingBalances(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
@@ -326,6 +364,10 @@ export function Accounts() {
           />
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={fixBalances} disabled={isFixingBalances} className="text-xs">
+            <RotateCcw className={`mr-2 h-4 w-4 ${isFixingBalances ? 'animate-spin' : ''}`} />
+            {isFixingBalances ? 'Corrigindo...' : 'Corrigir Saldos'}
+          </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) resetForm();

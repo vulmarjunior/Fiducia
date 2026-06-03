@@ -723,7 +723,7 @@ export function TransactionDialog() {
                 if (oldT.accountId) accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) + oldT.amount;
                 if (oldT.destinationAccountId) accountDeltas[oldT.destinationAccountId] = (accountDeltas[oldT.destinationAccountId] || 0) - oldT.amount;
               } else {
-                accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) + getBalanceChange(oldT.type, oldT.amount);
+                accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) - getBalanceChange(oldT.type, oldT.amount);
               }
             }
 
