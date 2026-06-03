@@ -64,6 +64,99 @@
 - **Contexto**: Dashboard navegava para `/transactions` sem filtro — usuário precisava reaplicar filtro manualmente.
 - **Solução**: `navigate('/transactions', { state: { presetAccountId, presetMonth } })`. Transactions lê `location.state.presetAccountId`/`presetMonth` no mount e aplica os filtros automaticamente. Mesmo padrão do `editId`.
 
+### Dashboard: Filtro de pendências escopo 30 dias
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-26
+- **Contexto**: Overdue e upcoming expenses/incomes mostravam TODAS as pendências (meses de atraso ou futuras distantes)
+- **Solução**: Adicionado filtro `thirtyDaysAgo` e `thirtyDaysFromNow` — overdue vê apenas últimos 30 dias, upcoming vê apenas próximos 30 dias (limitado a 5).
+
+### Dashboard: Badges de tendência dinâmicos
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-26
+- **Contexto**: Badges "+12.5%" e "-4.2%" nos cartões de Receitas/Despesas eram hardcoded
+- **Solução**: Computa automaticamente `incomeTrendPct` e `expenseTrendPct` comparando mês atual vs anterior. Badges agora mostram valor real ou "—" se não houver mês anterior.
+
+### Dashboard: Seletor de período funcional
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-26
+- **Contexto**: Botões "Sem. / Mês / Ano" não tinham binding de estado
+- **Solução**: Adicionado `periodFilter` state (week/month/year). ChartData agora é dinâmico — exibe 8 semanas, 6 meses ou 12 meses conforme seleção.
+
+### Dashboard: Linhas clicáveis → navegação para edição
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-26
+- **Contexto**: Lançamentos Recentes e contas a pagar/receber não permitiam edição rápida
+- **Solução**: onClick em cada row navega para `/transactions` com `state: { editId }`. Transactions.tsx detecta o state via `useLocation` e abre o dialog de edição automaticamente. Invoices (fatura) são ignoradas (não são transações reais).
+
+### Dashboard: Sessões extras colapsáveis no mobile
+- **Status**: ✅ Confirmado
+- **Data**: 2026-05-26
+- **Contexto**: Metas e Orçamentos ocupavam muito espaço vertical no mobile
+- **Solução**: Botão "Metas e Orçamentos" no mobile expande/colapsa as duas seções. Em desktop (lg+) ficam sempre visíveis.
+
+### Card Disponível Seguro no Dashboard
+- **Status**: ✅ Implementado
+- **Data**: 2026-05-27
+- **Contexto**: Nova métrica de fluxo de caixa operacional. Substituiu o card "Balanço do Mês" no grid de KPIs.
+- **Fórmula**: `disponivelSeguro = saldoCirculante − gastosCartao − contasPendentes`
+- **Componentes**: Saldo Circulante (contas sem `excludeFromCashFlow`), Gastos de Cartão (**faturas `aberta` + `fechada`** da coleção `invoices`), Contas Pendentes (despesas pendentes do mês atual/anteriores, excluindo cartão)
+- **UI**: Card com decomposição em linhas (Fatura Aberta, Fatura Fechada, Total Cartão, Contas Pendentes), tooltip explicativo, estado positivo (roxo/`ShieldCheck`) ou negativo (vermelho/`ShieldAlert`), subtexto informando contas excluídas do fluxo.
+- **Tokens**: Adicionados `--fiducia-purple` e `--fiducia-purple-bg` no light mode (`#8b5cf6`/`#ede9fe`) e dark mode (`#a78bfa`/rgba).
+- **Correção**: `gastosCartao` mudou de `transactions` individuais para `invoices.totalAmount`. Dashboard agora escuta a coleção `invoices` via `onSnapshot`.
+- **Fluxo de Caixa (gráfico)**: Não precisou de alteração. Já agrupa compras de cartão por `invoicePeriod` e ignora transferências — mostra tendência de consumo sem dupla contagem com o card Disponível Seguro, que mostra posição atual.
+
+### PageHelp — Componente de ajuda contextual
+- **Status**: ✅ Implementado
+- **Data**: 2026-05-27
+- **Contexto**: Usuários com dificuldade em entender a diferença entre Conciliação e Auditoria, e o propósito de cada tela do sistema.
+- **Solução**: Criado componente `PageHelp` (`src/components/PageHelp.tsx`) com botão `?` ao lado do título de cada página. Abre um Dialog Shadcn com descrição, dicas em cards e páginas relacionadas. Adicionado em todas as 12 páginas privadas + Dashboard. Conteúdo estático (offline-first), sem dependência de IA.
+
+### Importador de Fatura PDF — Cartões de Crédito
+- **Status**: ✅ Implementado
+- **Data**: 2026-05-30
+- **Contexto**: Usuário precisava importar faturas de cartão diretamente do PDF, sem precisar de OFX ou CSV. Além disso, precisava categorizar as transações e lidar com compras parceladas ("1/5").
+- **Solução**: `pdfjs-dist` extrai texto do PDF no browser (zero servidor). O texto bruto + lista de categorias do usuário são enviados à Groq (`llama-3.3-70b-versatile`). Retorna JSON com `[{date, description, amount, type, installmentInfo, suggestedCategoryId}]`. 
+- **Categorização Automática**: O dialog exibe um `Select` por transação, pré-preenchido com a sugestão da IA.
+- **Série Parcelada**: Transações com badge (ex: "2/6") habilitam um botão "Expandir série". Se ativado, o sistema calcula os meses restantes e cria transações `pendente` nas faturas futuras apropriadas, interligadas por `parentId`.
+- **Arquivos criados/modificados**: `src/services/pdfInvoiceService.ts`, `src/components/PdfImportReviewDialog.tsx`, `src/pages/CreditCards.tsx`.
+- **Limitação conhecida**: PDFs escaneados (imagem) não têm texto extraível — toast de erro informativo é exibido.
+
+### TransactionDialog — Modal Unificado de Transações
+- **Status**: ✅ Implementado
+- **Data**: 2026-05-29
+- **Contexto**: Sistema tinha dois modais de transação (Transactions.tsx e CreditCards.tsx) com capacidades diferentes. Edição de parcelas não propagava alterações. Invoice period não era editável no modal padrão.
+- **Solução**: Criado `TransactionDialog` (`src/components/TransactionDialog.tsx`) + `TransactionDialogContext` (`src/contexts/TransactionDialogContext.tsx`). Modal único para criação e edição em todo o sistema. Invoice period sempre visível e editável para cartão. Propagação de descrição/categoria/tags/obs em séries parceladas. Preservação de metadados na edição. Submit unificado via `runTransaction`.
+- **Removido**: ~1200 linhas de dialog inline do Transactions.tsx, ~500 linhas de dialogs do CreditCards.tsx.
+
+### CalcPopover — Calculadora Rápida Inline
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-02
+- **Contexto**: Usuário precisava fazer cálculos básicos sem sair do modal de lançamento.
+- **Solução**: Criado `CalcPopover` (`src/components/CalcPopover.tsx`) — popover com input de expressão aritmética. Parser recursivo seguro (sem `eval()`/`new Function()`). Preview ao vivo formatado em R$. Enter = aplicar, Escape = fechar.
+- **Integração**: Adicionado botão de calculadora (ícone `Calculator`) no `MoneyInput` via prop `showCalc` (default `true`). Botão oculto quando `disabled=true`. Todos os campos monetários do sistema ganharam o atalho automaticamente — sem alterar nenhuma página.
+
+### remainderPosition — Seletor de Posição da Diferença de Centavos
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-02
+- **Contexto**: Ao parcelar R$100 em 3x, a 1ª parcela sempre recebia os centavos extras (R$33,34 / R$33,33 / R$33,33). Mas isso depende do banco — o usuário precisava de liberdade para escolher.
+- **Solução**: Novo campo `remainderPosition` (`'first'` | `'last'` | `'spread'`) no `formData` do TransactionDialog:
+  - `first` (padrão): centavos extras na 1ª parcela
+  - `last`: centavos extras na última parcela
+  - `spread`: distribui 1 centavo por parcela da esquerda pra direita
+- **UI**: Select "Diferença de Centavos" visível **somente quando `remainder > 0`** (divisão não-exata).
+- **Atingido em**: `handleCreateSubmit` (cartão e conta), ambos os blocos de conversão avulso→parcelado.
+- **Helpers**: `computeInstallmentParts(total, count)` e `getInstallmentAmount(i, position, count, base, remainder)` extraídos para reuso.
+
+### Conversão Avulso → Parcelado na Edição
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-02
+- **Contexto**: Usuário tentava editar um lançamento de R$1.779,45 para mudar de avulso para parcelado em 3x. O sistema retornava "Lançamento atualizado" mas nada mudava.
+- **Causa Raiz**: `handleEditSubmit` não tinha código para converter avulso→parcelado. O `updateData` não incluía `parentId`, `installmentNumber`, `totalInstallments`. Nenhuma parcela nova era criada. O Firestore atualizava o documento com os mesmos dados (sem mudança real), mas a transação não falhava → toast falso-positivo.
+- **Solução**: Dois novos blocos de early return no `handleEditSubmit`, antes dos caminhos existentes:
+  - **Cartão de crédito**: original → parcela 1 (`realizado`), cria N−1 parcelas (`pendente`) em faturas sequenciais com `getNextPeriod()`.
+  - **Conta corrente**: lê saldo, calcula `delta = efeitoParcelado − efeitoAvulso`, ajusta saldo, cria N−1 pendentes.
+- **Transferência**: Bloqueada com toast "Não é possível parcelar uma transferência".
+
 ---
 
 ## 🔄 Correções de Registro
@@ -94,36 +187,6 @@
 - **Contexto**: Account edit enviava `balance` no updateData, podendo sobrescrever saldo atual com valor do formulário
 - **Solução**: Removido `balance` do `updateData` no edit (saldo só deve ser gerenciado por transações)
 
-### Dashboard: Filtro de pendências escopo 30 dias
-- **Status**: ✅ Confirmado
-- **Data**: 2026-05-26
-- **Contexto**: Overdue e upcoming expenses/incomes mostravam TODAS as pendências (meses de atraso ou futuras distantes)
-- **Solução**: Adicionado filtro `thirtyDaysAgo` e `thirtyDaysFromNow` — overdue vê apenas últimos 30 dias, upcoming vê apenas próximos 30 dias (limitado a 5).
-
-### Dashboard: Badges de tendência dinâmicos
-- **Status**: ✅ Confirmado
-- **Data**: 2026-05-26
-- **Contexto**: Badges "+12.5%" e "-4.2%" nos cartões de Receitas/Despesas eram hardcoded
-- **Solução**: Computa automaticamente `incomeTrendPct` e `expenseTrendPct` comparando mês atual vs anterior. Badges agora mostram valor real ou "—" se não houver mês anterior.
-
-### Dashboard: Seletor de período funcional
-- **Status**: ✅ Confirmado
-- **Data**: 2026-05-26
-- **Contexto**: Botões "Sem. / Mês / Ano" não tinham binding de estado
-- **Solução**: Adicionado `periodFilter` state (week/month/year). ChartData agora é dinâmico — exibe 8 semanas, 6 meses ou 12 meses conforme seleção.
-
-### Dashboard: Linhas clicáveis → navegation para edição
-- **Status**: ✅ Confirmado
-- **Data**: 2026-05-26
-- **Contexto**: Lançamentos Recentes e contas a pagar/receber não permitiam edição rápida
-- **Solução**: onClick em cada row navega para `/transactions` com `state: { editId }`. Transactions.tsx detecta o state via `useLocation` e abre o dialog de edição automaticamente. Invoices (fatura) são ignoradas (não são transações reais).
-
-### Dashboard: Sessões extras colapsáveis no mobile
-- **Status**: ✅ Confirmado
-- **Data**: 2026-05-26
-- **Contexto**: Metas e Orçamentos ocupavam muito espaço vertical no mobile
-- **Solução**: Botão "Metas e Orçamentos" no mobile expande/colapsa as duas seções. Em desktop (lg+) ficam sempre visíveis.
-
 ### Firestore Rules — `files[].name` é obrigatório na API REST
 - **Status**: 🔄 Corrigido
 - **Data**: 2026-05-27
@@ -144,53 +207,6 @@
 - **Contexto**: Tentativas de `PATCH` com `updateMask=rulesetName` falham com `400 Unknown name "rulesetName"`
 - **Solução**: `DELETE /v1/{releaseName}` seguido de `POST /v1/projects/{projectId}/releases` com body `{ name, rulesetName }` funciona.
 - **Observações**: Projeto ID real é `gen-lang-client-0172941229` (não o database ID). O `firebase-tools.json` em `~/.config/configstore/` contém o token de acesso.
-
----
-
-## 💡 Padrões Descobertos
-
-### Navegação com state + edição automática
-- **Data**: 2026-05-26
-- **Padrão**: Dashboard navega para Transactions com `navigate('/transactions', { state: { editId } })`. Transactions detecta via `useLocation().state?.editId` e chama `openEdit(tx)` automaticamente.
-- **Limpeza**: `window.history.replaceState({}, '')` no useEffect para evitar reabertura ao navegar de volta.
-- **Cuidado**: Só executa quando `transactions.length > 0` (dados carregados) para evitar race condition com snapshot do Firestore.
-
----
-
-## 📋 Decisões de Arquitetura
-
-- **Atomicidade total**: CREATE, EDIT, DELETE, IMPORT — todos os fluxos de saldo agora usam `runTransaction` como única operação atômica.
-- **Saldo editável só na criação**: Ao criar conta, `balance` é definido. Nunca mais deve ser editado diretamente — apenas via transações.
-- **Reversão de série**: Para séries recorrentes/parcelado, a reversão de saldo no DELETE deve ser contada 1× por `parentId`, não por transação individual.
-
----
-
-## ⚠️ Armadilhas Conhecidas (Gotchas)
-
-### TDZ com `useMemo` — `const` após `useMemo` quebra em runtime
-- **Data**: 2026-05-26
-- **Problema**: `const fn = React.useMemo(() => { chamaOutraFuncao(); }, []);` seguido de `const chamaOutraFuncao = () => {...}`. `useMemo` executa o callback sincronamente durante render, mas `chamaOutraFuncao` ainda não foi inicializada (TDZ). TypeScript não detecta porque a closure referencia a variável do escopo pai — não há erro de tipo.
-- **Sintoma**: Página não carrega (crash silencioso em produção).
-- **Prevenção**: Toda função chamada dentro de `useMemo`/`useCallback` deve ser declarada ANTES do memo.
-
-### `handleFirestoreError` dá throw — impede toasts depois dela
-- **Data**: 2026-05-26
-- **Problema**: `handleFirestoreError` sempre dá `throw new Error(...)`. Se colocada antes de `toast.error()`, o toast nunca aparece.
-- **Prevenção**: Sempre chamar `toast.error()` PRIMEIRO, depois `handleFirestoreError()` (que pode throw sem阻塞 o UX).
-
-### Ordem `runTransaction` — reads depois de writes em todos os fluxos
-- **Status**: 🔄 Corrigido
-- **Data**: 2026-05-27
-- **Contexto**: Usuário recebia "Erro ao salvar lançamento" ao criar (antes) e ao atualizar (depois) transações. Console mostrava `Firestore transactions require all reads to be executed before all writes`.
-- **Causa Raiz**: CREATE, EDIT, DELETE e IMPORT executavam `transaction.set()`/`transaction.delete()`/`transaction.update()` antes de completar todas as `transaction.get()`. No EDIT, o problema era fazer `get → update` (reverter) → `get` (aplicar novo) no mesmo documento — o segundo `get` após um `update` viola a regra.
-- **Solução**: Todos os 5 fluxos agora coletam TODOS os `transaction.get()` de saldo primeiro, acumulam deltas líquidos por conta, e só então aplicam as escritas. No EDIT, o delta é calculado como (efeito novo − efeito velho) para cada conta, permitindo uma única leitura + escrita por conta.
-
-### Saldo inicial visível na edição de conta — risco de confusão
-- **Status**: 🔄 Corrigido
-- **Data**: 2026-05-27
-- **Contexto**: Dialog de edição de conta exibia o campo "Saldo Inicial" preenchido com o saldo atual, dando a falsa impressão de que o saldo podia ser editado.
-- **Causa Raiz**: O `updateData` já não enviava `balance` (corrigido anteriormente), mas o campo continuava visível no formulário.
-- **Solução**: Substituído `MoneyInput` por label informativa "Saldo Atual: R$ X (gerenciado por transações)" quando `editingId` está presente.
 
 ### onSnapshot sem error callback no Reconciliation
 - **Status**: 🔄 Corrigido
@@ -234,37 +250,17 @@
 - **Contexto**: Lançamentos Recentes no Dashboard exibia transferências com ícone vermelho de despesa (`ArrowDownRight`), sinal de menos e cor de texto padrão — o código só tratava receita/income como caso especial.
 - **Solução**: Adicionado terceiro caminho para `transferencia`/`transfer` no bloco `transactions.slice(0,6).map()` — ícone `ArrowRightLeft`, círculo azul (`bg-fiducia-blue/10`), valor em azul, sem sinal de + ou -.
 
-### Card Disponível Seguro no Dashboard
-- **Status**: ✅ Implementado
+### Saldo inicial visível na edição de conta — risco de confusão
+- **Status**: 🔄 Corrigido
 - **Data**: 2026-05-27
-- **Contexto**: Nova métrica de fluxo de caixa operacional. Substituiu o card "Balanço do Mês" no grid de KPIs.
-- **Fórmula**: `disponivelSeguro = saldoCirculante − gastosCartao − contasPendentes`
-- **Componentes**: Saldo Circulante (contas sem `excludeFromCashFlow`), Gastos de Cartão (**faturas `aberta` + `fechada`** da coleção `invoices`), Contas Pendentes (despesas pendentes do mês atual/anteriores, excluindo cartão)
-- **UI**: Card com decomposição em linhas (Fatura Aberta, Fatura Fechada, Total Cartão, Contas Pendentes), tooltip explicativo, estado positivo (roxo/`ShieldCheck`) ou negativo (vermelho/`ShieldAlert`), subtexto informando contas excluídas do fluxo.
-- **Tokens**: Adicionados `--fiducia-purple` e `--fiducia-purple-bg` no light mode (`#8b5cf6`/`#ede9fe`) e dark mode (`#a78bfa`/rgba).
-- **Correção**: `gastosCartao` mudou de `transactions` individuais para `invoices.totalAmount`. Dashboard agora escuta a coleção `invoices` via `onSnapshot`.
-- **Fluxo de Caixa (gráfico)**: Não precisou de alteração. Já agrupa compras de cartão por `invoicePeriod` e ignora transferências — mostra tendência de consumo sem dupla contagem com o card Disponível Seguro, que mostra posição atual.
-
-### PageHelp — Componente de ajuda contextual
-- **Status**: ✅ Implementado
-- **Data**: 2026-05-27
-- **Contexto**: Usuários com dificuldade em entender a diferença entre Conciliação e Auditoria, e o propósito de cada tela do sistema.
-- **Solução**: Criado componente `PageHelp` (`src/components/PageHelp.tsx`) com botão `?` ao lado do título de cada página. Abre um Dialog Shadcn com descrição, dicas em cards e páginas relacionadas. Adicionado em todas as 12 páginas privadas + Dashboard. Conteúdo estático (offline-first), sem dependência de IA.
-
-### `allow update: false;` não é CEL válido — API retorna 400 sem mensagem útil
-- **Data**: 2026-05-27
-- **Problema**: `allow update: false;` em Firestore rules causa `400 INVALID_ARGUMENT` — a API não indica qual é o erro de sintaxe.
-- **Sintoma**: POST `/rulesets` retorna 400 com mensagem genérica "Request contains an invalid argument." Mesmo logs detalhados do Google não mostram o erro real.
-- **Prevenção**: Sempre usar `allow <op>: if <expressão>;`. O `if` é obrigatório mesmo para literais booleanos. Incrementar mudanças uma a uma via API para isolar o erro.
-
----
-
-## 🔄 Correções de Registro
+- **Contexto**: Dialog de edição de conta exibia o campo "Saldo Inicial" preenchido com o saldo atual, dando a falsa impressão de que o saldo podia ser editado.
+- **Causa Raiz**: O `updateData` já não enviava `balance` (corrigido anteriormente), mas o campo continuava visível no formulário.
+- **Solução**: Substituído `MoneyInput` por label informativa "Saldo Atual: R$ X (gerenciado por transações)" quando `editingId` está presente.
 
 ### CREATE parcelado debita total em vez da 1ª parcela
 - **Antes**: "Suporte a Parcelamento em Contas Corrente — aplica saldo apenas na primeira." (registrado como ✅ em 2026-05-26)
 - **Depois**: O código aplicava `amount` (total) como balance change, não o valor da 1ª parcela. Era INCONSISTENTE com o que o registro descrevia. Corrigido em 2026-05-28.
-- **Motivo**: Bug não detectado no registro original. O CREATE parcelado (`Transactions.tsx:721`) usava `const balanceChange = formData.type === 'receita' ? amount : -amount` onde `amount` é o total (ex: R$1050) e não `installmentBase + remainder` (R$150).
+- **Motivo**: Bug não detectado no registro original. O CREATE parcelado usava `const balanceChange = formData.type === 'receita' ? amount : -amount` onde `amount` é o total (ex: R$1050) e não `installmentBase + remainder` (R$150).
 
 ### EDIT — sinal do delta de balance invertido
 - **Antes**: Registrado como funcionando corretamente.
@@ -274,67 +270,6 @@
 - **Antes**: Todas as transações, independente do status, alteravam o saldo da conta. O card Disponível Seguro era o único responsável por contabilizar pendências.
 - **Depois**: Transações pendentes/canceladas NÃO alteram o saldo. O saldo reflete apenas o valor real em posse do usuário. Para previsão, usar Disponível Seguro (Dashboard) ou relatórios.
 - **Motivo**: Decisão do usuário após discussão — "transações pendentes não foram pagas, não podem afetar o saldo da conta."
-
----
-
-## 📋 Decisões de Arquitetura
-
-### Saldo da conta reflete apenas transações pagas
-- **Escolha**: Transações com status `pendente` ou `cancelado` não alteram o saldo da conta. Apenas `pago`/`realizado`/`paid` afetam o saldo.
-- **Alternativas rejeitadas**: (1) Debitar pendências e usar Disponível Seguro para contabilizar — rejeitado porque polui o saldo real. (2) Debitar tudo e estornar ao cancelar — rejeitado por complexidade.
-- **Data**: 2026-05-28
-- **Impacto**: CREATE, EDIT, DELETE, Quick Confirm — todos os 4 fluxos de balanço foram alterados.
-
-### Transactions page = extrato bancário; Cartão fica na tela Cartões
-- **Escolha**: A tela Lançamentos mostra apenas transações de contas corrente (não-cartão). Compras de cartão são visíveis apenas na tela Cartões de Crédito e no Dashboard (consolidado).
-- **Alternativas rejeitadas**: (1) Mostrar tudo com filtro toggle — rejeitado porque o usuário quer o extrato limpo. (2) Separar por abas — rejeitado por simplicidade.
-- **Data**: 2026-05-28
-- **Observação**: Pagamento de fatura continua aparecendo no Transactions (é uma saída da conta corrente). O ícone deve ser de pagamento, não de transferência genérica.
-
----
-
-## ⚠️ Armadilhas Conhecidas (Gotchas)
-
-### EDIT — sinal do delta de balance é contra-intuitivo
-- **Data**: 2026-05-28
-- **Problema**: No EDIT, o "reverse old" deve somar o efeito antigo (`+ oldEffect`), não subtrair (`- oldEffect`). E o "apply new" deve usar o mesmo sinal do CREATE (`type === 'receita' ? amount : -amount`), e não o inverso.
-- **Sintoma**: Editar valor de uma transação produzia saldo incorreto (especialmente ao mudar de expense para income ou vice-versa).
-- **Prevenção**: Sempre verificar a convenção de sinal do CREATE antes de escrever reversões. Criar uma helper `getBalanceChange(tx: any): number` unificada em vez de duplicar a lógica.
-
-### Parcelado: CREATE aplica balance no total da série, DELETE precisa saber disso
-- **Data**: 2026-05-28
-- **Problema**: CREATE parcelado aplica o balance UMA VEZ com o total da série. DELETE precisa reverter apenas esse total (antes: soma de todos os installment amounts). Se um único installment for deletado (não a série toda), o DELETE não deve alterar balance.
-- **Prevenção**: Tratar séries parceladas como grupos atômicos para fins de balance — só a 1ª parcela afeta o saldo.
-
-### `runTransaction` — reads BEFORE writes (Firestore enforcement)
-- **Data**: 2026-05-27 (confirmado 2026-05-28)
-- **Problema**: Firestore exige que TODOS os `transaction.get()` sejam executados antes de qualquer `transaction.set()`/`transaction.update()`/`transaction.delete()`. Violação causa erro silencioso.
-- **Prevenção**: Sempre coletar todos os snapshots primeiro em um loop, depois aplicar as escritas em um segundo loop.
-
----
-
-## ✅ O que Funciona (continuação)
-
-### Importador de Fatura PDF — Cartões de Crédito
-- **Status**: ✅ Implementado
-- **Data**: 2026-05-30
-- **Contexto**: Usuário precisava importar faturas de cartão diretamente do PDF, sem precisar de OFX ou CSV. Além disso, precisava categorizar as transações e lidar com compras parceladas ("1/5").
-- **Solução**: `pdfjs-dist` extrai texto do PDF no browser (zero servidor). O texto bruto + lista de categorias do usuário são enviados à Groq (`llama-3.3-70b-versatile`). Retorna JSON com `[{date, description, amount, type, installmentInfo, suggestedCategoryId}]`. 
-- **Categorização Automática**: O dialog exibe um `Select` por transação, pré-preenchido com a sugestão da IA.
-- **Série Parcelada**: Transações com badge (ex: "2/6") habilitam um botão "Expandir série". Se ativado, o sistema calcula os meses restantes e cria transações `pendente` nas faturas futuras apropriadas, interligadas por `parentId`.
-- **Arquivos criados/modificados**: `src/services/pdfInvoiceService.ts`, `src/components/PdfImportReviewDialog.tsx`, `src/pages/CreditCards.tsx`.
-- **Limitação conhecida**: PDFs escaneados (imagem) não têm texto extraível — toast de erro informativo é exibido.
-
-### TransactionDialog — Modal Unificado de Transações
-- **Status**: ✅ Implementado
-- **Data**: 2026-05-29
-- **Contexto**: Sistema tinha dois modais de transação (Transactions.tsx e CreditCards.tsx) com capacidades diferentes. Edição de parcelas não propagava alterações. Invoice period não era editável no modal padrão.
-- **Solução**: Criado `TransactionDialog` (`src/components/TransactionDialog.tsx`) + `TransactionDialogContext` (`src/contexts/TransactionDialogContext.tsx`). Modal único para criação e edição em todo o sistema. Invoice period sempre visível e editável para cartão. Propagação de descrição/categoria/tags/obs em séries parceladas. Preservação de metadados na edição. Submit unificado via `runTransaction`.
-- **Removido**: ~1200 linhas de dialog inline do Transactions.tsx, ~500 linhas de dialogs do CreditCards.tsx.
-
----
-
-## 🔄 Correções de Registro
 
 ### Categorias não apareciam para cartão de crédito no TransactionDialog
 - **Status**: 🔄 Corrigido
@@ -348,39 +283,6 @@
 - **Causa Raiz**: `new Date("YYYY-MM-DD")` no JavaScript é interpretado como meia-noite UTC (ISO 8601 date-only). No Brasil (BRT, UTC-3), meia-noite UTC = 21h do dia anterior. Ao converter para ISO string com `.toISOString()`, a data ficava como `2026-05-29T00:00:00.000Z` em UTC, mas ao exibir com `.toLocaleDateString('pt-BR')` o JS convertia para BRT, mostrando `28/05/2026`.
 - **Solução**: Criadas funções `parseLocalDate()` e `dateToLocalISOString()` em `src/lib/utils.ts` que constroem a data como meia-noite no fuso local usando `new Date(y, m-1, d)`. Substituídos todos os `new Date(formData.date)` nos fluxos do `TransactionDialog`. Corrigida exibição no `CreditCards.tsx`.
 
----
-
-## ✅ O que Funciona (continuação)
-
-### CalcPopover — Calculadora Rápida Inline
-- **Status**: ✅ Implementado
-- **Data**: 2026-06-02
-- **Contexto**: Usuário precisava fazer cálculos básicos sem sair do modal de lançamento.
-- **Solução**: Criado `CalcPopover` (`src/components/CalcPopover.tsx`) — popover com input de expressão aritmética. Parser recursivo seguro (sem `eval()`/`new Function()`). Preview ao vivo formatado em R$. Enter = aplicar, Escape = fechar.
-- **Integração**: Adicionado botão de calculadora (ícone `Calculator`) no `MoneyInput` via prop `showCalc` (default `true`). Botão oculto quando `disabled=true`. Todos os campos monetários do sistema ganharam o atalho automaticamente — sem alterar nenhuma página.
-
-### remainderPosition — Seletor de Posição da Diferença de Centavos
-- **Status**: ✅ Implementado
-- **Data**: 2026-06-02
-- **Contexto**: Ao parcelar R$100 em 3x, a 1ª parcela sempre recebia os centavos extras (R$33,34 / R$33,33 / R$33,33). Mas isso depende do banco — o usuário precisava de liberdade para escolher.
-- **Solução**: Novo campo `remainderPosition` (`'first'` | `'last'` | `'spread'`) no `formData` do TransactionDialog:
-  - `first` (padrão): centavos extras na 1ª parcela
-  - `last`: centavos extras na última parcela
-  - `spread`: distribui 1 centavo por parcela da esquerda pra direita
-- **UI**: Select "Diferença de Centavos" visível **somente quando `remainder > 0`** (divisão não-exata).
-- **Atingido em**: `handleCreateSubmit` (cartão e conta), ambos os blocos de conversão avulso→parcelado.
-- **Helpers**: `computeInstallmentParts(total, count)` e `getInstallmentAmount(i, position, count, base, remainder)` extraídos para reuso.
-
-### Conversão Avulso → Parcelado na Edição
-- **Status**: ✅ Implementado
-- **Data**: 2026-06-02
-- **Contexto**: Usuário tentava editar um lançamento de R$1.779,45 para mudar de avulso para parcelado em 3x. O sistema retornava "Lançamento atualizado" mas nada mudava.
-- **Causa Raiz**: `handleEditSubmit` não tinha código para converter avulso→parcelado. O `updateData` não incluía `parentId`, `installmentNumber`, `totalInstallments`. Nenhuma parcela nova era criada. O Firestore atualizava o documento com os mesmos dados (sem mudança real), mas a transação não falhava → toast falso-positivo.
-- **Solução**: Dois novos blocos de early return no `handleEditSubmit`, antes dos caminhos existentes:
-  - **Cartão de crédito**: original → parcela 1 (`realizado`), cria N−1 parcelas (`pendente`) em faturas sequenciais com `getNextPeriod()`.
-  - **Conta corrente**: lê saldo, calcula `delta = efeitoParcelado − efeitoAvulso`, ajusta saldo, cria N−1 pendentes.
-- **Transferência**: Bloqueada com toast "Não é possível parcelar uma transferência".
-
 ### Correção Prompt Groq — Valor Individual da Parcela
 - **Status**: 🔄 Corrigido
 - **Data**: 2026-06-02
@@ -388,10 +290,6 @@
 - **Causa Raiz**: Prompt da Groq não instruía explicitamente que `amount` deve ser o valor individual visível na linha da fatura, não o total da compra.
 - **Solução**: Prompt atualizado com regra explícita e exemplo de transação parcelada (`amount: 175.00` para "COMPRA LOJA (2/6)").
 - **Validação adicional**: `handleConfirmPdfImport` agora exibe `toast.warning` de 8s se alguma parcela > R$5.000, alertando para verificar valor individual vs total.
-
----
-
-## 🔄 Correções de Registro (Auditoria 2026-06-02)
 
 ### 24 catch blocks com ordem toast/handleFirestoreError invertida
 - **Status**: 🔄 Corrigido
@@ -446,6 +344,12 @@
 
 ## 💡 Padrões Descobertos
 
+### Navegação com state + edição automática
+- **Data**: 2026-05-26
+- **Padrão**: Dashboard navega para Transactions com `navigate('/transactions', { state: { editId } })`. Transactions detecta via `useLocation().state?.editId` e chama `openEdit(tx)` automaticamente.
+- **Limpeza**: `window.history.replaceState({}, '')` no useEffect para evitar reabertura ao navegar de volta.
+- **Cuidado**: Só executa quando `transactions.length > 0` (dados carregados) para evitar race condition com snapshot do Firestore.
+
 ### Funções utilitárias compartilhadas → lib/utils.ts
 - **Data**: 2026-06-02
 - **Padrão**: Toda função utilitária usada por 2+ arquivos deve ser exportada de `lib/utils.ts`. Exemplos: `isEffectivelyPaid`, `isPeriodClosed`, `formatCurrency`, `resolveAccountName`, `calculateInvoicePeriod`.
@@ -456,3 +360,60 @@
 - **Data**: 2026-06-02
 - **Padrão**: Detecção de mudança de tipo de recorrência ANTES dos caminhos existentes, com `return` após executar. Evita que o código de update normal processe a conversão incorretamente.
 - **Cuidado**: Sempre chamar `close()` e `resetForm()` antes do `return`. Usar `toast.success()` com mensagem específica ("Convertido para N parcelas") para distinguir de update normal.
+
+---
+
+## 📋 Decisões de Arquitetura
+
+- **Atomicidade total**: CREATE, EDIT, DELETE, IMPORT — todos os fluxos de saldo agora usam `runTransaction` como única operação atômica.
+- **Saldo editável só na criação**: Ao criar conta, `balance` é definido. Nunca mais deve ser editado diretamente — apenas via transações.
+- **Reversão de série**: Para séries recorrentes/parcelado, a reversão de saldo no DELETE deve ser contada 1× por `parentId`, não por transação individual.
+
+### Saldo da conta reflete apenas transações pagas
+- **Escolha**: Transações com status `pendente` ou `cancelado` não alteram o saldo da conta. Apenas `pago`/`realizado`/`paid` afetam o saldo.
+- **Alternativas rejeitadas**: (1) Debitar pendências e usar Disponível Seguro para contabilizar — rejeitado porque polui o saldo real. (2) Debitar tudo e estornar ao cancelar — rejeitado por complexidade.
+- **Data**: 2026-05-28
+- **Impacto**: CREATE, EDIT, DELETE, Quick Confirm — todos os 4 fluxos de balanço foram alterados.
+
+### Transactions page = extrato bancário; Cartão fica na tela Cartões
+- **Escolha**: A tela Lançamentos mostra apenas transações de contas corrente (não-cartão). Compras de cartão são visíveis apenas na tela Cartões de Crédito e no Dashboard (consolidado).
+- **Alternativas rejeitadas**: (1) Mostrar tudo com filtro toggle — rejeitado porque o usuário quer o extrato limpo. (2) Separar por abas — rejeitado por simplicidade.
+- **Data**: 2026-05-28
+- **Observação**: Pagamento de fatura continua aparecendo no Transactions (é uma saída da conta corrente). O ícone deve ser de pagamento, não de transferência genérica.
+
+---
+
+## ⚠️ Armadilhas Conhecidas (Gotchas)
+
+### TDZ com `useMemo` — `const` após `useMemo` quebra em runtime
+- **Data**: 2026-05-26
+- **Problema**: `const fn = React.useMemo(() => { chamaOutraFuncao(); }, []);` seguido de `const chamaOutraFuncao = () => {...}`. `useMemo` executa o callback sincronamente durante render, mas `chamaOutraFuncao` ainda não foi inicializada (TDZ). TypeScript não detecta porque a closure referencia a variável do escopo pai — não há erro de tipo.
+- **Sintoma**: Página não carrega (crash silencioso em produção).
+- **Prevenção**: Toda função chamada dentro de `useMemo`/`useCallback` deve ser declarada ANTES do memo.
+
+### `handleFirestoreError` dá throw — impede toasts depois dela
+- **Data**: 2026-05-26
+- **Problema**: `handleFirestoreError` sempre dá `throw new Error(...)`. Se colocada antes de `toast.error()`, o toast nunca aparece.
+- **Prevenção**: Sempre chamar `toast.error()` PRIMEIRO, depois `handleFirestoreError()`.
+
+### Ordem `runTransaction` — reads depois de writes
+- **Data**: 2026-05-27 (confirmado 2026-05-28)
+- **Problema**: Firestore exige que TODOS os `transaction.get()` sejam executados antes de qualquer `transaction.set()`/`transaction.update()`/`transaction.delete()`. Violação causa erro silencioso.
+- **Prevenção**: Sempre coletar todos os snapshots primeiro em um loop, depois aplicar as escritas em um segundo loop.
+
+### EDIT — sinal do delta de balance é contra-intuitivo
+- **Data**: 2026-05-28
+- **Problema**: No EDIT, o "reverse old" deve somar o efeito antigo (`+ oldEffect`), não subtrair (`- oldEffect`). E o "apply new" deve usar o mesmo sinal do CREATE (`type === 'receita' ? amount : -amount`), e não o inverso.
+- **Sintoma**: Editar valor de uma transação produzia saldo incorreto (especialmente ao mudar de expense para income ou vice-versa).
+- **Prevenção**: Sempre verificar a convenção de sinal do CREATE antes de escrever reversões. Usar a helper `getBalanceChange()` unificada.
+
+### Parcelado: CREATE aplica balance no total da série, DELETE precisa saber disso
+- **Data**: 2026-05-28
+- **Problema**: CREATE parcelado aplica o balance UMA VEZ com o total da série. DELETE precisa reverter apenas esse total (antes: soma de todos os installment amounts). Se um único installment for deletado (não a série toda), o DELETE não deve alterar balance.
+- **Prevenção**: Tratar séries parceladas como grupos atômicos para fins de balance — só a 1ª parcela afeta o saldo.
+
+### `allow update: false;` não é CEL válido — API retorna 400 sem mensagem útil
+- **Data**: 2026-05-27
+- **Problema**: `allow update: false;` em Firestore rules causa `400 INVALID_ARGUMENT` — a API não indica qual é o erro de sintaxe.
+- **Sintoma**: POST `/rulesets` retorna 400 com mensagem genérica "Request contains an invalid argument." Mesmo logs detalhados do Google não mostram o erro real.
+- **Prevenção**: Sempre usar `allow <op>: if <expressão>;`. O `if` é obrigatório mesmo para literais booleanos. Incrementar mudanças uma a uma via API para isolar o erro.

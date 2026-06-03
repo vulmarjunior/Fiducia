@@ -13,7 +13,7 @@
 | Linguagem | TypeScript 5.8 |
 | UI | React 19, Tailwind CSS 4, Shadcn/UI (Base UI) |
 | Backend | Firebase (Firestore + Auth) |
-| IA | Gemini API (insights), Groq (relatórios, extração de fatura PDF) |
+| IA | Groq API (relatórios analíticos, extração de fatura PDF) |
 | Build | `npm run dev` (dev), `npm run build` (prod) |
 | Testes | Vitest |
 | Lint | `tsc --noEmit` |
@@ -127,8 +127,9 @@ Cada coleção tem `userId` para isolamento por usuário.
 
 ## Padrões de UI
 
-- **Diálogos**: `@radix-ui/react-dialog` via `components/ui/dialog.tsx`. Usar `DialogTrigger` com botão.
-- **Select**: `@radix-ui/react-select` via `components/ui/select.tsx`. Usar `SelectTrigger` + `SelectContent`.
+- **Diálogos**: Base UI (`@base-ui/react/dialog`) via `components/ui/dialog.tsx`. Usar `DialogTrigger` com botão.
+- **Select**: Base UI (`@base-ui/react/select`) via `components/ui/select.tsx`. Usar `SelectTrigger` + `SelectContent`.
+- **Popover**: Base UI (`@base-ui/react/popover`) via `components/ui/popover.tsx`.
 - **Money**: `MoneyInput` para campos monetários (formatação pt-BR).
 - **Tema**: `next-themes` com `ThemeProvider` + classes `dark`.
 - **Toasts**: `sonner` via `components/ui/sonner.tsx`.
@@ -148,5 +149,5 @@ npm run test       # Vitest
 
 - **Repositório**: https://github.com/vulmarjunior/Fiducia
 - **App publicado**: https://fiducianew.vercel.app/
-- **IA Insights**: Gemini API (dashboard), Groq API (relatórios analíticos)
+- **IA Insights**: Groq API (relatórios analíticos, extração de fatura PDF via `llama-3.3-70b-versatile`)
 - **Dados sensíveis**: `.env.local` contém `GEMINI_API_KEY` e `GROQ_API_KEY`
