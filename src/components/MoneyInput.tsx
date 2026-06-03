@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { cn } from '../lib/utils';
+import { CalcPopover } from './CalcPopover';
 
 interface MoneyInputProps {
-  value: number; // value in float (e.g. 12.34)
+  value: number;
   onChange: (value: number) => void;
   label?: string;
   id?: string;
@@ -12,9 +13,10 @@ interface MoneyInputProps {
   placeholder?: string;
   disabled?: boolean;
   required?: boolean;
+  showCalc?: boolean;
 }
 
-export function MoneyInput({ value, onChange, label, id, className, placeholder, disabled, required }: MoneyInputProps) {
+export function MoneyInput({ value, onChange, label, id, className, placeholder, disabled, required, showCalc = true }: MoneyInputProps) {
   // Internal state as string of digits to handle cash register behavior
   const [digits, setDigits] = useState('');
 
@@ -54,10 +56,13 @@ export function MoneyInput({ value, onChange, label, id, className, placeholder,
   return (
     <div className={cn("space-y-1.5", className)}>
       {label && (
-        <Label htmlFor={id} className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-          {label}
-          {required && <span className="text-destructive ml-1">*</span>}
-        </Label>
+        <div className="flex items-center gap-1">
+          <Label htmlFor={id} className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            {label}
+            {required && <span className="text-destructive ml-1">*</span>}
+          </Label>
+          {showCalc && !disabled && <CalcPopover onResult={onChange} />}
+        </div>
       )}
       <Input
         id={id}
