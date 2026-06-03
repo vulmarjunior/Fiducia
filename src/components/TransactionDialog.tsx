@@ -488,7 +488,167 @@ export function TransactionDialog() {
       formData.type !== editingTx.type ||
       formData.status !== editingTx.status;
 
+    const becameParcelado = !editingTx.parentId && formData.ccRecurrenceType === 'parcelado';
+    const changedInstallmentCount = !!editingTx.parentId && formData.ccRecurrenceType === 'parcelado' &&
+      parseInt(formData.installmentsCount) !== editingTx.totalInstallments;
+
     try {
+      // Convert avulso → parcelado (credit card)
+      if (becameParcelado && isCreditCard && card && formData.type !== 'transferencia') {
+        const numInstallments = parseInt(formData.installmentsCount) || 2;
+        if (numInstallments < 2) { toast.error('Mínimo de 2 parcelas'); return; }
+
+        const installmentBase = Math.floor((amount / numInstallments) * 100) / 100;
+        const remainder = Math.round((amount - (installmentBase * numInstallments)) * 100) / 100;
+        const firstAmount = installmentBase + remainder;
+        const parentId = crypto.randomUUID();
+
+        await runTransaction(db, async (transaction) => {
+          const txRef = doc(db, 'transactions', editingId);
+          const txSnap = await transaction.get(txRef);
+          if (!txSnap.exists()) throw new Error('Transaction not found');
+
+          transaction.update(txRef, {
+            type: formData.type,
+            amount: firstAmount,
+            description: `${formData.description} (1/${numInstallments})`,
+            date: dateToLocalISOString(formData.date),
+            categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
+            creditCardId: formData.accountId,
+            accountId: formData.accountId,
+            invoicePeriod: formData.invoicePeriod || calculateInvoicePeriod(formData.date, card.closingDay, card.dueDay),
+            status: 'realizado',
+            tags: formData.tagIds.length > 0 ? formData.tagIds : [],
+            observation: formData.observation || '',
+            parentId,
+            installmentNumber: 1,
+            totalInstallments: numInstallments,
+            ccRecurrenceType: 'parcelado',
+            updatedAt: new Date().toISOString(),
+          });
+
+          const origDate = parseLocalDate(formData.date);
+          let currentPeriod = formData.invoicePeriod || calculateInvoicePeriod(formData.date, card.closingDay, card.dueDay);
+
+          for (let i = 1; i < numInstallments; i++) {
+            const futureDate = new Date(origDate);
+            futureDate.setMonth(futureDate.getMonth() + i);
+            currentPeriod = getNextPeriod(currentPeriod);
+
+            transaction.set(doc(collection(db, 'transactions')), {
+              userId: user.uid,
+              type: formData.type,
+              amount: installmentBase,
+              date: futureDate.toISOString(),
+              description: `${formData.description} (${i + 1}/${numInstallments})`,
+              creditCardId: formData.accountId,
+              accountId: formData.accountId,
+              invoicePeriod: currentPeriod,
+              status: 'pendente',
+              reconciliationStatus: 'nao_conciliado',
+              categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
+              tags: formData.tagIds.length > 0 ? formData.tagIds : [],
+              observation: formData.observation || '',
+              parentId,
+              installmentNumber: i + 1,
+              totalInstallments: numInstallments,
+              ccRecurrenceType: 'parcelado',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        });
+
+        logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Convertido para ${numInstallments} parcelas: ${formData.description}` }).catch(() => {});
+        toast.success(`Convertido para ${numInstallments} parcelas`);
+        close();
+        resetForm();
+        return;
+      }
+
+      // Convert avulso → parcelado (bank account)
+      if (becameParcelado && !isCreditCard && formData.type !== 'transferencia') {
+        const numInstallments = parseInt(formData.installmentsCount) || 2;
+        if (numInstallments < 2) { toast.error('Mínimo de 2 parcelas'); return; }
+
+        const installmentBase = Math.floor((amount / numInstallments) * 100) / 100;
+        const remainder = Math.round((amount - (installmentBase * numInstallments)) * 100) / 100;
+        const firstAmount = installmentBase + remainder;
+        const parentId = crypto.randomUUID();
+
+        await runTransaction(db, async (transaction) => {
+          const txRef = doc(db, 'transactions', editingId);
+          const txSnap = await transaction.get(txRef);
+          if (!txSnap.exists()) throw new Error('Transaction not found');
+          const oldT = txSnap.data() as any;
+
+          let accountSnap: any = null;
+          let balanceDelta = 0;
+
+          if (formData.accountId) {
+            accountSnap = await transaction.get(doc(db, 'accounts', formData.accountId));
+
+            if (accountSnap?.exists() && isEffectivelyPaid(oldT)) {
+              const oldEffect = getBalanceChange(oldT.type, oldT.amount);
+              const newStatus = formData.status;
+              const newEffect = isEffectivelyPaid({ status: newStatus }) ? getBalanceChange(formData.type, firstAmount) : 0;
+              balanceDelta = newEffect - oldEffect;
+            }
+          }
+
+          transaction.update(txRef, {
+            type: formData.type,
+            amount: firstAmount,
+            description: `${formData.description} (1/${numInstallments})`,
+            date: dateToLocalISOString(formData.date),
+            categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
+            accountId: formData.accountId,
+            status: formData.status,
+            tags: formData.tagIds.length > 0 ? formData.tagIds : [],
+            observation: formData.observation || '',
+            parentId,
+            installmentNumber: 1,
+            totalInstallments: numInstallments,
+            updatedAt: new Date().toISOString(),
+          });
+
+          const origDate = parseLocalDate(formData.date);
+
+          for (let i = 1; i < numInstallments; i++) {
+            const futureDate = new Date(origDate);
+            futureDate.setMonth(futureDate.getMonth() + i);
+
+            transaction.set(doc(collection(db, 'transactions')), {
+              userId: user.uid,
+              type: formData.type,
+              amount: installmentBase,
+              date: futureDate.toISOString(),
+              description: `${formData.description} (${i + 1}/${numInstallments})`,
+              accountId: formData.accountId,
+              categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
+              status: 'pendente',
+              reconciliationStatus: 'nao_conciliado',
+              tags: formData.tagIds.length > 0 ? formData.tagIds : [],
+              observation: formData.observation || '',
+              parentId,
+              installmentNumber: i + 1,
+              totalInstallments: numInstallments,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
+
+          if (accountSnap?.exists() && balanceDelta !== 0) {
+            transaction.update(doc(db, 'accounts', formData.accountId), { balance: (accountSnap.data().balance || 0) + balanceDelta });
+          }
+        });
+
+        logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Convertido para ${numInstallments} parcelas: ${formData.description}` }).catch(() => {});
+        toast.success(`Convertido para ${numInstallments} parcelas`);
+        close();
+        resetForm();
+        return;
+      }
       const updateData: any = {
         type: formData.type,
         amount,
