@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { logActivity } from '../services/activityLogService';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
 import { Wallet, Landmark, PiggyBank, Plus, Trash2, Edit, Building, ChevronDown, Search, TrendingUp, RotateCcw } from 'lucide-react';
@@ -313,6 +313,26 @@ export function Accounts() {
 
   const [isFixingBalances, setIsFixingBalances] = useState(false);
 
+  const [adjustAccountId, setAdjustAccountId] = useState<string | null>(null);
+  const [adjustBalanceValue, setAdjustBalanceValue] = useState(0);
+
+  const handleAdjustBalance = async () => {
+    if (!adjustAccountId) return;
+    try {
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(doc(db, 'accounts', adjustAccountId));
+        if (snap.exists()) {
+          transaction.update(doc(db, 'accounts', adjustAccountId), { balance: adjustBalanceValue });
+        }
+      });
+      toast.success('Saldo ajustado com sucesso');
+      setAdjustAccountId(null);
+    } catch (error) {
+      toast.error('Erro ao ajustar saldo');
+      handleFirestoreError(error, OperationType.UPDATE, 'accounts');
+    }
+  };
+
   const fixBalances = async () => {
     if (!user) return;
     setIsFixingBalances(true);
@@ -544,6 +564,9 @@ export function Accounts() {
                 <button onClick={() => openEdit(account)} className="text-muted-foreground hover:text-fiducia-blue min-w-[44px] min-h-[44px] flex items-center justify-center" title="Editar">
                   <Edit className="h-4 w-4" />
                 </button>
+                <button onClick={() => { setAdjustAccountId(account.id); setAdjustBalanceValue(account.balance); }} className="text-muted-foreground hover:text-fiducia-green min-w-[44px] min-h-[44px] flex items-center justify-center" title="Ajustar saldo">
+                  <Wallet className="h-4 w-4" />
+                </button>
                 <button onClick={() => setResetConfirmId(account.id)} className="text-muted-foreground hover:text-amber-500 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Zerar saldo">
                   <RotateCcw className="h-4 w-4" />
                 </button>
@@ -581,6 +604,29 @@ export function Accounts() {
           </div>
         )}
       </div>
+      <Dialog open={!!adjustAccountId} onOpenChange={(open) => !open && setAdjustAccountId(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Ajustar Saldo</DialogTitle>
+            <DialogDescription>
+              Informe o saldo real da conta conforme seu extrato bancário.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <MoneyInput
+              label="Saldo Real"
+              value={adjustBalanceValue}
+              onChange={(v) => setAdjustBalanceValue(v)}
+              required
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustAccountId(null)}>Cancelar</Button>
+            <Button onClick={handleAdjustBalance} className="bg-fiducia-blue hover:bg-fiducia-blue/90 text-white">Confirmar Ajuste</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
         <DialogContent>
           <DialogHeader>
