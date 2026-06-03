@@ -1158,7 +1158,7 @@ ${sample.map(t =>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-none shadow-md bg-gradient-to-br from-white to-green-50/50 dark:bg-gradient-to-br dark:from-surface dark:to-fiducia-green-bg/30">
+        <Card className="border-none shadow-md bg-gradient-to-br from-white to-green-50/50 dark:from-surface dark:to-fiducia-green-bg/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <ArrowUpRight className="h-3 w-3 text-fiducia-green" /> Receitas
@@ -1170,7 +1170,7 @@ ${sample.map(t =>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-md bg-gradient-to-br from-white to-red-50/50 dark:bg-gradient-to-br dark:from-surface dark:to-fiducia-red-bg/30">
+        <Card className="border-none shadow-md bg-gradient-to-br from-white to-red-50/50 dark:from-surface dark:to-fiducia-red-bg/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <ArrowDownRight className="h-3 w-3 text-fiducia-red" /> Despesas
@@ -1182,7 +1182,7 @@ ${sample.map(t =>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-md bg-gradient-to-br from-white to-blue-50/50 dark:bg-gradient-to-br dark:from-surface dark:to-fiducia-blue-bg/30">
+        <Card className="border-none shadow-md bg-gradient-to-br from-white to-blue-50/50 dark:from-surface dark:to-fiducia-blue-bg/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <ArrowRightLeft className="h-3 w-3 text-fiducia-blue" /> Saldo do Período
@@ -1195,7 +1195,7 @@ ${sample.map(t =>
           </CardContent>
         </Card>
         {selectedAccountFilter !== 'all' && (
-          <Card className="border-none shadow-md bg-gradient-to-br from-primary/5 to-primary/10 dark:bg-gradient-to-br dark:from-surface dark:to-primary/10">
+          <Card className="border-none shadow-md bg-gradient-to-br from-primary/5 to-primary/10 dark:from-surface dark:to-primary/10">
             <CardHeader className="pb-2">
               <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Wallet className="h-3 w-3 text-primary" /> Saldo Atual da Conta
