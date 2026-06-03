@@ -435,6 +435,13 @@
 - **Solução**: Listener duplicado removido. Lógica de sync de fatura movida para dentro do primeiro callback, guardada por `if (invoices.length > 0)`.
 - **Bônus**: Adicionado `isLoading` state com spinner "Carregando..." no lugar do flash de tabela vazia.
 
+### Vazamento de despesas de cartão no card "Contas a Pagar" do Dashboard
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-02
+- **Contexto**: Parcelas pendentes de cartão de crédito apareciam individualmente na lista "Contas a Pagar" e eram somadas duas vezes (individual + fatura sintética `unpaidInvoices`). O card deveria mostrar apenas despesas de conta corrente e faturas consolidadas.
+- **Causa Raiz**: `overdueExpenses` (linha 232), `upcomingExpenses` (linha 237) e o filtro inline em `allPendingExpenses` (linha 313) não tinham guarda contra transações de cartão. Já `contasPendentes` (Disponível Seguro) tinha os guards corretos.
+- **Solução**: Adicionado `!t.creditCardId && !creditCards.some(c => c.id === t.accountId)` nos 3 filtros. Variável não-utilizada `totalPendingPay` removida.
+
 ---
 
 ## 💡 Padrões Descobertos
