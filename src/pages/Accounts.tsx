@@ -15,6 +15,7 @@ import { Badge } from '../components/ui/badge';
 import { Wallet, Landmark, PiggyBank, Plus, Trash2, Edit, Building, ChevronDown, Search, TrendingUp, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
+import { isEffectivelyPaid } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 
 interface BankInfo {
@@ -281,7 +282,7 @@ export function Accounts() {
         }
       }
 
-      const isEffectivelyPaid = (t: any) => t.status === 'pago' || t.status === 'realizado' || t.status === 'paid';
+
       const updates: Record<string, number> = {};
 
       for (const acc of allAcc) {

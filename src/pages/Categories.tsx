@@ -109,8 +109,8 @@ export function Categories() {
     try {
       await batch.commit();
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'categories');
       toast.error('Erro ao reordenar categorias');
+      handleFirestoreError(error, OperationType.UPDATE, 'categories');
     }
   };
 
@@ -166,8 +166,8 @@ export function Categories() {
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
-      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'categories');
       toast.error('Falha ao salvar categoria');
+      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'categories');
     }
   };
 
@@ -179,8 +179,8 @@ export function Categories() {
       logActivity({ userId: user.uid, action: 'delete', entityType: 'category', entityId: deleteConfirmId, description: `Categoria excluída: ${deleted?.name || deleteConfirmId}` }).catch(() => {});
       toast.success('Categoria excluída');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `categories/${deleteConfirmId}`);
       toast.error('Falha ao excluir categoria');
+      handleFirestoreError(error, OperationType.DELETE, `categories/${deleteConfirmId}`);
     } finally {
       setDeleteConfirmId(null);
     }
@@ -207,8 +207,8 @@ export function Categories() {
       logActivity({ userId: user.uid, action: 'delete', entityType: 'category', entityId: 'batch', description: 'Todas as categorias excluídas' }).catch(() => {});
       toast.success('Todas as categorias foram excluídas.');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'categories (batch)');
       toast.error('Erro ao excluir categorias.');
+      handleFirestoreError(error, OperationType.DELETE, 'categories (batch)');
     } finally {
       setIsResetDialogOpen(false);
     }
@@ -282,8 +282,8 @@ export function Categories() {
       }
     } catch (error) {
       console.error('Erro ao importar padrões:', error);
-      handleFirestoreError(error, OperationType.CREATE, 'categories');
       toast.error('Falha ao importar categorias padrão');
+      handleFirestoreError(error, OperationType.CREATE, 'categories');
     }
   };
 
@@ -366,8 +366,8 @@ export function Categories() {
       setIsBatchDialogOpen(false);
       setBatchText('');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'categories');
       toast.error('Erro na importação em lote');
+      handleFirestoreError(error, OperationType.CREATE, 'categories');
     }
   };
 

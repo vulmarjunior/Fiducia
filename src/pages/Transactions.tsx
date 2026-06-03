@@ -20,7 +20,7 @@ import { callGroq } from '../services/groqService';
 import { logActivity } from '../services/activityLogService';
 import Select, { MultiValue } from 'react-select';
 import { getCategoryIcon } from '../lib/categoryIcons';
-import { calculateInvoicePeriod, resolveAccountName } from '../lib/utils';
+import { calculateInvoicePeriod, resolveAccountName, isEffectivelyPaid, isPeriodClosed, formatCurrency } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 
@@ -131,6 +131,7 @@ export function Transactions() {
   const [closePeriodMonth, setClosePeriodMonth] = useState(currentMonthStr);
   const [closePeriodAccountId, setClosePeriodAccountId] = useState<string>('');
   const [closePeriodPaymentAccountId, setClosePeriodPaymentAccountId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
 
   // OFX Import State
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -146,6 +147,34 @@ export function Transactions() {
       console.log('Transactions snapshot received, docs count:', snapshot.docs.length);
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setTransactions(data);
+      setIsLoading(false);
+
+      if (invoices.length > 0) {
+        const syncInvoices = async () => {
+          for (const invoice of invoices) {
+            if (invoice.paymentTransactionId) {
+              const paymentTx = data.find(t => t.id === invoice.paymentTransactionId) as any;
+              if (paymentTx) {
+                let newStatus = invoice.status;
+                if (paymentTx.status === 'pago' && invoice.status !== 'paga') {
+                  newStatus = 'paga';
+                } else if (paymentTx.status !== 'pago' && invoice.status === 'paga') {
+                  newStatus = 'fechada';
+                }
+
+                if (newStatus !== invoice.status) {
+                  try {
+                    await updateDoc(doc(db, 'invoices', invoice.id), { status: newStatus });
+                  } catch (err) {
+                    console.error('Error syncing invoice status:', err);
+                  }
+                }
+              }
+            }
+          }
+        };
+        syncInvoices();
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'transactions'));
 
     const aQuery = query(collection(db, 'accounts'), where('userId', '==', user.uid));
@@ -178,37 +207,6 @@ export function Transactions() {
       setInvoices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => handleFirestoreError(error, OperationType.GET, 'invoices'));
 
-    // Logic to update invoice status when payment transaction status changes
-    const unsubscribeStatusSync = onSnapshot(tQuery, (snapshot) => {
-      const allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      // Find invoices that might need status update
-      const syncInvoices = async () => {
-        for (const invoice of invoices) {
-          if (invoice.paymentTransactionId) {
-            const paymentTx = allTransactions.find(t => t.id === invoice.paymentTransactionId) as any;
-            if (paymentTx) {
-              let newStatus = invoice.status;
-              if (paymentTx.status === 'pago' && invoice.status !== 'paga') {
-                newStatus = 'paga';
-              } else if (paymentTx.status !== 'pago' && invoice.status === 'paga') {
-                newStatus = 'fechada';
-              }
-
-              if (newStatus !== invoice.status) {
-                try {
-                  await updateDoc(doc(db, 'invoices', invoice.id), { status: newStatus });
-                } catch (err) {
-                  console.error('Error syncing invoice status:', err);
-                }
-              }
-            }
-          }
-        }
-      };
-      syncInvoices();
-    });
-
     return () => {
       unsubscribeT();
       unsubscribeA();
@@ -217,7 +215,6 @@ export function Transactions() {
       unsubscribeCC();
       unsubscribeTags();
       unsubscribeInv();
-      unsubscribeStatusSync();
     };
   }, [user, isAuthReady]);
 
@@ -252,16 +249,6 @@ export function Transactions() {
     return () => window.removeEventListener('keydown', handler);
   }, [openTxDialog]);
 
-  const isPeriodClosed = (dateString: string, accountId: string, invoicePeriod?: string) => {
-    const card = creditCards.find(c => c.id === accountId);
-    if (card) {
-      const periodToCheck = invoicePeriod || calculateInvoicePeriod(dateString, card.closingDay, card.dueDay);
-      const invoice = invoices.find(i => i.cardId === accountId && i.period === periodToCheck);
-      return invoice ? (invoice.status === 'fechada' || invoice.status === 'paga') : false;
-    }
-    const period = dateString.substring(0, 7); // YYYY-MM
-    return closedPeriods.some(cp => cp.period === period && cp.accountId === accountId);
-  };
 
   const handleClosePeriod = async () => {
     if (!user || !closePeriodAccountId) {
@@ -445,11 +432,11 @@ export function Transactions() {
 
     // Check for closed periods
     for (const tx of transactionsToDelete) {
-      if (isPeriodClosed(tx.date, tx.accountId, tx.invoicePeriod)) {
+      if (isPeriodClosed(tx.date, tx.accountId, creditCards, invoices, closedPeriods, tx.invoicePeriod)) {
         toast.error(`Não é possível excluir um lançamento de um mês fechado para a conta ${accounts.find(a => a.id === tx.accountId)?.name || 'desconhecida'}.`);
         return;
       }
-      if (tx.type === 'transferencia' && isPeriodClosed(tx.date, tx.destinationAccountId, tx.invoicePeriod)) {
+      if (tx.type === 'transferencia' && isPeriodClosed(tx.date, tx.destinationAccountId, creditCards, invoices, closedPeriods, tx.invoicePeriod)) {
         toast.error(`Não é possível excluir um lançamento de um mês fechado para a conta de destino ${accounts.find(a => a.id === tx.destinationAccountId)?.name || 'desconhecida'}.`);
         return;
       }
@@ -543,7 +530,7 @@ export function Transactions() {
   };
 
   const handleQuickConfirm = async (t: any) => {
-    if (isPeriodClosed(t.date, t.accountId, t.invoicePeriod)) {
+    if (isPeriodClosed(t.date, t.accountId, creditCards, invoices, closedPeriods, t.invoicePeriod)) {
       toast.error('Não é possível confirmar um lançamento de um mês fechado.');
       return;
     }
@@ -726,9 +713,6 @@ export function Transactions() {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
 
   const handleAiSearch = async () => {
     if (!searchTerm.trim() || isAiSearching) return;
@@ -855,9 +839,6 @@ ${sample.map(t =>
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Final sort descending
   }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, accounts, creditCards, aiSearchResultIds]);
 
-  const isEffectivelyPaid = (t: any) => {
-    return t.status === 'pago' || t.status === 'realizado' || t.status === 'paid';
-  };
 
   const summary = React.useMemo(() => {
     return processedTransactions.reduce((acc, t) => {
@@ -1433,6 +1414,14 @@ ${sample.map(t =>
             </DialogContent>
           </Dialog>
 
+      {isLoading ? (
+        <Card className="border-none shadow-md overflow-hidden">
+          <div className="flex flex-col items-center justify-center py-20 space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="text-muted-foreground text-sm">Carregando...</p>
+          </div>
+        </Card>
+      ) : (
       <Card className="border-none shadow-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -1459,7 +1448,7 @@ ${sample.map(t =>
                     const isCreditCard = creditCards.some(c => c.id === t.accountId);
                     const destAccount = accounts.find(a => a.id === t.destinationAccountId);
                     const category = categories.find(c => c.id === t.categoryId);
-                    const isClosed = isPeriodClosed(t.date, t.accountId, t.invoicePeriod) || (t.type === 'transferencia' && t.destinationAccountId && isPeriodClosed(t.date, t.destinationAccountId, t.invoicePeriod));
+                    const isClosed = isPeriodClosed(t.date, t.accountId, creditCards, invoices, closedPeriods, t.invoicePeriod) || (t.type === 'transferencia' && t.destinationAccountId && isPeriodClosed(t.date, t.destinationAccountId, creditCards, invoices, closedPeriods, t.invoicePeriod));
                     const CategoryIcon = category ? getCategoryIcon(category.icon) : HelpCircle;
 
                     return (
@@ -1593,6 +1582,7 @@ ${sample.map(t =>
           </table>
         </div>
       </Card>
+      )}
       <Dialog open={!!deleteConfirmTx} onOpenChange={(open) => !open && setDeleteConfirmTx(null)}>
         <DialogContent>
           <DialogHeader>

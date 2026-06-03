@@ -72,8 +72,8 @@ export function SettingsPage() {
 
       toast.success('Backup exportado com sucesso');
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'backup');
       toast.error('Erro ao exportar backup');
+      handleFirestoreError(error, OperationType.LIST, 'backup');
     } finally {
       setExporting(false);
     }
@@ -128,8 +128,8 @@ export function SettingsPage() {
       setResetStep(1);
       setResetConfirmText('');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'reset');
       toast.error('Erro ao resetar aplicação');
+      handleFirestoreError(error, OperationType.DELETE, 'reset');
     } finally {
       setIsResettingAll(false);
     }

@@ -56,8 +56,8 @@ export function Tags() {
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
-      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'tags');
       toast.error('Erro ao salvar tag');
+      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'tags');
     }
   };
 
@@ -68,8 +68,8 @@ export function Tags() {
       logActivity({ userId: user.uid, action: 'delete', entityType: 'tag', entityId: deleteConfirmTag.id, description: `Tag excluída: ${deleteConfirmTag.name}` }).catch(() => {});
       toast.success('Tag excluída');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `tags/${deleteConfirmTag.id}`);
       toast.error('Erro ao excluir tag');
+      handleFirestoreError(error, OperationType.DELETE, `tags/${deleteConfirmTag.id}`);
     } finally {
       setDeleteConfirmTag(null);
     }

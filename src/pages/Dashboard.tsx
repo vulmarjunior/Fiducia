@@ -8,7 +8,7 @@ import { Button } from '../components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
-import { calculateInvoicePeriod, getPreviousPeriod } from '../lib/utils';
+import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid } from '../lib/utils';
 import { callGroq } from '../services/groqService';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
@@ -176,7 +176,6 @@ Regras:
     return t.date.split('T')[0].startsWith(currentMonthStr);
   });
   
-  const isEffectivelyPaid = (t: any) => t.status === 'pago' || t.status === 'realizado' || t.status === 'paid';
   
   const monthlyIncome = currentMonthTransactions.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
   const monthlyExpense = currentMonthTransactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);

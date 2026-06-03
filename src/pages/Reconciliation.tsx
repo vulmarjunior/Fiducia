@@ -498,19 +498,19 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
       </div>
 
       {importedTransactions.length > 0 && (
-        <div className="flex items-center justify-between bg-white p-4 rounded-xl border shadow-sm">
+          <div className="flex items-center justify-between bg-card p-4 rounded-xl border shadow-sm">
           <div className="flex gap-6">
             <div className="text-center">
-              <p className="text-sm text-gray-500 font-medium">Total Importado</p>
+              <p className="text-sm text-muted-foreground font-medium">Total Importado</p>
               <p className="text-2xl font-bold">{importedTransactions.length}</p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-500 font-medium">Pendentes</p>
-              <p className="text-2xl font-bold text-amber-500">{pendingImported.length}</p>
+              <p className="text-sm text-muted-foreground font-medium">Pendentes</p>
+              <p className="text-2xl font-bold text-amber-500 dark:text-amber-400">{pendingImported.length}</p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-500 font-medium">Conciliados</p>
-              <p className="text-2xl font-bold text-green-500">{matchedImported.length}</p>
+              <p className="text-sm text-muted-foreground font-medium">Conciliados</p>
+              <p className="text-2xl font-bold text-green-500 dark:text-green-400">{matchedImported.length}</p>
             </div>
           </div>
           
@@ -537,56 +537,56 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
           {/* Left Column: Imported Transactions */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Download className="h-5 w-5 text-gray-400" />
+              <Download className="h-5 w-5 text-muted-foreground" />
               Extrato Importado
             </h2>
             
-            <div className="bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col h-[600px]">
+            <div className="bg-card rounded-xl border shadow-sm overflow-hidden flex flex-col h-[600px]">
               <div className="overflow-y-auto flex-1 p-2 space-y-2">
                 {importedTransactions.map(tx => (
                   <div 
                     key={tx.id}
                     onClick={() => tx.status === 'pending' && setSelectedImportedId(tx.id === selectedImportedId ? null : tx.id)}
-                    className={`p-4 rounded-lg border transition-all ${
-                      tx.status === 'matched' || tx.status === 'added' ? 'bg-green-50 border-green-200 opacity-60' :
-                      tx.status === 'ignored' ? 'bg-gray-50 border-gray-200 opacity-50' :
-                      selectedImportedId === tx.id ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200 cursor-pointer' :
-                      'bg-white border-gray-200 hover:border-blue-300 cursor-pointer'
-                    }`}
+                      className={`p-4 rounded-lg border transition-all ${
+                        tx.status === 'matched' || tx.status === 'added' ? 'bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30 opacity-60' :
+                        tx.status === 'ignored' ? 'bg-muted border-border opacity-50' :
+                        selectedImportedId === tx.id ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/30 ring-2 ring-blue-200 dark:ring-blue-500/30 cursor-pointer' :
+                        'bg-card border-border hover:border-blue-300 dark:hover:border-blue-500/50 cursor-pointer'
+                      }`}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <div className="font-medium text-gray-900">{tx.description}</div>
-                      <div className={`font-mono font-semibold ${tx.type === 'receita' ? 'text-green-600' : 'text-red-600'}`}>
+                      <div className="font-medium text-foreground">{tx.description}</div>
+                      <div className={`font-mono font-semibold ${tx.type === 'receita' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                         {tx.type === 'receita' ? '+' : '-'}R$ {tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
                     </div>
-                    <div className="flex justify-between items-center text-sm text-gray-500">
+                    <div className="flex justify-between items-center text-sm text-muted-foreground">
                       <div>{format(parseISO(tx.date), "dd 'de' MMM, yyyy", { locale: ptBR })}</div>
                       
                       {tx.status === 'pending' && (
                         <div className="flex gap-2">
-                          <Button size="sm" variant="ghost" className="h-7 px-2 text-gray-500 hover:text-red-600" onClick={(e) => { e.stopPropagation(); ignoreImported(tx.id); }}>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-red-600 dark:hover:text-red-400" onClick={(e) => { e.stopPropagation(); ignoreImported(tx.id); }}>
                             <X className="h-4 w-4 mr-1" /> Ignorar
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-7 px-2 text-gray-500 hover:text-green-600" onClick={(e) => { e.stopPropagation(); addAsNewTransaction(tx); }}>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-green-600 dark:hover:text-green-400" onClick={(e) => { e.stopPropagation(); addAsNewTransaction(tx); }}>
                             <Plus className="h-4 w-4 mr-1" /> Adicionar
                           </Button>
                         </div>
                       )}
                       
                       {(tx.status === 'matched' || tx.status === 'added') && (
-                        <div className="flex items-center text-green-600 font-medium gap-1">
+                        <div className="flex items-center text-green-600 dark:text-green-400 font-medium gap-1">
                           <CheckCircle2 className="h-4 w-4" /> Conciliado
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 ml-2 text-gray-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); unmatchImported(tx.id); }}>
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 ml-2 text-muted-foreground hover:text-red-500" onClick={(e) => { e.stopPropagation(); unmatchImported(tx.id); }}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
                       )}
                       
                       {tx.status === 'ignored' && (
-                        <div className="flex items-center text-gray-400 font-medium gap-1">
+                        <div className="flex items-center text-muted-foreground font-medium gap-1">
                           <AlertCircle className="h-4 w-4" /> Ignorado
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 ml-2 text-gray-400 hover:text-blue-500" onClick={(e) => { e.stopPropagation(); unmatchImported(tx.id); }}>
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 ml-2 text-muted-foreground hover:text-blue-500" onClick={(e) => { e.stopPropagation(); unmatchImported(tx.id); }}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
@@ -602,7 +602,7 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <LayoutDashboard className="h-5 w-5 text-gray-400" />
+                <LayoutDashboard className="h-5 w-5 text-muted-foreground" />
                 Lançamentos do Sistema
               </h2>
               
@@ -614,11 +614,11 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
               )}
             </div>
             
-            <div className="bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col h-[600px]">
+            <div className="bg-card rounded-xl border shadow-sm overflow-hidden flex flex-col h-[600px]">
               <div className="overflow-y-auto flex-1 p-2 space-y-2">
                 {availableSystemTransactions.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center">
-                    <CheckCircle2 className="h-12 w-12 mb-4 text-gray-200" />
+                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
+                    <CheckCircle2 className="h-12 w-12 mb-4 text-muted-foreground" />
                     <p>Não há lançamentos pendentes de conciliação para esta conta no sistema.</p>
                   </div>
                 ) : (
@@ -627,21 +627,21 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
                       key={tx.id}
                       onClick={() => setSelectedSystemId(tx.id === selectedSystemId ? null : tx.id)}
                       className={`p-4 rounded-lg border transition-all cursor-pointer ${
-                        selectedSystemId === tx.id ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200' :
-                        'bg-white border-gray-200 hover:border-blue-300'
+                        selectedSystemId === tx.id ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/30 ring-2 ring-blue-200 dark:ring-blue-500/30' :
+                        'bg-card border-border hover:border-blue-300 dark:hover:border-blue-500/50'
                       }`}
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <div className="font-medium text-gray-900">{tx.description}</div>
-                        <div className={`font-mono font-semibold ${tx.type === 'receita' || tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                        <div className="font-medium text-foreground">{tx.description}</div>
+                        <div className={`font-mono font-semibold ${tx.type === 'receita' || tx.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                           {tx.type === 'receita' || tx.type === 'income' ? '+' : '-' }R$ {tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </div>
                       </div>
-                      <div className="flex justify-between items-center text-sm text-gray-500">
+                      <div className="flex justify-between items-center text-sm text-muted-foreground">
                         <div>{format(parseISO(tx.date), "dd 'de' MMM, yyyy", { locale: ptBR })}</div>
                         <div className="flex gap-2">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider ${
-                            tx.status === 'pago' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                            tx.status === 'pago' ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400'
                           }`}>
                             {tx.status}
                           </span>
@@ -689,12 +689,12 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
           </div>
         )}
         </>) : (
-        <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center flex flex-col items-center justify-center min-h-[400px]">
-          <div className="h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-            <FileText className="h-10 w-10 text-gray-400" />
+        <div className="bg-card rounded-2xl border border-dashed border-border p-12 text-center flex flex-col items-center justify-center min-h-[400px]">
+          <div className="h-20 w-20 bg-muted rounded-full flex items-center justify-center mb-6">
+            <FileText className="h-10 w-10 text-muted-foreground" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhum extrato importado</h3>
-          <p className="text-gray-500 max-w-md mb-8">
+          <h3 className="text-xl font-semibold text-foreground mb-2">Nenhum extrato importado</h3>
+          <p className="text-muted-foreground max-w-md mb-8">
             Selecione uma conta e faça o upload de um arquivo OFX ou CSV do seu banco para iniciar a conciliação.
           </p>
           <Button onClick={() => document.getElementById('file-upload')?.click()} disabled={!selectedAccountId} className="bg-fiducia-blue hover:bg-fiducia-blue/90">

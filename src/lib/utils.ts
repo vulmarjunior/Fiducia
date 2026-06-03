@@ -83,3 +83,29 @@ export function resolveAccountName(accountId: string | undefined, accounts: any[
   if (card) return card.name;
   return 'Desconhecida';
 }
+
+export function isEffectivelyPaid(t: any): boolean {
+  return t.status === 'pago' || t.status === 'realizado' || t.status === 'paid';
+}
+
+export function isPeriodClosed(
+  dateString: string,
+  accountId: string,
+  creditCards: any[],
+  invoices: any[],
+  closedPeriods: any[],
+  invoicePeriod?: string
+): boolean {
+  const card = creditCards.find((c: any) => c.id === accountId);
+  if (card) {
+    const periodToCheck = invoicePeriod || calculateInvoicePeriod(dateString, card.closingDay, card.dueDay);
+    const invoice = invoices.find((i: any) => i.cardId === accountId && i.period === periodToCheck);
+    return invoice ? (invoice.status === 'fechada' || invoice.status === 'paga') : false;
+  }
+  const period = dateString.substring(0, 7);
+  return closedPeriods.some((cp: any) => (cp.period === period || cp.month === period) && cp.accountId === accountId);
+}
+
+export function formatCurrency(value: number): string {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}

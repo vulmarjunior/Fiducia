@@ -88,8 +88,8 @@ export function Budgets() {
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
-      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'budgets');
       toast.error('Falha ao salvar orçamento');
+      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'budgets');
     }
   };
 
@@ -101,8 +101,8 @@ export function Budgets() {
       logActivity({ userId: user.uid, action: 'delete', entityType: 'budget', entityId: deleteConfirmId, description: `Orçamento excluído: ${deleted?.categoryId || deleteConfirmId}` }).catch(() => {});
       toast.success('Orçamento excluído');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `budgets/${deleteConfirmId}`);
       toast.error('Falha ao excluir orçamento');
+      handleFirestoreError(error, OperationType.DELETE, `budgets/${deleteConfirmId}`);
     } finally {
       setDeleteConfirmId(null);
     }

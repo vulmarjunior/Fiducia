@@ -10,7 +10,7 @@ import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, Selec
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { MoneyInput } from './MoneyInput';
 import { CategorySelect } from './CategorySelect';
-import { calculateInvoicePeriod, getNextPeriod, dateToLocalISOString, parseLocalDate } from '../lib/utils';
+import { calculateInvoicePeriod, getNextPeriod, dateToLocalISOString, parseLocalDate, isEffectivelyPaid, isPeriodClosed } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { toast } from 'sonner';
 import { Repeat, MessageSquare, Tag, Paperclip, ThumbsUp, ThumbsDown, Plus } from 'lucide-react';
@@ -20,9 +20,6 @@ import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 
 const now = new Date();
 const currentDateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-
-const isEffectivelyPaid = (t: any) => t.status === 'pago' || t.status === 'realizado' || t.status === 'paid';
-
 const getBalanceChange = (type: string, amount: number) => {
   return type === 'receita' ? amount : -amount;
 };
@@ -260,27 +257,15 @@ export function TransactionDialog() {
       handleFirestoreError(error, OperationType.CREATE, 'tags');
     }
   };
-
-  const isPeriodClosed = (dateString: string, accountId: string, invoicePeriod?: string) => {
-    const c = creditCards.find((cc: any) => cc.id === accountId);
-    if (c) {
-      const periodToCheck = invoicePeriod || calculateInvoicePeriod(dateString, c.closingDay, c.dueDay);
-      const inv = invoices.find((i: any) => i.cardId === accountId && i.period === periodToCheck);
-      return inv ? (inv.status === 'fechada' || inv.status === 'paga') : false;
-    }
-    const period = dateString.substring(0, 7);
-    return closedPeriods.some((cp: any) => cp.period === period && cp.accountId === accountId);
-  };
-
   const handleCreateSubmit = async () => {
     if (!user) return;
     const amount = formData.amount;
     if (amount <= 0) { toast.error('Valor deve ser positivo'); return; }
 
-    if (isPeriodClosed(formData.date, formData.accountId, formData.invoicePeriod)) {
+    if (isPeriodClosed(formData.date, formData.accountId, creditCards, invoices, closedPeriods, formData.invoicePeriod)) {
       toast.error('Período fechado para esta conta.'); return;
     }
-    if (formData.type === 'transferencia' && formData.destinationAccountId && isPeriodClosed(formData.date, formData.destinationAccountId)) {
+    if (formData.type === 'transferencia' && formData.destinationAccountId && isPeriodClosed(formData.date, formData.destinationAccountId, creditCards, invoices, closedPeriods)) {
       toast.error('Período fechado para conta de destino.'); return;
     }
     if (formData.type !== 'transferencia' && !formData.categoryId) {
@@ -484,7 +469,7 @@ export function TransactionDialog() {
   const handleEditSubmit = async () => {
     if (!user || !editingId || !editingTx) return;
 
-    if (isPeriodClosed(editingTx.date, editingTx.accountId, editingTx.invoicePeriod)) {
+    if (isPeriodClosed(editingTx.date, editingTx.accountId, creditCards, invoices, closedPeriods, editingTx.invoicePeriod)) {
       toast.error('Período fechado para esta conta.'); return;
     }
 

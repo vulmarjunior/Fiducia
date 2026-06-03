@@ -91,7 +91,7 @@ Regras obrigatórias:
 - Ignore linhas de cabeçalho, rodapé, totais, saldo anterior, encargos genéricos sem valor individual
 - Créditos, estornos e pagamentos = "receita". Compras e débitos = "despesa"
 - Datas no formato DD/MM/AAAA devem ser convertidas para YYYY-MM-DD. PRESERVE o ano original — o ano da fatura é ${currentYear}
-- Preença meses e dias com dois dígitos (ex: 2026-01-05, não 2026-1-5)
+- Preencha meses e dias com dois dígitos (ex: 2026-01-05, não 2026-1-5)
 - Se não encontrar nenhuma transação, retorne []
 - Valores monetários: ignore "R$", vírgula decimal → ponto decimal (ex: "1.234,56" → 1234.56)
 - **IMPORTANTE para compras parceladas**: o "amount" deve ser o VALOR INDIVIDUAL DA PARCELA exibido na linha da fatura, NÃO o valor total da compra. Ex: se a fatura mostra "COMPRA X (2/6) ... R$ 175,00", amount deve ser 175.00, e installmentInfo = "2/6"

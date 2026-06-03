@@ -12,7 +12,7 @@ import { Badge } from '../components/ui/badge';
 import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
-import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString } from '../lib/utils';
+import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
 import {
@@ -169,16 +169,6 @@ export function CreditCards() {
       }, 0);
   };
 
-  const getPreviousPeriod = (period: string) => {
-    const [year, month] = period.split('-').map(Number);
-    let prevMonth = month - 1;
-    let prevYear = year;
-    if (prevMonth === 0) {
-      prevMonth = 12;
-      prevYear--;
-    }
-    return `${prevYear}-${prevMonth.toString().padStart(2, '0')}`;
-  };
 
   const calculatePeriodBalance = (cardId: string, period: string) => {
     const periodTransactions = transactions.filter(t => 
@@ -240,16 +230,6 @@ export function CreditCards() {
     }
   };
 
-  const isPeriodClosed = (date: string, accountId: string) => {
-    const card = cards.find(c => c.id === accountId);
-    if (card) {
-      const periodToCheck = calculateInvoicePeriod(date, card.closingDay, card.dueDay);
-      const invoice = invoices.find(i => i.cardId === accountId && i.period === periodToCheck);
-      return invoice ? (invoice.status === 'fechada' || invoice.status === 'paga') : false;
-    }
-    const period = date.substring(0, 7);
-    return closedPeriods.some(cp => (cp.period === period || cp.month === period) && cp.accountId === accountId);
-  };
 
   const handlePayInvoice = async () => {
     if (!selectedCardForInvoice || !paymentData.accountId || paymentData.amount <= 0) {
@@ -350,7 +330,7 @@ export function CreditCards() {
   };
 
   const handleMoveInvoice = async (tx: any, direction: 'prev' | 'next') => {
-    if (isPeriodClosed(tx.date, tx.accountId)) {
+    if (isPeriodClosed(tx.date, tx.accountId, cards, invoices, closedPeriods)) {
       toast.error('Não é possível editar um lançamento de um mês fechado.');
       return;
     }
@@ -418,7 +398,7 @@ export function CreditCards() {
     }
 
     for (const tx of transactionsToDelete) {
-      if (isPeriodClosed(tx.date, tx.accountId)) {
+      if (isPeriodClosed(tx.date, tx.accountId, cards, invoices, closedPeriods)) {
         toast.error(`Não é possível excluir um lançamento de um mês fechado.`);
         return;
       }
@@ -470,8 +450,8 @@ export function CreditCards() {
       logActivity({ userId: user.uid, action: 'delete', entityType: 'creditCard', entityId: deleteConfirmId, description: `Cartão excluído: ${deleted?.name || deleteConfirmId}` }).catch(() => {});
       toast.success('Cartão de crédito excluído');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `creditCards/${deleteConfirmId}`);
       toast.error('Falha ao excluir cartão de crédito');
+      handleFirestoreError(error, OperationType.DELETE, `creditCards/${deleteConfirmId}`);
     } finally {
       setDeleteConfirmId(null);
     }
@@ -1057,8 +1037,8 @@ export function CreditCards() {
                   logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: invoice?.id || 'new', description: `Fatura fechada: ${selectedCardForInvoice.name} - ${currentPeriod}` }).catch(() => {});
                   toast.success('Fatura fechada com sucesso');
                 } catch (error) {
-                  handleFirestoreError(error, OperationType.UPDATE, 'invoices');
                   toast.error('Erro ao fechar fatura');
+                  handleFirestoreError(error, OperationType.UPDATE, 'invoices');
                 }
               };
 
@@ -1069,8 +1049,8 @@ export function CreditCards() {
                   logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: invoice.id, description: `Fatura reaberta: ${selectedCardForInvoice.name} - ${invoice.period}` }).catch(() => {});
                   toast.success('Fatura reaberta com sucesso');
                 } catch (error) {
-                  handleFirestoreError(error, OperationType.UPDATE, `invoices/${invoice.id}`);
                   toast.error('Erro ao reabrir fatura');
+                  handleFirestoreError(error, OperationType.UPDATE, `invoices/${invoice.id}`);
                 }
               };
 

@@ -73,8 +73,8 @@ export function Goals() {
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
-      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'goals');
       toast.error('Falha ao salvar meta');
+      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'goals');
     }
   };
 
@@ -86,8 +86,8 @@ export function Goals() {
       logActivity({ userId: user.uid, action: 'delete', entityType: 'goal', entityId: deleteConfirmId, description: `Meta excluída: ${deleted?.name || deleteConfirmId}` }).catch(() => {});
       toast.success('Meta excluída');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `goals/${deleteConfirmId}`);
       toast.error('Falha ao excluir meta');
+      handleFirestoreError(error, OperationType.DELETE, `goals/${deleteConfirmId}`);
     } finally {
       setDeleteConfirmId(null);
     }

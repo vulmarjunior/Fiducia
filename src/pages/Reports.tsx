@@ -295,7 +295,14 @@ export function Reports() {
             <CardContent className="p-4">
               {aiInsight ? (
                 <div className="prose prose-sm dark:prose-invert text-[13px] leading-relaxed">
-                  <div dangerouslySetInnerHTML={{ __html: aiInsight.replace(/\n/g, '<br/>') }} />
+                  <div dangerouslySetInnerHTML={{
+                    __html: aiInsight
+                      .replace(/&/g, '&amp;')
+                      .replace(/</g, '&lt;')
+                      .replace(/>/g, '&gt;')
+                      .replace(/"/g, '&quot;')
+                      .replace(/\n/g, '<br/>')
+                  }} />
                 </div>
               ) : (
                 <div className="text-center py-8">

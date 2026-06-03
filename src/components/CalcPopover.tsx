@@ -10,12 +10,68 @@ function evaluate(expr: string): number | null {
   const sanitized = expr.replace(/[^0-9+\-*/().\s]/g, '').trim();
   if (!sanitized) return null;
   try {
-    const result = new Function(`"use strict"; return (${sanitized})`)();
-    if (typeof result !== 'number' || !isFinite(result)) return null;
+    const result = parseExpression(sanitized);
+    if (!isFinite(result)) return null;
     return result;
   } catch {
     return null;
   }
+}
+
+function parseExpression(s: string): number {
+  let pos = 0;
+  function skipSpaces() { while (pos < s.length && s[pos] === ' ') pos++; }
+  function peek(): string { skipSpaces(); return s[pos] || ''; }
+
+  function parseNumber(): number {
+    skipSpaces();
+    let start = pos;
+    if (s[pos] === '-') pos++;
+    while (pos < s.length && (s[pos] >= '0' && s[pos] <= '9' || s[pos] === '.')) pos++;
+    const num = parseFloat(s.slice(start, pos));
+    if (isNaN(num)) throw new Error('Invalid number');
+    return num;
+  }
+
+  function parseFactor(): number {
+    skipSpaces();
+    if (s[pos] === '(') {
+      pos++;
+      const result = parseExpression(s);
+      skipSpaces();
+      if (s[pos] === ')') pos++;
+      return result;
+    }
+    if (s[pos] === '-') {
+      pos++;
+      return -parseFactor();
+    }
+    return parseNumber();
+  }
+
+  function parseTerm(): number {
+    let result = parseFactor();
+    skipSpaces();
+    while (pos < s.length && (s[pos] === '*' || s[pos] === '/')) {
+      const op = s[pos++];
+      const right = parseFactor();
+      if (op === '*') result *= right;
+      else { if (right === 0) throw new Error('Division by zero'); result /= right; }
+      skipSpaces();
+    }
+    return result;
+  }
+
+  let result = parseTerm();
+  skipSpaces();
+  while (pos < s.length && (s[pos] === '+' || s[pos] === '-')) {
+    const op = s[pos++];
+    const right = parseTerm();
+    if (op === '+') result += right;
+    else result -= right;
+    skipSpaces();
+  }
+  return result;
 }
 
 function formatBR(value: number): string {
