@@ -231,12 +231,12 @@ Regras:
 
   const overdueExpenses = transactions.filter(t => {
     const d = t.date.split('T')[0];
-    return isExpenseType(t) && isPendingStatus(t) && d < currentDateStr && d >= thirtyDaysAgo;
+    return !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && isExpenseType(t) && isPendingStatus(t) && d < currentDateStr && d >= thirtyDaysAgo;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const upcomingExpenses = transactions.filter(t => {
     const d = t.date.split('T')[0];
-    return isExpenseType(t) && isPendingStatus(t) && d >= currentDateStr && d <= thirtyDaysFromNow;
+    return !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && isExpenseType(t) && isPendingStatus(t) && d >= currentDateStr && d <= thirtyDaysFromNow;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
 
   const overdueIncomes = transactions.filter(t => {
@@ -248,11 +248,6 @@ Regras:
     const d = t.date.split('T')[0];
     return isIncomeType(t) && isPendingStatus(t) && d >= currentDateStr && d <= thirtyDaysFromNow;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
-
-  const totalPendingPay = [
-    ...overdueExpenses, 
-    ...transactions.filter(t => isExpenseType(t) && isPendingStatus(t) && t.date.split('T')[0] >= currentDateStr && t.date.split('T')[0] <= thirtyDaysFromNow)
-  ].reduce((sum, t) => sum + t.amount, 0);
 
   // Calculate unpaid credit card invoices
   const unpaidInvoices = creditCards.flatMap(card => {
@@ -310,7 +305,7 @@ Regras:
 
   const allPendingExpenses = [
     ...overdueExpenses,
-    ...transactions.filter(t => isExpenseType(t) && isPendingStatus(t) && t.date.split('T')[0] >= currentDateStr && t.date.split('T')[0] <= thirtyDaysFromNow),
+    ...transactions.filter(t => !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && isExpenseType(t) && isPendingStatus(t) && t.date.split('T')[0] >= currentDateStr && t.date.split('T')[0] <= thirtyDaysFromNow),
     ...unpaidInvoices
   ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
