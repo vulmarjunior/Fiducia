@@ -2,7 +2,7 @@
 
 > Documentação viva de descobertas técnicas. Atualizada automaticamente durante o desenvolvimento.
 > **Stack**: Firebase, Firestore, TypeScript, React 19, Tailwind CSS 4, Shadcn/UI
-> **Última atualização**: 2026-06-02
+> **Última atualização**: 2026-06-04
 
 ---
 
@@ -453,6 +453,25 @@
 - **Data**: 2026-06-04
 - **Contexto**: Usuário não tinha visibilidade das parcelas futuras já comprometidas em próximas faturas.
 - **Solução**: Seção "Comprometimento Futuro (Parcelas)" no modal de fatura, mostrando até 5 períodos futuros com a soma das parcelas pendentes.
+
+### Reports — seletor de período completo e projeção de caixa
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-04
+- **Contexto**: Usuário não tinha controle sobre o período dos relatórios. Queria projeção futura de caixa para planejamento.
+- **Solução**:
+  - Seletor de período: Hoje / Semana / Mês / 3M / 6M / 12M / Ano / Período (com datas custom De/Até)
+  - 12M = últimos 12 meses passados; Ano = ano corrente (Jan-Dez)
+  - Toggle "Considerar movimentações não pagas" filtrado via `isRelevant(t)`
+  - Tabela de Projeção de Caixa em largura total: receitas/despesas previstas + saldo mês + acumulado
+  - Projeção adapta número de meses ao período selecionado (até 24)
+  - Fallback seguro para datas custom vazias (evita tela branca)
+  - Gráfico de fluxo de caixa usa `isRelevant` para incluir pendentes conforme toggle
+
+### Dashboard — restauração do layout original com badges
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-04
+- **Contexto**: Abas Vencidas/Hoje/7 Dias/Mês no card Contas a Pagar foram rejeitadas pelo usuário.
+- **Solução**: Revertido para duas listas (Atrasadas + A Vencer). Adicionados badges de status: "Atrasada" (vermelho), "Hoje" (âmbar), "Em X dias" (âmbar) para itens a vencer.
 
 ### Gráfico Fluxo de Caixa — toggle "Considerar movimentações não pagas"
 - **Status**: ✅ Implementado
