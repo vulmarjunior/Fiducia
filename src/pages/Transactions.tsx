@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -756,10 +756,19 @@ ${sample.map(t =>
     }
   };
 
-  const selectedAccountBalance = React.useMemo(() => {
-    if (selectedAccountFilter === 'all') return 0;
-    return accounts.find(a => a.id === selectedAccountFilter)?.balance ?? 0;
-  }, [accounts, selectedAccountFilter]);
+  const [selectedAccountBalance, setSelectedAccountBalance] = useState(0);
+
+  useEffect(() => {
+    if (selectedAccountFilter === 'all' || !user) {
+      setSelectedAccountBalance(0);
+      return;
+    }
+    getDoc(doc(db, 'accounts', selectedAccountFilter)).then(snap => {
+      if (snap.exists()) {
+        setSelectedAccountBalance(snap.data().balance || 0);
+      }
+    }).catch(() => setSelectedAccountBalance(0));
+  }, [selectedAccountFilter, user]);
 
   const processedTransactions = React.useMemo(() => {
     let result = [...transactions];
