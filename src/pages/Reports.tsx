@@ -114,11 +114,22 @@ export function Reports() {
     }
   };
 
+  const getPeriodStart = (): string => {
+    const now = new Date();
+    if (reportPeriod === 'quarter') { now.setMonth(now.getMonth() - 3); }
+    else if (reportPeriod === 'year') { now.setFullYear(now.getFullYear() - 1); }
+    else if (reportPeriod === 'all') { return '2000-01'; }
+    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+  };
+  const periodStart = getPeriodStart();
+  const isInPeriod = (d: string) => d >= periodStart;
+
   // Fluxo de Caixa Mensal (cash basis: só conta corrente, sem transferência, sem cartão)
   const cashFlowData = useMemo(() => {
-    const months = Array.from({length: 6}, (_, i) => {
+    const count = reportPeriod === 'year' ? 12 : reportPeriod === 'all' ? 24 : reportPeriod === 'quarter' ? 3 : 6;
+    const months = Array.from({length: count}, (_, i) => {
       const d = new Date();
-      d.setMonth(d.getMonth() - 5 + i);
+      d.setMonth(d.getMonth() - count + i + 1);
       return { month: d.toISOString().substring(0, 7), label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') };
     });
     return months.map(m => {
@@ -129,22 +140,22 @@ export function Reports() {
         Despesas: monthTx.filter(t => isExpense(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
       };
     });
-  }, [transactions]);
+  }, [transactions, reportPeriod]);
 
-  // Despesas por Categoria (accrual basis: conta corrente + cartão, por data da compra, sem transferência)
+  // Despesas por Categoria (accrual basis: conta corrente + cartão, por data, sem transferência)
   const categoryData = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.toISOString().substring(0, 7);
-    const monthTx = transactions.filter(t => t.date.startsWith(currentMonth) && !isTransfer(t) && isExpense(t));
+    const periodTx = transactions.filter(t => isInPeriod(t.date.substring(0, 7)) && !isTransfer(t) && isExpense(t));
+    const periodIncome = transactions.filter(t => isInPeriod(t.date.substring(0, 7)) && !isCreditCardTx(t) && isIncome(t) && isEffectivelyPaid(t) && !isTransfer(t))
+      .reduce((sum, t) => sum + t.amount, 0);
+    const totalSpent = periodTx.reduce((sum, t) => sum + t.amount, 0);
     return categories
       .filter(c => c.type === 'despesa' || c.type === 'expense')
       .map(c => {
-        const spent = monthTx.filter(t => t.categoryId === c.id).reduce((sum, t) => sum + t.amount, 0);
-        return { name: c.name, value: spent };
+        const spent = periodTx.filter(t => t.categoryId === c.id).reduce((sum, t) => sum + t.amount, 0);
+        return { name: c.name, value: spent, pct: totalSpent > 0 ? (spent / totalSpent * 100) : 0, pctIncome: periodIncome > 0 ? (spent / periodIncome * 100) : 0 };
       })
-      .filter(c => c.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [transactions, categories]);
+  }, [transactions, categories, reportPeriod, periodStart]);
 
   // Tendência de Gastos Acumulados (cash basis)
   const trendData = useMemo(() => {
@@ -213,17 +224,27 @@ export function Reports() {
           </div>
           <p className="text-muted-foreground mt-1 text-sm font-medium">Relatórios detalhados e insights inteligentes sobre sua saúde financeira.</p>
         </div>
-        <Button 
-          onClick={generateAIAnalysis} 
-          disabled={isLoadingAi || transactions.length < 5}
-          className="bg-fiducia-blue hover:bg-fiducia-blue/90 text-white gap-2 font-semibold shadow-lg shadow-fiducia-blue/20"
+        <div className="flex items-center gap-2">
+          <div className="flex p-1 bg-secondary/30 rounded-xl">
+            {(['month', 'quarter', 'year', 'all'] as const).map(p => (
+              <button key={p} onClick={() => setReportPeriod(p)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${reportPeriod === p ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                {{ month: 'Mês', quarter: 'Trim.', year: 'Ano', all: 'Tudo' }[p]}
+              </button>
+            ))}
+          </div>
+          <Button 
+            onClick={generateAIAnalysis} 
+            disabled={isLoadingAi || transactions.length < 5}
+            className="bg-fiducia-blue hover:bg-fiducia-blue/90 text-white gap-2 font-semibold shadow-lg shadow-fiducia-blue/20"
         >
           {isLoadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {aiInsight ? 'Renovar Análise IA' : 'Gerar Análise IA'}
-        </Button>
-      </div>
+          </Button>
+          </div>
+        </div>
 
-      {/* Overview Stats */}
+        {/* Overview Stats */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-none shadow-sm bg-fiducia-blue/5">
           <CardContent className="p-4">
@@ -353,7 +374,7 @@ export function Reports() {
             </CardContent>
           </Card>
 
-          {/* Category Breakdown */}
+          {/* Gastos por Categoria */}
           <Card className="bg-card border-border shadow-sm">
             <CardHeader className="p-4 border-b border-border">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -361,43 +382,37 @@ export function Reports() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4">
-              <div className="w-full" style={{ minHeight: 220 }}>
-                {categoryData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-[11px] text-muted-foreground bg-secondary/20 rounded-lg italic">
-                    Dados insuficientes para este mês.
+              {categoryData.length > 0 ? (
+                <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                  <div className="grid grid-cols-12 text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 pb-2 border-b border-border">
+                    <span className="col-span-4">Categoria</span>
+                    <span className="col-span-3 text-right">Valor</span>
+                    <span className="col-span-3 text-right">% Gastos</span>
+                    <span className="col-span-2 text-right">% Renda</span>
                   </div>
-                )}
-              </div>
-              <div className="mt-4 space-y-2">
-                {categoryData.slice(0, 5).map((item, index) => (
-                  <div key={item.name} className="flex items-center justify-between text-xs font-medium">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                      <span className="text-muted-foreground truncate max-w-[100px]">{item.name}</span>
-                    </div>
-                    <span className="font-mono">{formatCurrency(item.value)}</span>
-                  </div>
-                ))}
-              </div>
+                  {categoryData.map((item, i) => {
+                    const barW = Math.min(item.pct, 100);
+                    return (
+                      <div key={item.name} className="grid grid-cols-12 text-xs px-2 py-1.5 rounded-lg hover:bg-muted/30 items-center">
+                        <span className="col-span-4 truncate font-medium flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                          {item.name}
+                        </span>
+                        <span className="col-span-3 text-right font-mono">{item.value > 0 ? formatCurrency(item.value) : '—'}</span>
+                        <span className="col-span-3 text-right">
+                          <span className="font-mono text-muted-foreground">{item.pct.toFixed(1)}%</span>
+                          <div className="mt-0.5 h-1 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${barW}%`, backgroundColor: COLORS[i % COLORS.length] }} />
+                          </div>
+                        </span>
+                        <span className="col-span-2 text-right font-mono text-muted-foreground">{item.value > 0 ? item.pctIncome.toFixed(1) + '%' : '—'}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-[11px] text-muted-foreground italic">Nenhum gasto no período.</div>
+              )}
             </CardContent>
           </Card>
 
