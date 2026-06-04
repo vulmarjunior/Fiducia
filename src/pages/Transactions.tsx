@@ -779,7 +779,7 @@ ${sample.map(t =>
     if (selectedAccountFilter !== 'all') {
         // Sort ascending by date to calculate running balance correctly
         const accountTransactions = result
-          .filter(t => (t.accountId === selectedAccountFilter || t.destinationAccountId === selectedAccountFilter) && isEffectivelyPaid(t))
+          .filter(t => t.accountId === selectedAccountFilter || t.destinationAccountId === selectedAccountFilter)
           .sort((a, b) => {
             const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
             if (dateDiff !== 0) return dateDiff;
@@ -794,17 +794,19 @@ ${sample.map(t =>
         const transactionsWithBalance = descendingAccountTransactions.map(t => {
           const tWithBalance = { ...t, runningBalance: currentBalance };
           
-          if (t.accountId === selectedAccountFilter) {
-            if (t.type === 'receita') {
-              currentBalance -= t.amount;
-            } else if (t.type === 'despesa') {
-              currentBalance += t.amount;
-            } else if (t.type === 'transferencia') {
-              currentBalance += t.amount; // It was a transfer OUT, so we add it back
-            }
-          } else if (t.destinationAccountId === selectedAccountFilter) {
-            if (t.type === 'transferencia') {
-              currentBalance -= t.amount; // It was a transfer IN, so we subtract it
+          if (isEffectivelyPaid(t)) {
+            if (t.accountId === selectedAccountFilter) {
+              if (t.type === 'receita') {
+                currentBalance -= t.amount;
+              } else if (t.type === 'despesa') {
+                currentBalance += t.amount;
+              } else if (t.type === 'transferencia') {
+                currentBalance += t.amount;
+              }
+            } else if (t.destinationAccountId === selectedAccountFilter) {
+              if (t.type === 'transferencia') {
+                currentBalance -= t.amount;
+              }
             }
           }
           
