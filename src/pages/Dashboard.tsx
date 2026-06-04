@@ -212,7 +212,7 @@ Regras:
       !creditCards.some(c => c.id === t.accountId) &&
       (t.type === 'despesa' || t.type === 'expense') &&
       (t.status === 'pendente' || t.status === 'pending') &&
-      t.date.split('T')[0] <= currentDateStr
+      t.date.split('T')[0].startsWith(currentMonthStr)
     )
     .reduce((sum, t) => sum + t.amount, 0);
 
