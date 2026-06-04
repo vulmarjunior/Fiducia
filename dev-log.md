@@ -429,6 +429,7 @@
   - `disponivelSeguro`: nova fórmula `= saldoCirculante + receitasPendentes − gastosCartao − contasPendentes`
   - Breakdown UI: nova linha "Receitas a Receber" (+ verde)
   - Tooltip atualizado com fórmula completa
+  - **Gráfico Fluxo de Caixa**: mesmos guards aplicados nas 4 entradas de income/expense (visões semanal e mensal/anual)
 
 ---
 
