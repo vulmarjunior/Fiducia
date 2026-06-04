@@ -1136,10 +1136,10 @@ ${sample.map(t =>
                         ...base,
                         minHeight: '44px',
                         borderRadius: '0.75rem',
-                        borderColor: 'hsl(var(--secondary) / 0.3)',
+                        borderColor: 'var(--secondary)',
                         boxShadow: 'none',
                         '&:hover': {
-                          borderColor: 'hsl(var(--primary) / 0.5)'
+                          borderColor: 'var(--primary)'
                         }
                       }),
                       menuPortal: base => ({ ...base, zIndex: 9999 }),

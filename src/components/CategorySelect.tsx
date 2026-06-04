@@ -68,11 +68,11 @@ export function CategorySelect({ categories, value, onChange, typeFilter, placeh
           minHeight: '48px',
           borderRadius: '0.75rem',
           border: 'none',
-          backgroundColor: 'rgb(249 250 251)',
+          backgroundColor: 'var(--muted)',
           boxShadow: 'none',
         }),
         menuPortal: base => ({ ...base, zIndex: 9999 }),
-        menu: (base) => ({ ...base, zIndex: 9999, minWidth: '280px' }),
+        menu: (base) => ({ ...base, zIndex: 9999, minWidth: '280px', backgroundColor: 'var(--popover)' }),
         option: (base, { data }) => ({
           ...base,
           paddingLeft: `${(data.level * 16) + 12}px`,
@@ -80,6 +80,9 @@ export function CategorySelect({ categories, value, onChange, typeFilter, placeh
           wordBreak: 'break-word',
           paddingTop: '8px',
           paddingBottom: '8px',
+          backgroundColor: 'transparent',
+          color: 'var(--popover-foreground)',
+          ':hover': { backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)' },
         }),
       }}
     />
