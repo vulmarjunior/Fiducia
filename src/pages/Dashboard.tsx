@@ -177,8 +177,16 @@ Regras:
   });
   
   
-  const monthlyIncome = currentMonthTransactions.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
-  const monthlyExpense = currentMonthTransactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
+  const monthlyIncome = currentMonthTransactions.filter(t =>
+    (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t) &&
+    !t.creditCardId && !creditCards.some(c => c.id === t.accountId) &&
+    t.type !== 'transferencia' && t.type !== 'transfer'
+  ).reduce((sum, t) => sum + t.amount, 0);
+  const monthlyExpense = currentMonthTransactions.filter(t =>
+    (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t) &&
+    !t.creditCardId && !creditCards.some(c => c.id === t.accountId) &&
+    t.type !== 'transferencia' && t.type !== 'transfer'
+  ).reduce((sum, t) => sum + t.amount, 0);
   const monthlyBalance = monthlyIncome - monthlyExpense;
 
   // Disponível Seguro calculation
@@ -207,7 +215,18 @@ Regras:
     )
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const disponivelSeguro = saldoCirculante - gastosCartao - contasPendentes;
+  const receitasPendentes = transactions
+    .filter(t =>
+      !t.creditCardId &&
+      !creditCards.some(c => c.id === t.accountId) &&
+      (t.type === 'receita' || t.type === 'income') &&
+      (t.status === 'pendente' || t.status === 'pending') &&
+      t.date.split('T')[0].startsWith(currentMonthStr) &&
+      t.type !== 'transferencia' && t.type !== 'transfer'
+    )
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const disponivelSeguro = saldoCirculante + receitasPendentes - gastosCartao - contasPendentes;
   const isPositive = disponivelSeguro >= 0;
 
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -513,7 +532,7 @@ Regras:
               <Info className="w-4 h-4 text-muted-foreground cursor-help" />
               <div className="absolute right-0 top-6 w-64 p-3 bg-popover border border-border rounded-xl shadow-lg text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-10">
                 <strong className="block mb-1">Disponível Seguro</strong>
-                = (Saldo Circulante) − (Faturas de Cartão) − (Contas Pendentes)
+                = (Saldo Circulante) + (Receitas a Receber) − (Faturas de Cartão) − (Contas Pendentes)
                 <br /><br />
                 Considera faturas <strong>abertas</strong> (acumulando) e <strong>fechadas</strong> (a vencer). Faturas pagas são ignoradas (já saíram da conta).
                 {hasExcludedAccounts && <><br /><br />Contas marcadas como reserva/investimento são ignoradas deste cálculo.</>}
@@ -532,6 +551,15 @@ Regras:
               </span>
               <span className="font-mono font-semibold text-fiducia-green">+{formatCurrency(saldoCirculante)}</span>
             </div>
+            {receitasPendentes > 0 && (
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="flex items-center gap-1.5 text-fiducia-green/80">
+                  <span className="w-2 h-2 rounded-full bg-fiducia-green/60 shrink-0" />
+                  Receitas a Receber
+                </span>
+                <span className="font-mono font-semibold text-fiducia-green/80">+{formatCurrency(receitasPendentes)}</span>
+              </div>
+            )}
             {gastosCartaoFaturaAberta > 0 && (
               <div className="flex items-center justify-between text-[12px]">
                 <span className="flex items-center gap-1.5 text-fiducia-red/80">
