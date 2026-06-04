@@ -765,7 +765,7 @@ ${sample.map(t =>
       if (account) {
         // Sort ascending by date to calculate running balance correctly
         const accountTransactions = result
-          .filter(t => t.accountId === selectedAccountFilter || t.destinationAccountId === selectedAccountFilter)
+          .filter(t => (t.accountId === selectedAccountFilter || t.destinationAccountId === selectedAccountFilter) && isEffectivelyPaid(t))
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         // We need to calculate backwards from the current balance
