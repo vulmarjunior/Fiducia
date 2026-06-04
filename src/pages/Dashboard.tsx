@@ -393,8 +393,8 @@ Regras:
       });
       return {
         name: p.label.charAt(0).toUpperCase() + p.label.slice(1),
-        income: weekTx.filter(t => isIncomeType(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
-        expense: weekTx.filter(t => isExpenseType(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
+        income: weekTx.filter(t => isIncomeType(t) && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
+        expense: weekTx.filter(t => isExpenseType(t) && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
       };
     }
     const mTx = transactions.filter(t => {
@@ -405,8 +405,8 @@ Regras:
     });
     return {
       name: p.label.charAt(0).toUpperCase() + p.label.slice(1),
-      income: mTx.filter(t => isIncomeType(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
-      expense: mTx.filter(t => isExpenseType(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
+      income: mTx.filter(t => isIncomeType(t) && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
+      expense: mTx.filter(t => isExpenseType(t) && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
     };
   });
 
