@@ -756,13 +756,16 @@ ${sample.map(t =>
     }
   };
 
+  const selectedAccountBalance = React.useMemo(() => {
+    if (selectedAccountFilter === 'all') return 0;
+    return accounts.find(a => a.id === selectedAccountFilter)?.balance ?? 0;
+  }, [accounts, selectedAccountFilter]);
+
   const processedTransactions = React.useMemo(() => {
     let result = [...transactions];
 
     // 1. Calculate running balance if a specific account is selected
     if (selectedAccountFilter !== 'all') {
-      const account = accounts.find(a => a.id === selectedAccountFilter) || creditCards.find(c => c.id === selectedAccountFilter);
-      if (account) {
         // Sort ascending by date to calculate running balance correctly
         const accountTransactions = result
           .filter(t => (t.accountId === selectedAccountFilter || t.destinationAccountId === selectedAccountFilter) && isEffectivelyPaid(t))
@@ -775,7 +778,7 @@ ${sample.map(t =>
         // We need to calculate backwards from the current balance
         // Wait, if we sort descending, we can start with current balance and work backwards.
         const descendingAccountTransactions = [...accountTransactions].reverse();
-        let currentBalance = account.balance || 0;
+        let currentBalance = selectedAccountBalance;
         
         const transactionsWithBalance = descendingAccountTransactions.map(t => {
           const tWithBalance = { ...t, runningBalance: currentBalance };
@@ -802,7 +805,6 @@ ${sample.map(t =>
           const withBalance = transactionsWithBalance.find(twb => twb.id === t.id);
           return withBalance ? withBalance : t;
         });
-      }
     }
 
     // 2. Apply Filters
@@ -841,7 +843,7 @@ ${sample.map(t =>
       
       return !t.creditCardId && matchesTags && matchesAccount && matchesDate && matchesSearch;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Final sort descending
-  }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, accounts, creditCards, aiSearchResultIds]);
+  }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, selectedAccountBalance, accounts, creditCards, aiSearchResultIds]);
 
 
   const summary = React.useMemo(() => {
