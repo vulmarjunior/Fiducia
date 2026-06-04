@@ -93,10 +93,12 @@ export function Dashboard() {
     try {
       const prevMonthStr = getPreviousPeriod(currentMonthStr);
 
-      const monthExpenses = transactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && t.date.startsWith(currentMonthStr));
-      const monthIncome = transactions.filter(t => (t.type === 'receita' || t.type === 'income') && t.date.startsWith(currentMonthStr));
-      const prevExpenses = transactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && t.date.startsWith(prevMonthStr));
-      const prevIncome = transactions.filter(t => (t.type === 'receita' || t.type === 'income') && t.date.startsWith(prevMonthStr));
+      const isAccountTx = (t: any) => !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer';
+
+      const monthExpenses = transactions.filter(t => isAccountTx(t) && (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t) && t.date.startsWith(currentMonthStr));
+      const monthIncome = transactions.filter(t => isAccountTx(t) && (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t) && t.date.startsWith(currentMonthStr));
+      const prevExpenses = transactions.filter(t => isAccountTx(t) && (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t) && t.date.startsWith(prevMonthStr));
+      const prevIncome = transactions.filter(t => isAccountTx(t) && (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t) && t.date.startsWith(prevMonthStr));
 
       const totalExpense = monthExpenses.reduce((sum, t) => sum + t.amount, 0);
       const totalIncome = monthIncome.reduce((sum, t) => sum + t.amount, 0);
@@ -117,38 +119,32 @@ export function Dashboard() {
       const expenseTrend = prevExpenseTotal > 0 ? ((totalExpense - prevExpenseTotal) / prevExpenseTotal * 100).toFixed(0) : null;
       const incomeTrend = prevIncomeTotal > 0 ? ((totalIncome - prevIncomeTotal) / prevIncomeTotal * 100).toFixed(0) : null;
 
-      const invoiceAlerts = creditCards.map(card => {
-        const cardExpenses = transactions.filter(t =>
-          t.creditCardId === card.id && t.invoicePeriod === currentMonthStr && (t.type === 'despesa' || t.type === 'expense')
-        );
-        const total = cardExpenses.reduce((s, t) => s + t.amount, 0);
-        const usagePct = card.limit > 0 ? (total / card.limit * 100).toFixed(0) : '0';
-        return `${card.name}: R$ ${total.toFixed(2)} (${usagePct}% do limite)`;
-      }).join('\n');
+      const saldoCirculanteLocal = accounts.filter(a => !a.excludeFromCashFlow).reduce((sum, a) => sum + (a.balance || 0), 0);
+      const totalPendingExpenses = transactions.filter(t => isAccountTx(t) && (t.type === 'despesa' || t.type === 'expense') && (t.status === 'pendente' || t.status === 'pending') && t.date.startsWith(currentMonthStr)).reduce((sum, t) => sum + t.amount, 0);
+      const totalPendingIncome = transactions.filter(t => isAccountTx(t) && (t.type === 'receita' || t.type === 'income') && (t.status === 'pendente' || t.status === 'pending') && t.date.startsWith(currentMonthStr)).reduce((sum, t) => sum + t.amount, 0);
+      const gastosCartaoLocal = invoices.filter(i => i.status === 'aberta' || i.status === 'fechada').reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+      const disponivelSeguro = saldoCirculanteLocal + totalPendingIncome - gastosCartaoLocal - totalPendingExpenses;
 
-      const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+      const prompt = `Você é o assistente Fiducia, um consultor financeiro pessoal direto. Analise os dados financeiros REAIS (apenas transações efetivadas em conta corrente, sem cartão de crédito) e dê 1 insight curto (até 100 caracteres) em Português.
 
-      const prompt = `Você é o assistente financeiro Fiducia. Analise os dados abaixo e gere 2 alertas curtos (máximo 80 caracteres cada, bullet points) em Português.
+Mês: ${currentMonthStr}
+Receitas recebidas: R$ ${totalIncome.toFixed(2)} ${incomeTrend ? `(${Number(incomeTrend) > 0 ? '+' : ''}${incomeTrend}% vs mês anterior)` : ''}
+Despesas pagas: R$ ${totalExpense.toFixed(2)} ${expenseTrend ? `(${Number(expenseTrend) > 0 ? '+' : ''}${expenseTrend}% vs mês anterior)` : ''}
+Saldo em conta: R$ ${saldoCirculanteLocal.toFixed(2)}
+Previsão de caixa (saldo + receitas a receber - despesas pendentes - faturas): R$ ${disponivelSeguro.toFixed(2)}
 
-Mês atual: ${currentMonthStr}
-Receitas: R$ ${totalIncome.toFixed(2)}
-Despesas: R$ ${totalExpense.toFixed(2)}
-Saldo total: R$ ${totalBalance.toFixed(2)}
-${expenseTrend ? `Tendência despesas: ${expenseTrend}% vs mês anterior` : ''}
-${incomeTrend ? `Tendência receitas: ${incomeTrend}% vs mês anterior` : ''}
+Top gastos: ${sortedCategories || 'Nenhum'}
+${totalPendingExpenses > 0 ? `Despesas pendentes no mês: R$ ${totalPendingExpenses.toFixed(2)}` : ''}
+${gastosCartaoLocal > 0 ? `Faturas de cartão a pagar: R$ ${gastosCartaoLocal.toFixed(2)}` : ''}
 
-Top 3 categorias de gasto:
-${sortedCategories || 'Nenhuma'}
+Regras OBRIGATÓRIAS:
+- Se a previsão de caixa (disponivel) for negativa, ALERTE sobre risco de não cobrir as contas
+- Se receitas caíram E despesas subiram, alerte sobre desequilíbrio (nunca diga "mantenha o ritmo")
+- Se receitas subiram E despesas caíram, reconheça o progresso
+- Se houver gasto concentrado em 1 categoria, sugira atenção a ela
+- Responda APenas com o insight, sem marcadores, sem introdução`;
 
-Faturas de cartão:
-${invoiceAlerts || 'Nenhuma'}
-
-Regras:
-- Se houver alerta relevante (gasto alto, tendência preocupante, fatura perto do limite), destaque-o
-- Se estiver tudo sob controle, seja motivador
-- Responda APENAS com os 2 bullets, um por linha, sem introdução`;
-
-      const tip = await callGroq([{ role: "user", content: prompt }], { maxTokens: 300 });
+      const tip = await callGroq([{ role: "user", content: prompt }], { maxTokens: 200 });
       setAiTip(tip);
     } catch (error) {
       console.error("Dashboard AI Tip error:", error);
@@ -474,7 +470,7 @@ Regras:
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                Dica Fiducia IA
+                Insight Financeiro
               </div>
               <div className="text-sm text-foreground leading-relaxed">
                 {aiTip || 'Analisando seus dados...'}
