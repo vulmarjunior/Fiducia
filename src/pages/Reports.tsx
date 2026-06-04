@@ -50,7 +50,7 @@ export function Reports() {
       case '6months': start = new Date(now); start.setMonth(start.getMonth() - 6); break;
       case '12months': start = new Date(now); start.setMonth(start.getMonth() - 12); break;
       case 'year': start = new Date(now.getFullYear(), 0, 1); break;
-      case 'custom': start = new Date(customStart + 'T00:00:00'); end = new Date(customEnd + 'T23:59:59'); break;
+      case 'custom': start = new Date(customStart + 'T00:00:00'); end = new Date(customEnd + 'T23:59:59'); if (isNaN(start.getTime()) || isNaN(end.getTime())) { start = new Date(now.getFullYear(), now.getMonth(), 1); end = now; } break;
     }
     return { start, end };
   };
@@ -170,13 +170,16 @@ export function Reports() {
 
   const projectionData = useMemo(() => {
     if (!showPending) return [];
+    const range = getDateRange();
     const now = new Date();
-    const currentMonth = now.toISOString().substring(0, 7);
     const saldoAtual = accounts.filter(a => !a.excludeFromCashFlow).reduce((s, a) => s + (a.balance || 0), 0);
     
-    const months = Array.from({length: 6}, (_, i) => {
-      const d = new Date();
-      d.setMonth(d.getMonth() + i);
+    const endMonth = range.end.getMonth() + range.end.getFullYear() * 12;
+    const startMonth = now.getMonth() + now.getFullYear() * 12;
+    const monthCount = Math.min(endMonth - startMonth + 1, 24);
+    
+    const months = Array.from({length: monthCount}, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
       return d.toISOString().substring(0, 7);
     });
     
@@ -191,7 +194,7 @@ export function Reports() {
       const [y, mn] = m.split('-').map(Number);
       return { month: m, label: new Date(y, mn-1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }), income, expense, invoiceExp, net, accum };
     });
-  }, [transactions, accounts, invoices, showPending]);
+  }, [transactions, accounts, invoices, showPending, reportPeriod, customStart, customEnd]);
 
   // Despesas por Categoria (accrual basis: conta corrente + cartão, por data, sem transferência)
   const categoryData = useMemo(() => {
@@ -482,41 +485,6 @@ export function Reports() {
             </CardContent>
           </Card>
 
-          {/* Projeção de Caixa */}
-          {showPending && projectionData.length > 0 && (
-            <Card className="bg-card border-border shadow-sm">
-              <CardHeader className="p-4 border-b border-border">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <ArrowUpRight className="h-4 w-4 text-fiducia-blue" /> Projeção de Caixa (6 meses)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-1 max-h-[320px] overflow-y-auto">
-                  <div className="grid grid-cols-10 text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 pb-2 border-b border-border">
-                    <span className="col-span-2">Mês</span>
-                    <span className="col-span-2 text-right">Receitas</span>
-                    <span className="col-span-2 text-right">Despesas</span>
-                    <span className="col-span-2 text-right">Saldo</span>
-                    <span className="col-span-2 text-right">Acumulado</span>
-                  </div>
-                  {projectionData.map(p => (
-                    <div key={p.month} className="grid grid-cols-10 text-xs px-2 py-1.5 rounded-lg hover:bg-muted/30 items-center">
-                      <span className="col-span-2 truncate font-medium capitalize">{p.label}</span>
-                      <span className="col-span-2 text-right font-mono text-fiducia-green">+{formatCurrency(p.income)}</span>
-                      <span className="col-span-2 text-right font-mono text-fiducia-red">-{formatCurrency(p.expense + p.invoiceExp)}</span>
-                      <span className={`col-span-2 text-right font-mono font-bold ${p.net >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
-                        {p.net >= 0 ? '+' : ''}{formatCurrency(p.net)}
-                      </span>
-                      <span className={`col-span-2 text-right font-mono font-bold ${p.accum >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red'}`}>
-                        {formatCurrency(p.accum)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Orçado x Realizado */}
           <Card className="bg-card border-border shadow-sm">
             <CardHeader className="p-4 border-b border-border">
@@ -553,6 +521,48 @@ export function Reports() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Projeção de Caixa */}
+        {showPending && projectionData.length > 0 && (
+          <Card className="bg-card border-border shadow-sm">
+            <CardHeader className="p-4 border-b border-border">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <ArrowUpRight className="h-4 w-4 text-fiducia-blue" /> Projeção de Caixa
+              </CardTitle>
+              <CardDescription>Receitas e despesas previstas + saldo acumulado mês a mês</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-b border-border">
+                      <th className="text-left py-2.5 px-4">Mês</th>
+                      <th className="text-right py-2.5 px-4">Receitas Prev.</th>
+                      <th className="text-right py-2.5 px-4">Despesas Prev.</th>
+                      <th className="text-right py-2.5 px-4">Saldo Mês</th>
+                      <th className="text-right py-2.5 px-4">Acumulado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectionData.map(p => (
+                      <tr key={p.month} className="hover:bg-muted/30 border-b border-border/30">
+                        <td className="py-2.5 px-4 font-medium capitalize">{p.label}</td>
+                        <td className="py-2.5 px-4 text-right font-mono text-fiducia-green">+{formatCurrency(p.income)}</td>
+                        <td className="py-2.5 px-4 text-right font-mono text-fiducia-red">-{formatCurrency(p.expense + p.invoiceExp)}</td>
+                        <td className={`py-2.5 px-4 text-right font-mono font-bold ${p.net >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                          {p.net >= 0 ? '+' : ''}{formatCurrency(p.net)}
+                        </td>
+                        <td className={`py-2.5 px-4 text-right font-mono font-bold ${p.accum >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red'}`}>
+                          {formatCurrency(p.accum)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
