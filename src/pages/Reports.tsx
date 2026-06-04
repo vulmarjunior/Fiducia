@@ -32,7 +32,29 @@ export function Reports() {
   const [budgets, setBudgets] = useState<any[]>([]);
   const [aiInsight, setAiInsight] = useState<string>('');
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
-  const [reportPeriod, setReportPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
+  const [reportPeriod, setReportPeriod] = useState<'today' | 'week' | 'month' | '3months' | '6months' | '12months' | 'year' | 'custom'>('month');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [showPending, setShowPending] = useState(false);
+  const [invoices, setInvoices] = useState<any[]>([]);
+
+  const getDateRange = () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let start: Date, end = new Date(now);
+    switch(reportPeriod) {
+      case 'today': start = today; break;
+      case 'week': start = new Date(today); start.setDate(start.getDate() - start.getDay()); break;
+      case 'month': start = new Date(now.getFullYear(), now.getMonth(), 1); break;
+      case '3months': start = new Date(now); start.setMonth(start.getMonth() - 3); break;
+      case '6months': start = new Date(now); start.setMonth(start.getMonth() - 6); break;
+      case '12months': start = new Date(now); start.setMonth(start.getMonth() - 12); break;
+      case 'year': start = new Date(now.getFullYear(), 0, 1); break;
+      case 'custom': start = new Date(customStart + 'T00:00:00'); end = new Date(customEnd + 'T23:59:59'); break;
+    }
+    return { start, end };
+  };
+  const isRelevant = (t: any) => isEffectivelyPaid(t) || (showPending && (t.status === 'pendente' || t.status === 'pending'));
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -62,12 +84,18 @@ export function Reports() {
       setCreditCards(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => handleFirestoreError(error, OperationType.GET, 'creditCards'));
 
+    const invoicesQuery = query(collection(db, 'invoices'), where('userId', '==', user.uid));
+    const unsubscribeInvoices = onSnapshot(invoicesQuery, (snapshot) => {
+      setInvoices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'invoices'));
+
     return () => {
       unsubscribeTransactions();
       unsubscribeCategories();
       unsubscribeAccounts();
       unsubscribeBudgets();
       unsubscribeCC();
+      unsubscribeInvoices();
     };
   }, [user, isAuthReady]);
 
@@ -116,17 +144,15 @@ export function Reports() {
 
   const getPeriodStart = (): string => {
     const now = new Date();
-    if (reportPeriod === 'quarter') { now.setMonth(now.getMonth() - 3); }
-    else if (reportPeriod === 'year') { now.setFullYear(now.getFullYear() - 1); }
-    else if (reportPeriod === 'all') { return '2000-01'; }
-    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    const range = getDateRange();
+    return range.start.toISOString().substring(0, 7);
   };
   const periodStart = getPeriodStart();
   const isInPeriod = (d: string) => d >= periodStart;
 
   // Fluxo de Caixa Mensal (cash basis: só conta corrente, sem transferência, sem cartão)
   const cashFlowData = useMemo(() => {
-    const count = reportPeriod === 'year' ? 12 : reportPeriod === 'all' ? 24 : reportPeriod === 'quarter' ? 3 : 6;
+    const count = reportPeriod === 'year' ? 12 : reportPeriod === '12months' ? 12 : reportPeriod === '6months' ? 6 : reportPeriod === '3months' ? 3 : 6;
     const months = Array.from({length: count}, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - count + i + 1);
@@ -136,11 +162,36 @@ export function Reports() {
       const monthTx = transactions.filter(t => t.date.startsWith(m.month) && !isCreditCardTx(t) && !isTransfer(t));
       return {
         name: m.label.charAt(0).toUpperCase() + m.label.slice(1),
-        Receitas: monthTx.filter(t => isIncome(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
-        Despesas: monthTx.filter(t => isExpense(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
+        Receitas: monthTx.filter(t => isIncome(t) && isRelevant(t)).reduce((sum, t) => sum + t.amount, 0),
+        Despesas: monthTx.filter(t => isExpense(t) && isRelevant(t)).reduce((sum, t) => sum + t.amount, 0),
       };
     });
-  }, [transactions, reportPeriod]);
+  }, [transactions, reportPeriod, showPending]);
+
+  const projectionData = useMemo(() => {
+    if (!showPending) return [];
+    const now = new Date();
+    const currentMonth = now.toISOString().substring(0, 7);
+    const saldoAtual = accounts.filter(a => !a.excludeFromCashFlow).reduce((s, a) => s + (a.balance || 0), 0);
+    
+    const months = Array.from({length: 6}, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + i);
+      return d.toISOString().substring(0, 7);
+    });
+    
+    let accum = saldoAtual;
+    return months.map(m => {
+      const mTx = transactions.filter(t => t.date.startsWith(m) && (t.status === 'pendente' || t.status === 'pending') && !isTransfer(t));
+      const income = mTx.filter(t => isIncome(t) && !isCreditCardTx(t)).reduce((s, t) => s + t.amount, 0);
+      const expense = mTx.filter(t => isExpense(t) && !isCreditCardTx(t)).reduce((s, t) => s + t.amount, 0);
+      const invoiceExp = invoices.filter(i => i.period === m && i.status !== 'paga').reduce((s, i) => s + (i.totalAmount || 0), 0);
+      const net = income - expense - invoiceExp;
+      accum += net;
+      const [y, mn] = m.split('-').map(Number);
+      return { month: m, label: new Date(y, mn-1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }), income, expense, invoiceExp, net, accum };
+    });
+  }, [transactions, accounts, invoices, showPending]);
 
   // Despesas por Categoria (accrual basis: conta corrente + cartão, por data, sem transferência)
   const categoryData = useMemo(() => {
@@ -225,14 +276,29 @@ export function Reports() {
           <p className="text-muted-foreground mt-1 text-sm font-medium">Relatórios detalhados e insights inteligentes sobre sua saúde financeira.</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex p-1 bg-secondary/30 rounded-xl">
-            {(['month', 'quarter', 'year', 'all'] as const).map(p => (
-              <button key={p} onClick={() => setReportPeriod(p)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${reportPeriod === p ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                {{ month: 'Mês', quarter: 'Trim.', year: 'Ano', all: 'Tudo' }[p]}
-              </button>
-            ))}
+          <div>
+            <div className="flex p-1 bg-secondary/30 rounded-xl flex-wrap gap-0.5">
+              {(['today', 'week', 'month', '3months', '6months', '12months', 'year', 'custom'] as const).map(p => (
+                <button key={p} onClick={() => setReportPeriod(p)}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all ${reportPeriod === p ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                  {{ today: 'Hoje', week: 'Semana', month: 'Mês', '3months': '3M', '6months': '6M', '12months': '12M', year: 'Ano', custom: 'Período' }[p]}
+                </button>
+              ))}
+            </div>
+            {reportPeriod === 'custom' && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                  className="h-8 bg-background border border-border rounded-lg px-2 text-xs" />
+                <span className="text-muted-foreground text-xs">até</span>
+                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                  className="h-8 bg-background border border-border rounded-lg px-2 text-xs" />
+              </div>
+            )}
           </div>
+          <button onClick={() => setShowPending(!showPending)}
+            className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border transition-all ${showPending ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400' : 'bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50'}`}>
+            {showPending ? 'Incluindo Pendentes' : 'Só Realizados'}
+          </button>
           <Button 
             onClick={generateAIAnalysis} 
             disabled={isLoadingAi || transactions.length < 5}
@@ -415,6 +481,41 @@ export function Reports() {
               )}
             </CardContent>
           </Card>
+
+          {/* Projeção de Caixa */}
+          {showPending && projectionData.length > 0 && (
+            <Card className="bg-card border-border shadow-sm">
+              <CardHeader className="p-4 border-b border-border">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <ArrowUpRight className="h-4 w-4 text-fiducia-blue" /> Projeção de Caixa (6 meses)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="space-y-1 max-h-[320px] overflow-y-auto">
+                  <div className="grid grid-cols-10 text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 pb-2 border-b border-border">
+                    <span className="col-span-2">Mês</span>
+                    <span className="col-span-2 text-right">Receitas</span>
+                    <span className="col-span-2 text-right">Despesas</span>
+                    <span className="col-span-2 text-right">Saldo</span>
+                    <span className="col-span-2 text-right">Acumulado</span>
+                  </div>
+                  {projectionData.map(p => (
+                    <div key={p.month} className="grid grid-cols-10 text-xs px-2 py-1.5 rounded-lg hover:bg-muted/30 items-center">
+                      <span className="col-span-2 truncate font-medium capitalize">{p.label}</span>
+                      <span className="col-span-2 text-right font-mono text-fiducia-green">+{formatCurrency(p.income)}</span>
+                      <span className="col-span-2 text-right font-mono text-fiducia-red">-{formatCurrency(p.expense + p.invoiceExp)}</span>
+                      <span className={`col-span-2 text-right font-mono font-bold ${p.net >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                        {p.net >= 0 ? '+' : ''}{formatCurrency(p.net)}
+                      </span>
+                      <span className={`col-span-2 text-right font-mono font-bold ${p.accum >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red'}`}>
+                        {formatCurrency(p.accum)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Orçado x Realizado */}
           <Card className="bg-card border-border shadow-sm">
