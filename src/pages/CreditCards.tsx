@@ -1206,6 +1206,34 @@ export function CreditCards() {
                     </table>
                   </div>
                   
+                  {(() => {
+                    const futureInstallments = transactions
+                      .filter(t => t.accountId === selectedCardForInvoice.id && t.installmentNumber && t.totalInstallments && t.invoicePeriod > currentPeriod && (t.status === 'pendente' || t.status === 'pending'))
+                      .reduce<Record<string, number>>((acc, t) => {
+                        acc[t.invoicePeriod] = (acc[t.invoicePeriod] || 0) + t.amount;
+                        return acc;
+                      }, {});
+                    const futurePeriods = Object.entries(futureInstallments).sort(([a], [b]) => a.localeCompare(b));
+                    if (futurePeriods.length === 0) return null;
+                    return (
+                      <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 p-4">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Comprometimento Futuro (Parcelas)</p>
+                        <div className="space-y-1">
+                          {futurePeriods.slice(0, 5).map(([period, amount]) => {
+                            const [y, m] = period.split('-').map(Number);
+                            const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                            return (
+                              <div key={period} className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground capitalize">{label}</span>
+                                <span className="font-mono font-bold text-fiducia-amber">R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="bg-secondary/20 p-4 rounded-xl border border-dashed flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div className="bg-white p-2 rounded-lg shadow-sm border">
