@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, writeBatch, runTransaction } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, getDoc, writeBatch, runTransaction } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -12,7 +12,7 @@ import { logActivity } from '../services/activityLogService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
-import { Wallet, Landmark, PiggyBank, Plus, Trash2, Edit, Building, ChevronDown, Search, TrendingUp, RotateCcw } from 'lucide-react';
+import { Wallet, Landmark, PiggyBank, Plus, Trash2, Edit, Building, ChevronDown, Search, TrendingUp, RotateCcw, Stethoscope, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 import { isEffectivelyPaid } from '../lib/utils';
@@ -314,6 +314,9 @@ export function Accounts() {
   const [adjustAccountId, setAdjustAccountId] = useState<string | null>(null);
   const [adjustBalanceValue, setAdjustBalanceValue] = useState(0);
 
+  const [diagnoseData, setDiagnoseData] = useState<any>(null);
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+
   const handleAdjustBalance = async () => {
     if (!adjustAccountId) return;
     try {
@@ -328,6 +331,61 @@ export function Accounts() {
     } catch (error) {
       toast.error('Erro ao ajustar saldo');
       handleFirestoreError(error, OperationType.UPDATE, 'accounts');
+    }
+  };
+
+  const diagnoseBalance = async (accountId: string) => {
+    if (!user) return;
+    setIsDiagnosing(true);
+    try {
+      const accSnap = await getDoc(doc(db, 'accounts', accountId));
+      const accData = accSnap.data() as any;
+
+      const qSource = query(collection(db, 'transactions'),
+        where('userId', '==', user.uid),
+        where('accountId', '==', accountId));
+      const qDest = query(collection(db, 'transactions'),
+        where('userId', '==', user.uid),
+        where('destinationAccountId', '==', accountId));
+      const [srcSnap, destSnap] = await Promise.all([getDocs(qSource), getDocs(qDest)]);
+
+      const allTx: any[] = [];
+      const seen = new Set<string>();
+      for (const d of [...srcSnap.docs, ...destSnap.docs]) {
+        if (seen.has(d.id)) continue;
+        seen.add(d.id);
+        allTx.push({ id: d.id, ...d.data() });
+      }
+
+      const paid = allTx.filter(t => t.status === 'pago' || t.status === 'realizado' || t.status === 'paid');
+      const pending = allTx.filter(t => !paid.includes(t));
+
+      const calcEffect = (tx: any) => {
+        if (tx.type === 'transferencia' && tx.destinationAccountId === accountId) return tx.amount;
+        if (tx.type === 'transferencia' && tx.accountId === accountId) return -tx.amount;
+        if (tx.type === 'receita' || tx.type === 'income') return tx.amount;
+        return -tx.amount;
+      };
+
+      const paidItems = paid.map(t => ({ date: t.date?.split('T')[0], description: t.description, amount: t.amount, type: t.type, effect: calcEffect(t), status: t.status }));
+      const paidTotal = paidItems.reduce((s, t) => s + t.effect, 0);
+      const initial = accData.initialBalance ?? 0;
+      const expected = initial + paidTotal;
+
+      setDiagnoseData({
+        accountName: accData.name || accountId,
+        firestoreBalance: accData.balance,
+        initialBalance: initial,
+        paidTransactions: paidItems,
+        paidTotal,
+        expectedBalance: expected,
+        difference: accData.balance - expected,
+        pendingCount: pending.length,
+      });
+    } catch (error) {
+      toast.error('Erro ao diagnosticar saldo');
+    } finally {
+      setIsDiagnosing(false);
     }
   };
 
@@ -523,6 +581,9 @@ export function Accounts() {
                 <button onClick={() => { setAdjustAccountId(account.id); setAdjustBalanceValue(account.balance); }} className="text-muted-foreground hover:text-fiducia-green min-w-[44px] min-h-[44px] flex items-center justify-center" title="Ajustar saldo">
                   <Wallet className="h-4 w-4" />
                 </button>
+                <button onClick={() => diagnoseBalance(account.id)} className="text-muted-foreground hover:text-fiducia-purple min-w-[44px] min-h-[44px] flex items-center justify-center" title="Diagnosticar saldo">
+                  {isDiagnosing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Stethoscope className="h-4 w-4" />}
+                </button>
                 <button onClick={() => setResetConfirmId(account.id)} className="text-muted-foreground hover:text-amber-500 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Zerar saldo">
                   <RotateCcw className="h-4 w-4" />
                 </button>
@@ -620,6 +681,101 @@ export function Accounts() {
               {isResetting ? 'Zerando...' : 'Zerar e Apagar Transações'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!diagnoseData} onOpenChange={(open) => !open && setDiagnoseData(null)}>
+        <DialogContent className="sm:max-w-[550px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Stethoscope className="h-5 w-5 text-fiducia-purple" />
+              Diagnóstico: {diagnoseData?.accountName}
+            </DialogTitle>
+            <DialogDescription>
+              Comparação entre saldo no Firestore e soma dos lançamentos pagos
+            </DialogDescription>
+          </DialogHeader>
+          {diagnoseData && (
+            <div className="space-y-4 py-2 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-muted p-3 rounded-xl">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Saldo Firestore</span>
+                  <div className={`text-lg font-mono font-bold ${diagnoseData.firestoreBalance >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                    R$ {diagnoseData.firestoreBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="bg-muted p-3 rounded-xl">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Saldo Inicial</span>
+                  <div className="text-lg font-mono font-bold text-fiducia-blue">
+                    R$ {diagnoseData.initialBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                  Lançamentos Pagos ({diagnoseData.paidTransactions.length})
+                </span>
+                <div className="bg-muted/50 rounded-xl p-2 mt-1 max-h-[200px] overflow-y-auto space-y-1">
+                  {diagnoseData.paidTransactions.map((t: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-xs px-2 py-1 rounded-lg bg-background/50">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-muted-foreground font-mono shrink-0">{t.date?.slice(5)}</span>
+                        <span className="truncate">{t.description}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-muted-foreground">{t.type === 'transferencia' ? 'Transf.' : t.type}</span>
+                        <span className={`font-mono font-bold ${t.effect >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                          {t.effect >= 0 ? '+' : ''}R$ {t.effect.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {diagnoseData.paidTransactions.length === 0 && (
+                    <div className="text-center text-xs text-muted-foreground py-3">Nenhum lançamento pago</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-xl">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Soma Lançamentos</span>
+                  <div className={`text-lg font-mono font-bold ${diagnoseData.paidTotal >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                    {diagnoseData.paidTotal >= 0 ? '+' : ''}R$ {diagnoseData.paidTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-xl">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Saldo Esperado</span>
+                  <div className="text-lg font-mono font-bold text-fiducia-blue">
+                    R$ {diagnoseData.expectedBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+
+              <div className={`p-4 rounded-xl ${diagnoseData.difference !== 0 ? 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800' : 'bg-green-50 dark:bg-green-950/20'}`}>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">Diferença</span>
+                <div className={`text-xl font-mono font-black ${diagnoseData.difference !== 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
+                  {diagnoseData.difference >= 0 ? '+' : ''}R$ {diagnoseData.difference.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  {diagnoseData.difference === 0
+                    ? '✅ Saldo Firestore bate com a soma dos lançamentos'
+                    : diagnoseData.difference > 0
+                      ? '⚠️ Saldo no Firestore está MAIOR que a soma dos lançamentos pagos'
+                      : '⚠️ Saldo no Firestore está MENOR que a soma dos lançamentos pagos'}
+                </div>
+              </div>
+
+              {diagnoseData.pendingCount > 0 && (
+                <div className="text-[11px] text-muted-foreground text-center">
+                  + {diagnoseData.pendingCount} lançamento(s) pendente(s) nesta conta (não afetam o saldo)
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDiagnoseData(null)}>Fechar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

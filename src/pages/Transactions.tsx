@@ -1541,8 +1541,8 @@ ${sample.map(t =>
                         </td>
                         {selectedAccountFilter !== 'all' && (
                           <td className="px-3 md:px-6 py-3 md:py-4 text-right">
-                            <div className={`font-mono text-xs ${t.runningBalance < 0 ? 'text-fiducia-red' : 'text-muted-foreground'}`}>
-                              R$ {(t.runningBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <div className={`font-mono text-xs ${t.runningBalance !== undefined ? (t.runningBalance < 0 ? 'text-fiducia-red' : 'text-muted-foreground') : 'text-muted-foreground/40'}`}>
+                              {t.runningBalance !== undefined ? `R$ ${t.runningBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                             </div>
                           </td>
                         )}
