@@ -431,6 +431,29 @@
   - Tooltip atualizado com fórmula completa
   - **Gráfico Fluxo de Caixa**: mesmos guards aplicados nas 4 entradas de income/expense (visões semanal e mensal/anual)
 
+### Relatórios — regime contábil duplo (cash vs accrual)
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-04
+- **Contexto**: Reports.tsx usava `date` para tudo sem distinguir regime. Cartão e conta corrente misturados. Budget alerts sem filtro de data. Sem comparativo orçado x realizado.
+- **Solução**:
+  - `cashFlowData`: fluxo de caixa (só conta corrente, sem transferência, sem cartão, só `pago`)
+  - `categoryData`: despesas por categoria (conta corrente + cartão, por `date` da compra, sem transferência)
+  - `trendData`: tendência de gastos (cash basis, só pago)
+  - `budgetComparison`: tabela Orçado x Realizado (categoria, orçado, gasto, diferença) no lugar dos alertas antigos
+  - Helpers exportados: `isTransfer`, `isCreditCardTx`, `isIncome`, `isExpense`
+
+### Dashboard — abas no card Contas a Pagar
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-04
+- **Contexto**: Card "Contas a Pagar" tinha apenas duas listas (vencidas e a vencer), sem agrupamento por urgência.
+- **Solução**: Abas Vencidas / Hoje / 7 Dias / Mês no topo do card. Indicador visual: vermelho pulsante (vencida), âmbar (hoje), azul/âmbar (futuras).
+
+### Cartão de Crédito — comprometimento futuro
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-04
+- **Contexto**: Usuário não tinha visibilidade das parcelas futuras já comprometidas em próximas faturas.
+- **Solução**: Seção "Comprometimento Futuro (Parcelas)" no modal de fatura, mostrando até 5 períodos futuros com a soma das parcelas pendentes.
+
 ### Gráfico Fluxo de Caixa — toggle "Considerar movimentações não pagas"
 - **Status**: ✅ Implementado
 - **Data**: 2026-06-04
