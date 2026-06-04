@@ -835,7 +835,7 @@ ${sample.map(t =>
           (t.amount && t.amount.toString().includes(term));
       }
       
-      return matchesTags && matchesAccount && matchesDate && matchesSearch;
+      return !t.creditCardId && matchesTags && matchesAccount && matchesDate && matchesSearch;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Final sort descending
   }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, accounts, creditCards, aiSearchResultIds]);
 
@@ -967,14 +967,6 @@ ${sample.map(t =>
                       <SelectItem key={a.id} value={a.id}>{resolveAccountName(a.id, accounts, creditCards)}</SelectItem>
                     ))}
                   </SelectGroup>
-                  {creditCards.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Cartões de Crédito</SelectLabel>
-                      {creditCards.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{resolveAccountName(c.id, accounts, creditCards)}</SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
                 </SelectContent>
               </ShadcnSelect>
             </div>
