@@ -431,6 +431,12 @@
   - Tooltip atualizado com fórmula completa
   - **Gráfico Fluxo de Caixa**: mesmos guards aplicados nas 4 entradas de income/expense (visões semanal e mensal/anual)
 
+### Gráfico Fluxo de Caixa — toggle "Considerar movimentações não pagas"
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-04
+- **Contexto**: Usuário queria visualizar no gráfico tanto transações realizadas quanto pendentes a vencer/receber, para ter uma visão mais completa do fluxo de caixa futuro.
+- **Solução**: Botão toggle no cabeçalho do card "Fluxo de Caixa". Quando ativado (`showPendingChart`), as 4 entradas do gráfico passam a incluir também transações com status `pendente`/`pending`, além das `pago`/`realizado`.
+
 ---
 
 ## 💡 Padrões Descobertos
