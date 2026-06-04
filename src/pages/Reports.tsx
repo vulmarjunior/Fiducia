@@ -4,27 +4,35 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid, AreaChart, Area 
 } from 'recharts';
-import { FileText, Sparkles, TrendingUp, TrendingDown, Wallet, Target, AlertCircle, Loader2 } from 'lucide-react';
+import { FileText, Sparkles, TrendingUp, TrendingDown, Wallet, Target, AlertCircle, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { resolveAccountName } from '../lib/utils';
+import { resolveAccountName, isEffectivelyPaid } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 import { callGroq } from '../services/groqService';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
+
+const isTransfer = (t: any) => t.type === 'transferencia' || t.type === 'transfer';
+const isCreditCardTx = (t: any) => !!t.creditCardId;
+const isIncome = (t: any) => t.type === 'receita' || t.type === 'income';
+const isExpense = (t: any) => t.type === 'despesa' || t.type === 'expense';
 
 export function Reports() {
   const { user, isAuthReady } = useAuth();
   const [transactions, setTransactions] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [creditCards, setCreditCards] = useState<any[]>([]);
   const [budgets, setBudgets] = useState<any[]>([]);
   const [aiInsight, setAiInsight] = useState<string>('');
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
+  const [reportPeriod, setReportPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -49,11 +57,17 @@ export function Reports() {
       setBudgets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => handleFirestoreError(error, OperationType.GET, 'budgets'));
 
+    const ccQuery = query(collection(db, 'creditCards'), where('userId', '==', user.uid));
+    const unsubscribeCC = onSnapshot(ccQuery, (snapshot) => {
+      setCreditCards(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'creditCards'));
+
     return () => {
       unsubscribeTransactions();
       unsubscribeCategories();
       unsubscribeAccounts();
       unsubscribeBudgets();
+      unsubscribeCC();
     };
   }, [user, isAuthReady]);
 
@@ -72,7 +86,7 @@ export function Reports() {
           category: categories.find(c => c.id === t.categoryId)?.name || 'Geral'
         }));
 
-      const monthlySummary = monthlyData.slice(-3);
+      const monthlySummary = cashFlowData.slice(-3);
 
       const prompt = `Como um consultor financeiro especialista (Fiducia AI), analise os dados financeiros abaixo e forneça:
       1. Um Score de Saúde Financeira (0-100) com uma breve explicação.
@@ -100,71 +114,84 @@ export function Reports() {
     }
   };
 
-  // Prepare data for Monthly Income vs Expense chart
-  const monthlyData = useMemo(() => {
-    const last6Months = Array.from({length: 6}, (_, i) => {
+  // Fluxo de Caixa Mensal (cash basis: só conta corrente, sem transferência, sem cartão)
+  const cashFlowData = useMemo(() => {
+    const months = Array.from({length: 6}, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - 5 + i);
-      return { 
-        month: d.toISOString().substring(0, 7), 
-        label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') 
-      };
+      return { month: d.toISOString().substring(0, 7), label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') };
     });
-    
-    return last6Months.map(m => {
-      const monthTx = transactions.filter(t => t.date.startsWith(m.month));
+    return months.map(m => {
+      const monthTx = transactions.filter(t => t.date.startsWith(m.month) && !isCreditCardTx(t) && !isTransfer(t));
       return {
         name: m.label.charAt(0).toUpperCase() + m.label.slice(1),
-        Receitas: monthTx.filter(t => t.type === 'receita' || t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
-        Despesas: monthTx.filter(t => t.type === 'despesa' || t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
+        Receitas: monthTx.filter(t => isIncome(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
+        Despesas: monthTx.filter(t => isExpense(t) && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0),
       };
     });
   }, [transactions]);
 
-  // Category data for current month
+  // Despesas por Categoria (accrual basis: conta corrente + cartão, por data da compra, sem transferência)
   const categoryData = useMemo(() => {
     const now = new Date();
     const currentMonth = now.toISOString().substring(0, 7);
-    const currentMonthExpenses = transactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && t.date.startsWith(currentMonth));
-    
+    const monthTx = transactions.filter(t => t.date.startsWith(currentMonth) && !isTransfer(t) && isExpense(t));
     return categories
       .filter(c => c.type === 'despesa' || c.type === 'expense')
       .map(c => {
-        const spent = currentMonthExpenses.filter(t => t.categoryId === c.id).reduce((sum, t) => sum + t.amount, 0);
+        const spent = monthTx.filter(t => t.categoryId === c.id).reduce((sum, t) => sum + t.amount, 0);
         return { name: c.name, value: spent };
       })
       .filter(c => c.value > 0)
       .sort((a, b) => b.value - a.value);
   }, [transactions, categories]);
 
-  // Accumulative Spending Trend
+  // Tendência de Gastos Acumulados (cash basis)
   const trendData = useMemo(() => {
     const now = new Date();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const currentMonth = now.toISOString().substring(0, 7);
-    
     const days = Array.from({length: daysInMonth}, (_, i) => i + 1);
     let cumulative = 0;
-    
     return days.map(day => {
       const dateStr = `${currentMonth}-${day.toString().padStart(2, '0')}`;
       const dayTotal = transactions
-        .filter(t => (t.type === 'despesa' || t.type === 'expense') && t.date.startsWith(dateStr))
+        .filter(t => isExpense(t) && isEffectivelyPaid(t) && !isCreditCardTx(t) && !isTransfer(t) && t.date.startsWith(dateStr))
         .reduce((sum, t) => sum + t.amount, 0);
       cumulative += dayTotal;
       return { day, amount: cumulative };
     }).filter(d => d.day <= now.getDate());
   }, [transactions]);
 
+  // Orçado x Realizado
+  const budgetComparison = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.toISOString().substring(0, 7);
+    return budgets
+      .filter(b => b.period === 'monthly' || !b.period)
+      .map(b => {
+        const spent = transactions
+          .filter(t => isExpense(t) && t.categoryId === b.categoryId && t.date.startsWith(currentMonth))
+          .reduce((sum, t) => sum + t.amount, 0);
+        const cat = categories.find(c => c.id === b.categoryId);
+        return { name: cat?.name || b.categoryId || 'Geral', budget: b.amount, spent, diff: b.amount - spent };
+      })
+      .filter(b => b.budget > 0 || b.spent > 0)
+      .sort((a, b) => b.spent - a.spent);
+  }, [transactions, budgets, categories]);
+
   const formatCurrency = (value: number) => {
     return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
-  const currentMonthIncome = monthlyData[monthlyData.length - 1]?.Receitas || 0;
-  const currentMonthExpense = monthlyData[monthlyData.length - 1]?.Despesas || 0;
+  const latestCashFlow = cashFlowData.length > 0 ? cashFlowData[cashFlowData.length - 1] : { Receitas: 0, Despesas: 0 };
+  const currentMonthIncome = latestCashFlow.Receitas;
+  const currentMonthExpense = latestCashFlow.Despesas;
   const currentMonthSavings = currentMonthIncome - currentMonthExpense;
   const savingsRate = currentMonthIncome > 0 ? (currentMonthSavings / currentMonthIncome) * 100 : 0;
+  const totalIncome6m = cashFlowData.reduce((s, m) => s + m.Receitas, 0);
+  const totalExpense6m = cashFlowData.reduce((s, m) => s + m.Despesas, 0);
 
   return (
     <div className="space-y-6 pb-20">
@@ -237,7 +264,7 @@ export function Reports() {
             <CardContent className="p-5">
               <div className="w-full">
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <BarChart data={cashFlowData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 500 }} dy={10} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 500 }} tickFormatter={(value) => `R$${value}`} />
@@ -374,39 +401,39 @@ export function Reports() {
             </CardContent>
           </Card>
 
-          {/* Budget Health */}
+          {/* Orçado x Realizado */}
           <Card className="bg-card border-border shadow-sm">
             <CardHeader className="p-4 border-b border-border">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-fiducia-red" /> Alertas de Orçamento
+                <Target className="h-4 w-4 text-fiducia-amber" /> Orçado x Realizado
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4">
-              <div className="space-y-4">
-                {budgets.length > 0 ? budgets.slice(0, 3).map(b => {
-                  const cat = categories.find(c => c.id === b.categoryId);
-                  const spent = transactions
-                    .filter(t => t.categoryId === b.categoryId && (t.type === 'despesa' || t.type === 'expense'))
-                    .reduce((sum, t) => sum + t.amount, 0);
-                  const perc = Math.round((spent / b.amount) * 100);
-                  return (
-                    <div key={b.id} className="space-y-1">
-                      <div className="flex justify-between text-[11px] font-bold uppercase tracking-tight">
-                        <span className="text-muted-foreground">{cat?.name || 'Geral'}</span>
-                        <span className={perc > 90 ? 'text-fiducia-red' : 'text-foreground'}>{perc}%</span>
+              {budgetComparison.length > 0 ? (
+                <div className="space-y-2 max-h-[260px] overflow-y-auto">
+                  <div className="grid grid-cols-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2">
+                    <span>Categoria</span>
+                    <span className="text-right">Orçado</span>
+                    <span className="text-right">Gasto</span>
+                    <span className="text-right">Diferença</span>
+                  </div>
+                  {budgetComparison.slice(0, 8).map(b => {
+                    const perc = b.budget > 0 ? Math.round((b.spent / b.budget) * 100) : 0;
+                    return (
+                      <div key={b.name} className="grid grid-cols-4 text-xs px-2 py-1.5 rounded-lg bg-muted/30">
+                        <span className="truncate font-medium">{b.name}</span>
+                        <span className="text-right text-muted-foreground">{formatCurrency(b.budget)}</span>
+                        <span className={`text-right font-mono font-bold ${perc > 90 ? 'text-fiducia-red' : 'text-muted-foreground'}`}>{formatCurrency(b.spent)}</span>
+                        <span className={`text-right font-mono font-bold ${b.diff < 0 ? 'text-fiducia-red' : b.diff > 0 ? 'text-fiducia-green' : 'text-muted-foreground'}`}>
+                          {b.diff >= 0 ? '+' : ''}{formatCurrency(b.diff)}
+                        </span>
                       </div>
-                      <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-500 ${perc > 100 ? 'bg-fiducia-red' : perc > 80 ? 'bg-fiducia-amber' : 'bg-fiducia-blue'}`}
-                          style={{ width: `${Math.min(100, perc)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                }) : (
-                  <p className="text-[11px] text-muted-foreground italic text-center py-4">Configure orçamentos para acompanhar metas.</p>
-                )}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground italic text-center py-6">Configure orçamentos para ver a comparação.</p>
+              )}
             </CardContent>
           </Card>
         </div>
