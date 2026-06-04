@@ -842,7 +842,11 @@ ${sample.map(t =>
       }
       
       return !t.creditCardId && matchesTags && matchesAccount && matchesDate && matchesSearch;
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Final sort descending
+    }).sort((a, b) => {
+      const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime();
+    });
   }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, selectedAccountBalance, accounts, creditCards, aiSearchResultIds]);
 
 
