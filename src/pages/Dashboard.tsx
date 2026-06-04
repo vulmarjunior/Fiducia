@@ -28,6 +28,7 @@ export function Dashboard() {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [periodFilter, setPeriodFilter] = useState<'week' | 'month' | 'year'>('month');
   const [extraSectionsOpen, setExtraSectionsOpen] = useState(false);
+  const [showPendingChart, setShowPendingChart] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -383,6 +384,8 @@ Regras:
 
   const chartPeriods = getChartPeriods();
 
+  const isChartRelevant = (t: any) => isEffectivelyPaid(t) || (showPendingChart && (t.status === 'pendente' || t.status === 'pending'));
+
   const chartData = chartPeriods.map(p => {
     if (periodFilter === 'week') {
       const weekEnd = new Date(p.start);
@@ -393,8 +396,8 @@ Regras:
       });
       return {
         name: p.label.charAt(0).toUpperCase() + p.label.slice(1),
-        income: weekTx.filter(t => isIncomeType(t) && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
-        expense: weekTx.filter(t => isExpenseType(t) && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
+        income: weekTx.filter(t => isIncomeType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
+        expense: weekTx.filter(t => isExpenseType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
       };
     }
     const mTx = transactions.filter(t => {
@@ -405,8 +408,8 @@ Regras:
     });
     return {
       name: p.label.charAt(0).toUpperCase() + p.label.slice(1),
-      income: mTx.filter(t => isIncomeType(t) && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
-      expense: mTx.filter(t => isExpenseType(t) && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
+      income: mTx.filter(t => isIncomeType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
+      expense: mTx.filter(t => isExpenseType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
     };
   });
 
@@ -629,12 +632,19 @@ Regras:
                      <div className="w-2.5 h-2.5 rounded-full bg-fiducia-green"></div>
                      Receitas
                    </div>
-                   <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
-                     <div className="w-2.5 h-2.5 rounded-full bg-fiducia-red"></div>
-                     Despesas
-                   </div>
-                 </div>
-                 <Button variant="ghost" size="sm" className="text-[12px] text-fiducia-blue font-bold hover:bg-fiducia-blue/5">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
+                    <div className="w-2.5 h-2.5 rounded-full bg-fiducia-red"></div>
+                    Despesas
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPendingChart(!showPendingChart)}
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border transition-all ${showPendingChart ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400' : 'bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50'}`}
+                >
+                  {showPendingChart ? 'Incluindo Pendentes' : 'Só Realizados'}
+                </button>
+                <Button variant="ghost" size="sm" className="text-[12px] text-fiducia-blue font-bold hover:bg-fiducia-blue/5">
                    Relatório Completo
                  </Button>
                </div>
