@@ -29,6 +29,7 @@ export function Dashboard() {
   const [periodFilter, setPeriodFilter] = useState<'week' | 'month' | 'year'>('month');
   const [extraSectionsOpen, setExtraSectionsOpen] = useState(false);
   const [showPendingChart, setShowPendingChart] = useState(false);
+  const [pendingTab, setPendingTab] = useState<'overdue' | 'today' | 'week' | 'month'>('overdue');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -800,28 +801,38 @@ Regras OBRIGATÓRIAS:
                 <div className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Pendente</div>
               </div>
             </div>
-            <div className="divide-y divide-border">
-              {overdueExpensesWithInvoices.map(t => (
-                <div key={t.id} onClick={() => !t.isInvoice && openTxDialog({ editId: t.id })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
-                  <div className="w-1.5 h-1.5 rounded-full bg-fiducia-red shrink-0 animate-pulse" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold text-foreground truncate">{t.description}</div>
-                    <div className="text-[11px] text-fiducia-red font-semibold truncate">Atrasada • {formatFullDate(t.date)}</div>
-                  </div>
-                  <div className="text-[14px] font-bold font-mono text-fiducia-red">{formatCurrency(t.amount)}</div>
-                </div>
+            <div className="flex gap-0.5 p-1.5 bg-muted/50 border-b border-border">
+              {(['overdue', 'today', 'week', 'month'] as const).map(tab => (
+                <button key={tab} onClick={() => setPendingTab(tab)}
+                  className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-md transition-all ${
+                    pendingTab === tab ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}>
+                  {{ overdue: 'Vencidas', today: 'Hoje', week: '7 Dias', month: 'Mês' }[tab]}
+                </button>
               ))}
-              {upcomingExpensesWithInvoices.map(t => (
+            </div>
+            <div className="divide-y divide-border">
+              {allPendingExpenses.filter(t => {
+                const d = t.date.split('T')[0];
+                if (pendingTab === 'overdue') return d < currentDateStr;
+                if (pendingTab === 'today') return d === currentDateStr;
+                if (pendingTab === 'week') return d >= currentDateStr && d <= thirtyDaysFromNow;
+                return d.startsWith(currentMonthStr);
+              }).map(t => (
                 <div key={t.id} onClick={() => !t.isInvoice && openTxDialog({ editId: t.id })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
-                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.isInvoice ? 'bg-fiducia-blue' : 'bg-fiducia-amber'}`} />
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.date.split('T')[0] < currentDateStr ? 'bg-fiducia-red animate-pulse' : t.date.split('T')[0] === currentDateStr ? 'bg-fiducia-amber' : t.isInvoice ? 'bg-fiducia-blue' : 'bg-fiducia-amber'}`} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-bold text-foreground truncate">{t.description}</div>
-                    <div className="text-[11px] text-muted-foreground truncate">Vence em {formatFullDate(t.date)}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {t.date.split('T')[0] < currentDateStr ? <span className="text-fiducia-red font-semibold">Atrasada • {formatFullDate(t.date)}</span>
+                       : t.date.split('T')[0] === currentDateStr ? <span className="text-fiducia-amber font-semibold">Vence hoje</span>
+                       : `Vence em ${formatFullDate(t.date)}`}
+                    </div>
                   </div>
                   <div className="text-[14px] font-bold font-mono text-foreground">{formatCurrency(t.amount)}</div>
                 </div>
               ))}
-              {overdueExpensesWithInvoices.length === 0 && upcomingExpensesWithInvoices.length === 0 && (
+              {allPendingExpenses.length === 0 && (
                 <div className="text-center p-6 text-[13px] text-muted-foreground italic">Tudo em dia por aqui!</div>
               )}
             </div>
