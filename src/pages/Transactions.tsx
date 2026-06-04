@@ -1520,8 +1520,23 @@ ${sample.map(t =>
                         </td>
                         <td className="px-3 md:px-6 py-3 md:py-4">
                           <div className="flex items-center gap-2 text-muted-foreground">
-                            <CategoryIcon className="h-4 w-4" />
-                            <span>{category?.name || 'Sem Categoria'}</span>
+                            {t.type === 'transferencia' || t.type === 'transfer' ? (
+                              <>
+                                <ArrowRightLeft className="h-4 w-4 text-fiducia-blue shrink-0" />
+                                <span className="truncate">
+                                  {selectedAccountFilter === 'all'
+                                    ? `${accountName} → ${destAccount?.name || 'Desconhecida'}`
+                                    : t.accountId === selectedAccountFilter
+                                      ? `→ ${destAccount?.name || 'Desconhecida'}`
+                                      : `${accountName} →`}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <CategoryIcon className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{category?.name || 'Sem Categoria'}</span>
+                              </>
+                            )}
                           </div>
                         </td>
                         {selectedAccountFilter === 'all' && (
