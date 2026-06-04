@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -763,11 +763,13 @@ ${sample.map(t =>
       setSelectedAccountBalance(0);
       return;
     }
-    getDoc(doc(db, 'accounts', selectedAccountFilter)).then(snap => {
+    const unsub = onSnapshot(doc(db, 'accounts', selectedAccountFilter), (snap) => {
       if (snap.exists()) {
-        setSelectedAccountBalance(snap.data().balance || 0);
+        const bal = snap.data().balance;
+        setSelectedAccountBalance(typeof bal === 'number' ? bal : 0);
       }
-    }).catch(() => setSelectedAccountBalance(0));
+    }, () => setSelectedAccountBalance(0));
+    return () => unsub();
   }, [selectedAccountFilter, user]);
 
   const processedTransactions = React.useMemo(() => {
