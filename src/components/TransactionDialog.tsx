@@ -340,6 +340,7 @@ export function TransactionDialog() {
               installmentNumber: i + 1,
               totalInstallments: numInstallments,
               description: `${formData.description} (${i + 1}/${numInstallments})`,
+              status: i === 0 ? finalStatus : 'pendente',
             };
 
             if (isCreditCard && card) {
