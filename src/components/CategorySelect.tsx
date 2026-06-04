@@ -73,17 +73,20 @@ export function CategorySelect({ categories, value, onChange, typeFilter, placeh
         }),
         menuPortal: base => ({ ...base, zIndex: 9999 }),
         menu: (base) => ({ ...base, zIndex: 9999, minWidth: '280px', backgroundColor: 'var(--popover)' }),
-        option: (base, { data }) => ({
+        option: (base, state) => ({
           ...base,
-          paddingLeft: `${(data.level * 16) + 12}px`,
+          paddingLeft: `${(state.data.level * 16) + 12}px`,
           whiteSpace: 'normal',
           wordBreak: 'break-word',
           paddingTop: '8px',
           paddingBottom: '8px',
-          backgroundColor: 'transparent',
-          color: 'var(--popover-foreground)',
+          backgroundColor: state.isSelected || state.isFocused ? 'var(--accent)' : 'transparent',
+          color: state.isSelected || state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
           ':hover': { backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)' },
         }),
+        singleValue: (base) => ({ ...base, color: 'var(--popover-foreground)' }),
+        input: (base) => ({ ...base, color: 'var(--popover-foreground)' }),
+        placeholder: (base) => ({ ...base, color: 'var(--muted-foreground)' }),
       }}
     />
   );

@@ -918,9 +918,12 @@ export function TransactionDialog() {
                       wordBreak: 'break-word',
                       paddingTop: '8px',
                       paddingBottom: '8px',
-                      backgroundColor: state.isFocused ? 'var(--accent)' : 'transparent',
-                      color: state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
+                      backgroundColor: state.isSelected || state.isFocused ? 'var(--accent)' : 'transparent',
+                      color: state.isSelected || state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
                     }),
+                    singleValue: (base: any) => ({ ...base, color: 'var(--popover-foreground)' }),
+                    input: (base: any) => ({ ...base, color: 'var(--popover-foreground)' }),
+                    placeholder: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
                   }}
                 />
                 {(isCreditCard || formData.invoicePeriod) && (
@@ -955,9 +958,13 @@ export function TransactionDialog() {
                         menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
                         menu: (base: any) => ({ ...base, zIndex: 9999, minWidth: '280px', backgroundColor: 'var(--popover)' }),
                         option: (base: any, state: any) => ({
-                          ...base, backgroundColor: state.isFocused ? 'var(--accent)' : 'transparent',
-                          color: state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
+                          ...base,
+                          backgroundColor: state.isSelected || state.isFocused ? 'var(--accent)' : 'transparent',
+                          color: state.isSelected || state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
                         }),
+                        singleValue: (base: any) => ({ ...base, color: 'var(--popover-foreground)' }),
+                        input: (base: any) => ({ ...base, color: 'var(--popover-foreground)' }),
+                        placeholder: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
                       }}
                     />
                   </>
@@ -1210,10 +1217,12 @@ export function TransactionDialog() {
                        menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
                        menu: (base: any) => ({ ...base, backgroundColor: 'var(--popover)' }),
                        option: (base: any, state: any) => ({
-                         ...base, backgroundColor: state.isFocused ? 'var(--accent)' : 'transparent',
-                         color: state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
+                         ...base, backgroundColor: state.isSelected || state.isFocused ? 'var(--accent)' : 'transparent',
+                         color: state.isSelected || state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
                        }),
-                       multiValue: (base: any, state: any) => ({ ...base, backgroundColor: state.data.color + '20', borderRadius: '4px' }),
+                        input: (base: any) => ({ ...base, color: 'var(--popover-foreground)' }),
+                        placeholder: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
+                        multiValue: (base: any, state: any) => ({ ...base, backgroundColor: state.data.color + '20', borderRadius: '4px' }),
                        multiValueLabel: (base: any, state: any) => ({ ...base, color: state.data.color, fontWeight: 600 }),
                        multiValueRemove: (base: any, state: any) => ({ ...base, color: state.data.color, ':hover': { backgroundColor: state.data.color + '40', color: state.data.color } }),
                      }}
