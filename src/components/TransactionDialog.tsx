@@ -808,14 +808,14 @@ export function TransactionDialog() {
           {!isCreditCard && (
             <Tabs value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })} className="w-full">
               <TabsList className="grid w-full grid-cols-3 bg-muted p-1 rounded-xl h-11">
-                <TabsTrigger value="despesa" className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-red-600 data-[state=active]:shadow-sm">Despesa</TabsTrigger>
-                <TabsTrigger value="receita" className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-green-600 data-[state=active]:shadow-sm">Receita</TabsTrigger>
-                <TabsTrigger value="transferencia" className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Transf.</TabsTrigger>
+                <TabsTrigger value="despesa" className="rounded-lg data-[state=active]:bg-background dark:data-[state=active]:bg-muted data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:shadow-sm">Despesa</TabsTrigger>
+                <TabsTrigger value="receita" className="rounded-lg data-[state=active]:bg-background dark:data-[state=active]:bg-muted data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400 data-[state=active]:shadow-sm">Receita</TabsTrigger>
+                <TabsTrigger value="transferencia" className="rounded-lg data-[state=active]:bg-background dark:data-[state=active]:bg-muted data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 data-[state=active]:shadow-sm">Transf.</TabsTrigger>
               </TabsList>
             </Tabs>
           )}
           {isCreditCard && (
-            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center py-2 bg-red-50 dark:bg-red-950/20 rounded-xl text-red-600">
+            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center py-2 bg-red-50 dark:bg-red-950/20 rounded-xl text-red-600 dark:text-red-400">
               Despesa no Cartão de Crédito — status sempre realizado
             </div>
           )}
