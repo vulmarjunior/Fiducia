@@ -406,10 +406,13 @@ Regras:
       }
       return t.date.startsWith(p.month);
     });
+    const invoiceExpense = showPendingChart && p.month
+      ? invoices.filter(i => i.period === p.month && i.status !== 'paga').reduce((sum, i) => sum + (i.totalAmount || 0), 0)
+      : 0;
     return {
       name: p.label.charAt(0).toUpperCase() + p.label.slice(1),
       income: mTx.filter(t => isIncomeType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
-      expense: mTx.filter(t => isExpenseType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
+      expense: mTx.filter(t => isExpenseType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0) + invoiceExpense,
     };
   });
 
