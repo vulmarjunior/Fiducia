@@ -95,12 +95,16 @@
 - **Solução**: Botão "Metas e Orçamentos" no mobile expande/colapsa as duas seções. Em desktop (lg+) ficam sempre visíveis.
 
 ### Card Disponível Seguro no Dashboard
-- **Status**: ✅ Implementado
+- **Status**: ✅ Implementado (atualizado 2026-06-04)
 - **Data**: 2026-05-27
 - **Contexto**: Nova métrica de fluxo de caixa operacional. Substituiu o card "Balanço do Mês" no grid de KPIs.
-- **Fórmula**: `disponivelSeguro = saldoCirculante − gastosCartao − contasPendentes`
-- **Componentes**: Saldo Circulante (contas sem `excludeFromCashFlow`), Gastos de Cartão (**faturas `aberta` + `fechada`** da coleção `invoices`), Contas Pendentes (despesas pendentes do mês atual/anteriores, excluindo cartão)
-- **UI**: Card com decomposição em linhas (Fatura Aberta, Fatura Fechada, Total Cartão, Contas Pendentes), tooltip explicativo, estado positivo (roxo/`ShieldCheck`) ou negativo (vermelho/`ShieldAlert`), subtexto informando contas excluídas do fluxo.
+- **Fórmula**: `disponivelSeguro = saldoCirculante + receitasPendentes − gastosCartao − contasPendentes`
+- **Componentes**: 
+  - Saldo Circulante (contas sem `excludeFromCashFlow`)
+  - Receitas a Receber (receitas `pendente` do mês corrente, exceto cartão e transferências)
+  - Gastos de Cartão (**faturas `aberta` + `fechada`** da coleção `invoices`)
+  - Contas Pendentes (despesas pendentes vencidas, excluindo cartão)
+- **UI**: Card com decomposição em linhas (Saldo Circulante, Receitas a Receber, Fatura Aberta, Fatura Fechada, Total Cartão, Contas Pendentes), tooltip explicativo, estado positivo (roxo/`ShieldCheck`) ou negativo (vermelho/`ShieldAlert`), subtexto informando contas excluídas do fluxo.
 - **Tokens**: Adicionados `--fiducia-purple` e `--fiducia-purple-bg` no light mode (`#8b5cf6`/`#ede9fe`) e dark mode (`#a78bfa`/rgba).
 - **Correção**: `gastosCartao` mudou de `transactions` individuais para `invoices.totalAmount`. Dashboard agora escuta a coleção `invoices` via `onSnapshot`.
 - **Fluxo de Caixa (gráfico)**: Não precisou de alteração. Já agrupa compras de cartão por `invoicePeriod` e ignora transferências — mostra tendência de consumo sem dupla contagem com o card Disponível Seguro, que mostra posição atual.
@@ -413,6 +417,18 @@
 - **Data**: 2026-06-03
 - **Contexto**: Cards de Receitas, Despesas e Saldo do Período tinham gradiente claro que vazava no dark mode, impedindo leitura.
 - **Solução**: Em dark mode, gradiente substituído por fundo sólido (`dark:bg-none dark:bg-surface`). Cores fiducia nos textos mantêm contraste.
+
+### Dashboard — KPIs de receitas, despesas e Disponível Seguro
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-04
+- **Contexto**: Cards Receitas do Mês e Despesas do Mês incluíam transações de cartão de crédito e transferências, distorcendo os valores. Disponível Seguro não considerava receitas a receber, subestimando a previsão de caixa.
+- **Causa Raiz**: `monthlyIncome`/`monthlyExpense` filtravam apenas por tipo e `isEffectivelyPaid`, sem excluir cartão ou transferência. `disponivelSeguro` calculava apenas `saldo - gastosCartao - contasPendentes`.
+- **Solução**:
+  - `monthlyIncome`: adicionado `!t.creditCardId`, `!creditCards.some(c => c.id === t.accountId)`, `t.type !== 'transferencia'/'transfer'`
+  - `monthlyExpense`: mesmos filtros
+  - `disponivelSeguro`: nova fórmula `= saldoCirculante + receitasPendentes − gastosCartao − contasPendentes`
+  - Breakdown UI: nova linha "Receitas a Receber" (+ verde)
+  - Tooltip atualizado com fórmula completa
 
 ---
 
