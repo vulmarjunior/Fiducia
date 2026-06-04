@@ -484,7 +484,7 @@ export function Transactions() {
       // Parcelado: only installment 1 ever affected balance
       // Non-parcelado (recurring): only the first occurrence affected balance
       const reversalAmount = isParcelado
-        ? (series.find(tx => tx.installmentNumber === 1)?.amount || paidTx.amount)
+        ? (series.find(tx => tx.installmentNumber === 1)?.amount || 0)
         : paidTx.amount;
 
       if (paidTx.type === 'transferencia') {
