@@ -379,7 +379,40 @@
 - **Contexto**: Saldos de contas corrente apresentavam valores irreais (R$-426k, R$-271k, R$-609k). Extrato mostrava lançamentos corretos mas saldo acumulado impossível.
 - **Causa Raiz**: `handleEditSubmit:726` usava `+ getBalanceChange(oldT.type, oldT.amount)` para reverter o efeito antigo. `getBalanceChange` já retorna o valor com sinal (ex: `-6000` para despesa). Somar `-6000` debita novamente em vez de estornar. A cada edição de um lançamento, o saldo despencava no valor do lançamento.
 - **Solução**: Trocado `+` por `-` na linha 726. Agora `-(-6000) = +6000` → estorna corretamente.
-- **Recuperação**: Adicionado botão "Corrigir Saldos" em Accounts.tsx com função `fixBalances` que recalcula o saldo de cada conta a partir do efeito líquido de todas as transações pagas/realizadas (usa `getDocs` para snapshot fresco + `runTransaction` por conta para atomicidade). Botão temporário — remove após uso.
+- **Recuperação**: Adicionado botão "Ajustar Saldo" (Wallet) em cada card de conta para conciliação manual. Script `fixBalances` removido posteriormente em favor do ajuste manual. Campo `initialBalance` adicionado ao schema Account para preservar saldo inicial em futuras correções automáticas.
+
+### Conciliação manual de saldo — botão Wallet
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-03
+- **Contexto**: Saldos corrompidos pelo bug de sinal no EDIT precisavam ser corrigidos. Usuário sem conhecimento técnico para editar Firestore diretamente.
+- **Solução**: Botão `Wallet` em cada card de conta na tela Contas. Abre dialog com MoneyInput pré-preenchido com saldo atual. Usuário informa saldo real do extrato bancário. `runTransaction` atualiza o balance atomicamente.
+- **Observação**: Botão "Corrigir Saldos" (fixBalances automatizado) removido após constatação de que o script ignorava saldo inicial e requeria schema change.
+
+### Coluna Saldo nos Lançamentos — 3 correções acumuladas
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-03
+- **Contexto**: Coluna de saldo corrente (running balance) na tela Lançamentos apresentava valores irreais mesmo após ajuste manual do saldo.
+- **Correção 1 — Filtro isEffectivelyPaid**: O cálculo incluía transações `pendente` ao reverter o histórico. Como pendentes nunca afetam saldo, a reversão criava variação artificial. Adicionado `isEffectivelyPaid(t)` ao filtro `accountTransactions`.
+- **Correção 2 — Ordenação determinística**: Transações na mesma data tinham ordem aleatória no cálculo e no display, produzindo valores diferentes a cada render. Adicionado `createdAt` como tiebreaker em ambos os sorts.
+- **Correção 3 — onSnapshot individual**: O `useMemo` dependia de `accounts.find()` do snapshot da coleção, que não refletia atualizações do Wallet. Substituído por `onSnapshot(doc(db, 'accounts', id))` — listener individual e reativo do documento da conta.
+
+### Cartões removidos do filtro na tela Lançamentos
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-03
+- **Contexto**: Tela Lançamentos listava cartões de crédito no dropdown de filtro e exibia compras de cartão na listagem, contrariando decisão de arquitetura (Transactions = extrato bancário).
+- **Solução**: Removido grupo "Cartões de Crédito" do Select de filtro. Adicionado `!t.creditCardId` ao filtro principal da listagem. Pagamentos de fatura (transferências) continuam aparecendo.
+
+### Dropdowns react-select sem contraste no dark mode
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-03
+- **Contexto**: Selects de Conta/Cartão, Destino e Tags no TransactionDialog usavam cores fixas (`rgb(249 250 251)`, `white`, `#94a3b8`) que não se adaptavam ao dark mode.
+- **Solução**: Substituídas por variáveis CSS do tema: `hsl(var(--muted))` para fundo, `hsl(var(--muted-foreground))` para texto.
+
+### Gradiente dos cards de resumo no dark mode
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-03
+- **Contexto**: Cards de Receitas, Despesas e Saldo do Período tinham gradiente claro que vazava no dark mode, impedindo leitura.
+- **Solução**: Em dark mode, gradiente substituído por fundo sólido (`dark:bg-none dark:bg-surface`). Cores fiducia nos textos mantêm contraste.
 
 ---
 
