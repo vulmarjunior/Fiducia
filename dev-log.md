@@ -435,7 +435,7 @@
 - **Status**: ✅ Implementado
 - **Data**: 2026-06-04
 - **Contexto**: Usuário queria visualizar no gráfico tanto transações realizadas quanto pendentes a vencer/receber, para ter uma visão mais completa do fluxo de caixa futuro.
-- **Solução**: Botão toggle no cabeçalho do card "Fluxo de Caixa". Quando ativado (`showPendingChart`), as 4 entradas do gráfico passam a incluir também transações com status `pendente`/`pending`, além das `pago`/`realizado`.
+- **Solução**: Botão toggle no cabeçalho do card "Fluxo de Caixa". Quando ativado (`showPendingChart`), as 4 entradas do gráfico passam a incluir também transações com status `pendente`/`pending`, além das `pago`/`realizado`. Para cartão de crédito, em vez de transações individuais, soma os valores das **faturas** `aberta` + `fechada` do período como despesa.
 
 ---
 
