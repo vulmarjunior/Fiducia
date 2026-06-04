@@ -910,9 +910,17 @@ export function TransactionDialog() {
                   styles={{
                     control: (base: any) => ({ ...base, minHeight: '48px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'hsl(var(--muted))', boxShadow: 'none' }),
                     menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
-                    menu: (base: any) => ({ ...base, zIndex: 9999, minWidth: '280px' }),
+                    menu: (base: any) => ({ ...base, zIndex: 9999, minWidth: '280px', backgroundColor: 'hsl(var(--popover))' }),
                     groupHeading: (base: any) => ({ ...base, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', paddingTop: '10px', paddingBottom: '4px', paddingLeft: '12px' }),
-                    option: (base: any) => ({ ...base, whiteSpace: 'normal', wordBreak: 'break-word', paddingTop: '8px', paddingBottom: '8px' })
+                    option: (base: any, state: any) => ({
+                      ...base,
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                      paddingTop: '8px',
+                      paddingBottom: '8px',
+                      backgroundColor: state.isFocused ? 'hsl(var(--accent))' : 'transparent',
+                      color: state.isFocused ? 'hsl(var(--accent-foreground))' : 'hsl(var(--popover-foreground))',
+                    }),
                   }}
                 />
                 {(isCreditCard || formData.invoicePeriod) && (
@@ -945,7 +953,11 @@ export function TransactionDialog() {
                       styles={{
                         control: (base: any) => ({ ...base, minHeight: '48px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'hsl(var(--muted))', boxShadow: 'none' }),
                         menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
-                        menu: (base: any) => ({ ...base, zIndex: 9999, minWidth: '280px' })
+                        menu: (base: any) => ({ ...base, zIndex: 9999, minWidth: '280px', backgroundColor: 'hsl(var(--popover))' }),
+                        option: (base: any, state: any) => ({
+                          ...base, backgroundColor: state.isFocused ? 'hsl(var(--accent))' : 'transparent',
+                          color: state.isFocused ? 'hsl(var(--accent-foreground))' : 'hsl(var(--popover-foreground))',
+                        }),
                       }}
                     />
                   </>
@@ -1194,12 +1206,17 @@ export function TransactionDialog() {
                     menuPosition="fixed"
                     menuPortalTarget={document.body}
                     styles={{
-                      control: (base: any) => ({ ...base, minHeight: '40px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'hsl(var(--muted))', boxShadow: 'none' }),
-                      menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
-                      multiValue: (base: any, state: any) => ({ ...base, backgroundColor: state.data.color + '20', borderRadius: '4px' }),
-                      multiValueLabel: (base: any, state: any) => ({ ...base, color: state.data.color, fontWeight: 600 }),
-                      multiValueRemove: (base: any, state: any) => ({ ...base, color: state.data.color, ':hover': { backgroundColor: state.data.color + '40', color: state.data.color } }),
-                    }}
+                       control: (base: any) => ({ ...base, minHeight: '40px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'hsl(var(--muted))', boxShadow: 'none' }),
+                       menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+                       menu: (base: any) => ({ ...base, backgroundColor: 'hsl(var(--popover))' }),
+                       option: (base: any, state: any) => ({
+                         ...base, backgroundColor: state.isFocused ? 'hsl(var(--accent))' : 'transparent',
+                         color: state.isFocused ? 'hsl(var(--accent-foreground))' : 'hsl(var(--popover-foreground))',
+                       }),
+                       multiValue: (base: any, state: any) => ({ ...base, backgroundColor: state.data.color + '20', borderRadius: '4px' }),
+                       multiValueLabel: (base: any, state: any) => ({ ...base, color: state.data.color, fontWeight: 600 }),
+                       multiValueRemove: (base: any, state: any) => ({ ...base, color: state.data.color, ':hover': { backgroundColor: state.data.color + '40', color: state.data.color } }),
+                     }}
                   />
                 </div>
               </motion.div>
