@@ -1043,11 +1043,11 @@ export function TransactionDialog() {
                       {!(editingId && editingTx?.parentId) && (
                       <div className="flex gap-2">
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'avulso' })}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'avulso' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>AVULSO</button>
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'avulso' ? 'bg-primary dark:bg-accent text-white dark:text-accent-foreground shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>AVULSO</button>
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'parcelado' })}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'parcelado' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>PARCELADO</button>
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'parcelado' ? 'bg-primary dark:bg-accent text-white dark:text-accent-foreground shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>PARCELADO</button>
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'fixo' })}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'fixo' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>RECORRENTE</button>
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'fixo' ? 'bg-primary dark:bg-accent text-white dark:text-accent-foreground shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>RECORRENTE</button>
                       </div>
                       )}
                       {formData.ccRecurrenceType === 'parcelado' && (
@@ -1105,9 +1105,9 @@ export function TransactionDialog() {
                       {!(editingId && editingTx?.parentId) && (
                       <div className="flex gap-2">
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'parcelado', isRecurring: false })}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${!formData.isRecurring && formData.ccRecurrenceType === 'parcelado' ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>PARCELADO</button>
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${!formData.isRecurring && formData.ccRecurrenceType === 'parcelado' ? 'bg-primary dark:bg-accent text-white dark:text-accent-foreground shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>PARCELADO</button>
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'avulso', isRecurring: !formData.isRecurring })}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.isRecurring ? 'bg-primary text-white shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>RECORRENTE</button>
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.isRecurring ? 'bg-primary dark:bg-accent text-white dark:text-accent-foreground shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>RECORRENTE</button>
                       </div>
                       )}
                       {formData.ccRecurrenceType === 'parcelado' && (
