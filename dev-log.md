@@ -446,7 +446,13 @@
 - **Status**: ✅ Implementado
 - **Data**: 2026-06-04
 - **Contexto**: Card "Contas a Pagar" tinha apenas duas listas (vencidas e a vencer), sem agrupamento por urgência.
-- **Solução**: Abas Vencidas / Hoje / 7 Dias / Mês no topo do card. Indicador visual: vermelho pulsante (vencida), âmbar (hoje), azul/âmbar (futuras).
+- **Solução**: Revertido para duas listas (Atrasadas + A Vencer) após feedback do usuário. Adicionados badges de status: "Atrasada" (vermelho), "Hoje" (âmbar), "Em X dias" (âmbar).
+
+### Conversão avulso → recorrente na edição
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-04
+- **Contexto**: Usuário tentava editar uma receita pendente e transformá-la em recorrente (ex: 6 meses). O sistema salvava mas não criava as demais instâncias.
+- **Solução**: Novo bloco `becameRecurring` no `handleEditSubmit` com early return (mesmo padrão da conversão avulso→parcelado). Original vira 1ª ocorrência da série (`parentId`, `isRecurring`, `frequency`). Cria N−1 instâncias futuras com status `pendente`. Ajusta saldo (reverte efeito antigo, aplica novo). Usa `getRecurrenceParams` para avanço de data conforme frequência escolhida. Funciona para conta corrente (não cartão).
 
 ### Cartão de Crédito — comprometimento futuro
 - **Status**: ✅ Implementado
