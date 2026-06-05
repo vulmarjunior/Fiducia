@@ -499,6 +499,7 @@ export function TransactionDialog() {
       formData.status !== editingTx.status;
 
     const becameParcelado = !editingTx.parentId && formData.ccRecurrenceType === 'parcelado';
+    const becameRecurring = !editingTx.parentId && !editingTx.installmentId && formData.isRecurring && !isCreditCard;
     const changedInstallmentCount = !!editingTx.parentId && formData.ccRecurrenceType === 'parcelado' &&
       parseInt(formData.installmentsCount) !== editingTx.totalInstallments;
 
@@ -655,6 +656,87 @@ export function TransactionDialog() {
 
         logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Convertido para ${numInstallments} parcelas: ${formData.description}` }).catch(() => {});
         toast.success(`Convertido para ${numInstallments} parcelas`);
+        close();
+        resetForm();
+        return;
+      }
+
+      // Convert avulso → recorrente (bank account)
+      if (becameRecurring && formData.type !== 'transferencia') {
+        const iterations = formData.installments || 1;
+        if (iterations < 2) { toast.error('Mínimo de 2 repetições'); return; }
+
+        const { advanceDate } = getRecurrenceParams(formData.frequency);
+        const parentId = crypto.randomUUID();
+
+        await runTransaction(db, async (transaction) => {
+          const txRef = doc(db, 'transactions', editingId);
+          const txSnap = await transaction.get(txRef);
+          if (!txSnap.exists()) throw new Error('Transaction not found');
+          const oldT = txSnap.data() as any;
+
+          let accountSnap: any = null;
+          let balanceDelta = 0;
+
+          if (formData.accountId) {
+            accountSnap = await transaction.get(doc(db, 'accounts', formData.accountId));
+
+            if (accountSnap?.exists() && isEffectivelyPaid(oldT)) {
+              const oldEffect = getBalanceChange(oldT.type, oldT.amount);
+              const newEffect = isEffectivelyPaid({ status: formData.status }) ? getBalanceChange(formData.type, amount) : 0;
+              balanceDelta = newEffect - oldEffect;
+            }
+          }
+
+          transaction.update(txRef, {
+            type: formData.type,
+            amount,
+            description: formData.description,
+            date: dateToLocalISOString(formData.date),
+            categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
+            accountId: formData.accountId,
+            status: formData.status,
+            tags: formData.tagIds.length > 0 ? formData.tagIds : [],
+            observation: formData.observation || '',
+            parentId,
+            isRecurring: true,
+            frequency: formData.frequency,
+            updatedAt: new Date().toISOString(),
+          });
+
+          const origDate = parseLocalDate(formData.date);
+
+          for (let i = 1; i < iterations; i++) {
+            const futureDate = new Date(origDate);
+            advanceDate(futureDate, i);
+
+            transaction.set(doc(collection(db, 'transactions')), {
+              userId: user.uid,
+              type: formData.type,
+              amount,
+              date: futureDate.toISOString(),
+              description: formData.description,
+              accountId: formData.accountId,
+              categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
+              status: 'pendente',
+              reconciliationStatus: 'nao_conciliado',
+              tags: formData.tagIds.length > 0 ? formData.tagIds : [],
+              observation: formData.observation || '',
+              parentId,
+              isRecurring: true,
+              frequency: formData.frequency,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
+
+          if (accountSnap?.exists() && balanceDelta !== 0) {
+            transaction.update(doc(db, 'accounts', formData.accountId), { balance: (accountSnap.data().balance || 0) + balanceDelta });
+          }
+        });
+
+        logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Convertido para ${iterations} recorrentes: ${formData.description}` }).catch(() => {});
+        toast.success(`Convertido para ${iterations} recorrências`);
         close();
         resetForm();
         return;
