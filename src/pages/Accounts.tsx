@@ -775,7 +775,7 @@ export function Accounts() {
             </div>
           )}
           <DialogFooter>
-            {diagnoseData?.difference !== 0 && (
+            {diagnoseData && diagnoseData.difference !== 0 && (
               <Button 
                 onClick={async () => {
                   try {
