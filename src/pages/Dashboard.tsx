@@ -8,7 +8,7 @@ import { Button } from '../components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
-import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid } from '../lib/utils';
+import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLocalDate } from '../lib/utils';
 import { callGroq } from '../services/groqService';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
@@ -236,8 +236,9 @@ Regras OBRIGATÓRIAS:
     }
     return t.date.startsWith(prevMonthStr);
   });
-  const prevIncome = prevMonthTransactions.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
-  const prevExpense = prevMonthTransactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t)).reduce((sum, t) => sum + t.amount, 0);
+  // Bug fix: usar mesmos filtros de !creditCardId/!transferência que monthlyIncome/monthlyExpense
+  const prevIncome = prevMonthTransactions.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0);
+  const prevExpense = prevMonthTransactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0);
   const incomeTrendPct = prevIncome > 0 ? ((monthlyIncome - prevIncome) / prevIncome * 100).toFixed(1) : null;
   const expenseTrendPct = prevExpense > 0 ? ((monthlyExpense - prevExpense) / prevExpense * 100).toFixed(1) : null;
 
@@ -255,14 +256,15 @@ Regras OBRIGATÓRIAS:
     return !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && isExpenseType(t) && isPendingStatus(t) && d >= currentDateStr && d <= thirtyDaysFromNow;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
 
+  // Bug fix: excluir transações de cartão de crédito das listas de receitas pendentes
   const overdueIncomes = transactions.filter(t => {
     const d = t.date.split('T')[0];
-    return isIncomeType(t) && isPendingStatus(t) && d < currentDateStr && d >= thirtyDaysAgo;
+    return isIncomeType(t) && isPendingStatus(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && d < currentDateStr && d >= thirtyDaysAgo;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const upcomingIncomes = transactions.filter(t => {
     const d = t.date.split('T')[0];
-    return isIncomeType(t) && isPendingStatus(t) && d >= currentDateStr && d <= thirtyDaysFromNow;
+    return isIncomeType(t) && isPendingStatus(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && d >= currentDateStr && d <= thirtyDaysFromNow;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
 
   // Calculate unpaid credit card invoices
@@ -359,22 +361,20 @@ Regras OBRIGATÓRIAS:
         return { label: `${day} ${month}`, start: weekStart };
       });
     } else if (periodFilter === 'year') {
+      // Bug fix: usar formatação local em vez de toISOString() que usa UTC e pode retornar mês errado
       return Array.from({length: 12}, (_, i) => {
         const d = new Date();
         d.setMonth(d.getMonth() - 11 + i);
-        return { 
-          month: d.toISOString().substring(0, 7), 
-          label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
-        };
+        const month = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+        return { month, label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') };
       });
     }
+    // Bug fix: usar formatação local para modo mês
     return Array.from({length: 6}, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - 5 + i);
-      return { 
-        month: d.toISOString().substring(0, 7), 
-        label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') 
-      };
+      const month = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+      return { month, label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') };
     });
   };
 
@@ -387,7 +387,8 @@ Regras OBRIGATÓRIAS:
       const weekEnd = new Date(p.start);
       weekEnd.setDate(weekEnd.getDate() + 7);
       const weekTx = transactions.filter(t => {
-        const td = new Date(t.date.split('T')[0]);
+        // Bug fix: parseLocalDate evita bug de timezone de new Date("YYYY-MM-DD")
+        const td = parseLocalDate(t.date.split('T')[0]);
         return td >= p.start && td < weekEnd;
       });
       return {
