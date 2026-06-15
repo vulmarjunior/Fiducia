@@ -318,19 +318,72 @@ export function Accounts() {
   const [isDiagnosing, setIsDiagnosing] = useState(false);
 
   const handleAdjustBalance = async () => {
-    if (!adjustAccountId) return;
+    if (!adjustAccountId || !user) return;
     try {
+      setIsDiagnosing(true); // Reaproveitando o estado de loading para feedback visual
+
+      // Calcula o saldo matemático real a partir das transações (Single Source of Truth)
+      const accSnap = await getDoc(doc(db, 'accounts', adjustAccountId));
+      const accData = accSnap.data() as any;
+      const initial = accData.initialBalance || 0;
+
+      const qSource = query(collection(db, 'transactions'),
+        where('userId', '==', user.uid),
+        where('accountId', '==', adjustAccountId));
+      const qDest = query(collection(db, 'transactions'),
+        where('userId', '==', user.uid),
+        where('destinationAccountId', '==', adjustAccountId));
+      const [srcSnap, destSnap] = await Promise.all([getDocs(qSource), getDocs(qDest)]);
+
+      const allTx: any[] = [];
+      const seen = new Set<string>();
+      for (const d of [...srcSnap.docs, ...destSnap.docs]) {
+        if (seen.has(d.id)) continue;
+        seen.add(d.id);
+        allTx.push({ id: d.id, ...d.data() });
+      }
+
+      const paid = allTx.filter(t => t.status === 'pago' || t.status === 'realizado' || t.status === 'paid');
+      
+      const calcEffect = (tx: any) => {
+        if (tx.type === 'transferencia' && tx.destinationAccountId === adjustAccountId) return tx.amount;
+        if (tx.type === 'transferencia' && tx.accountId === adjustAccountId) return -tx.amount;
+        if (tx.type === 'receita' || tx.type === 'income') return tx.amount;
+        return -tx.amount;
+      };
+
+      const paidTotal = paid.reduce((s, t) => s + calcEffect(t), 0);
+      const mathBalance = initial + paidTotal;
+
+      const diff = adjustBalanceValue - mathBalance;
+
       await runTransaction(db, async (transaction) => {
-        const snap = await transaction.get(doc(db, 'accounts', adjustAccountId));
-        if (snap.exists()) {
-          transaction.update(doc(db, 'accounts', adjustAccountId), { balance: adjustBalanceValue });
+        if (Math.abs(diff) > 0.01) {
+          // Cria o Lançamento de Reconciliação
+          const tData = {
+            userId: user.uid,
+            accountId: adjustAccountId,
+            amount: Math.abs(diff),
+            type: diff > 0 ? 'receita' : 'despesa',
+            status: 'pago',
+            description: 'Ajuste de Reconciliação',
+            date: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          };
+          const newTxRef = doc(collection(db, 'transactions'));
+          transaction.set(newTxRef, tData);
         }
+        // Atualiza o cache do saldo
+        transaction.update(doc(db, 'accounts', adjustAccountId), { balance: adjustBalanceValue });
       });
-      toast.success('Saldo ajustado com sucesso');
+
+      toast.success('Saldo reconciliado com sucesso! Um lançamento de ajuste foi gerado.');
       setAdjustAccountId(null);
     } catch (error) {
       toast.error('Erro ao ajustar saldo');
       handleFirestoreError(error, OperationType.UPDATE, 'accounts');
+    } finally {
+      setIsDiagnosing(false);
     }
   };
 
