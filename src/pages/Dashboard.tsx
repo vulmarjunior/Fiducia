@@ -447,9 +447,10 @@ Regras OBRIGATÓRIAS:
             title="Dashboard"
             description="Sua visão geral financeira: saldo total, receitas e despesas do mês, Disponível Seguro, gráfico de fluxo de caixa e lançamentos recentes."
             items={[
-              { label: "Disponível Seguro", desc: "Métrica que mostra quanto dinheiro livre você tem hoje após descontar faturas de cartão (abertas e fechadas) e contas pendentes." },
-              { label: "Gráfico", desc: "Alterna entre Semana, Mês e Ano para visualizar a evolução das suas receitas e despesas." },
-              { label: "Dica IA", desc: "O assistente financeiro analisa seus dados e sugere alertas personalizados sobre seus gastos." },
+              { label: "Disponível Seguro", desc: "Métrica de caixa livre: Saldo Circulante + Receitas a Receber - Faturas de Cartão (Abertas e Fechadas) - Despesas Pendentes." },
+              { label: "Gráfico de Caixa", desc: "Mapeia a evolução real. Ele ignora transferências entre contas e não duplica despesas individuais do cartão de crédito (considera apenas o vencimento consolidado das faturas)." },
+              { label: "Resolução de Timezone", desc: "Todas as datas do gráfico consideram o fuso horário local, garantindo que lançamentos de fim de mês caiam no período correto." },
+              { label: "Dica IA", desc: "Análise autônoma com base nos seus gastos reais em conta corrente (ignora cartão para evitar distorções)." },
             ]}
           />
           <Button className="h-10 px-4 text-sm font-semibold rounded-xl gap-2 bg-primary text-primary-foreground hover:opacity-90 transition-opacity" onClick={() => openTxDialog()}>

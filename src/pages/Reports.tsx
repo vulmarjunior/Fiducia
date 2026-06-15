@@ -319,12 +319,13 @@ Responda em Português com Markdown (bullets, negrito). Seja empático.`;
         <h2 className="text-3xl font-bold tracking-tight text-foreground">Relatórios</h2>
         <PageHelp
           title="Relatórios"
-          description="Analise suas finanças de diferentes ângulos: fluxo de caixa histórico, categorias, tendência de gastos e projeção futura de receitas e despesas."
+          description="Analise suas finanças sob diferentes perspectivas. Abaixo está a metodologia utilizada em cada relatório:"
           items={[
-            { label: 'Fluxo de Caixa', desc: 'Receitas vs Despesas por mês com tabela de resumo.' },
-            { label: 'Categorias', desc: 'Distribuição dos gastos/receitas por categoria com gráfico de pizza.' },
-            { label: 'Projeção Futura', desc: 'Todos os lançamentos pendentes agrupados por mês, com saldo acumulado projetado.' },
-            { label: 'Análise IA', desc: 'Score de saúde financeira com dicas personalizadas pela Fiducia AI.' },
+            { label: '1. Fluxo de Caixa', desc: 'Mapeia receitas vs despesas realizadas (sem cartão e sem transferências entre contas) nos últimos meses. Apresenta a Taxa de Poupança (% que sobra do seu ganho líquido).' },
+            { label: '2. Categorias', desc: 'Distribuição percentual dos gastos ou receitas. Traz a métrica % Renda, que mostra o impacto real de cada grupo de despesa frente ao seu faturamento total.' },
+            { label: '3. Tendência & Orçamento', desc: 'Curva cumulativa diária de saídas no mês e comparação direta com os limites de gastos configurados em sua conta.' },
+            { label: '4. Projeção Futura', desc: 'Simulação matemática de saldo futuro: Saldo Base Atual + Receitas Pendentes - Despesas Pendentes - Faturas de Cartão projetadas no mês de vencimento. Permite incluir ou excluir investimentos do cálculo.' },
+            { label: '5. Análise IA', desc: 'O assistente Fiducia processa seus últimos 3 meses de fluxo de caixa e os lançamentos recentes para dar uma nota de score financeiro e recomendações personalizadas.' },
           ]}
         />
       </div>
