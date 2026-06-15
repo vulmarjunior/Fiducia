@@ -373,6 +373,7 @@ export function Accounts() {
       const expected = initial + paidTotal;
 
       setDiagnoseData({
+        accountId,
         accountName: accData.name || accountId,
         firestoreBalance: accData.balance,
         initialBalance: initial,
@@ -774,6 +775,22 @@ export function Accounts() {
             </div>
           )}
           <DialogFooter>
+            {diagnoseData?.difference !== 0 && (
+              <Button 
+                onClick={async () => {
+                  try {
+                    await updateDoc(doc(db, 'accounts', diagnoseData.accountId), { balance: diagnoseData.expectedBalance });
+                    toast.success('Saldo sincronizado com sucesso!');
+                    setDiagnoseData(null);
+                  } catch (e) {
+                    toast.error('Erro ao sincronizar saldo');
+                  }
+                }} 
+                className="bg-fiducia-green hover:bg-fiducia-green/90 text-white mr-auto"
+              >
+                Sincronizar para R$ {diagnoseData.expectedBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setDiagnoseData(null)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
