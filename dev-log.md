@@ -161,6 +161,18 @@
   - **Conta corrente**: lê saldo, calcula `delta = efeitoParcelado − efeitoAvulso`, ajusta saldo, cria N−1 pendentes.
 - **Transferência**: Bloqueada com toast "Não é possível parcelar uma transferência".
 
+### Ajuste de Saldo por Reconciliação
+- **Status**: ✅ Confirmado
+- **Data**: 2026-06-15
+- **Contexto**: Saldos de contas ficavam incorretos devido a edições manuais que sobrescreviam o campo `balance` sem transações subjacentes, fazendo com que scripts matemáticos que recalculavam saldos zerassem ou alterassem os saldos indevidamente.
+- **Solução**: O botão de ajuste de saldo (Wallet/Carteira) na tela de Contas foi refatorado. Agora, em vez de sobrescrever diretamente o campo `balance` da conta no Firestore de forma avulsa, o sistema calcula a diferença (`delta`) entre o saldo desejado pelo usuário e a soma matemática real das transações pagas (somada ao saldo inicial). Com base nisso, cria-se automaticamente uma transação do tipo "receita" ou "despesa" com a categoria `"Ajuste de Reconciliação"`, corrigindo o saldo de forma contábil e mantendo a integridade.
+
+### Sincronização de Cache de Saldo Divergente
+- **Status**: ✅ Confirmado
+- **Data**: 2026-06-15
+- **Contexto**: Quando ocorria alguma divergência puramente de cache no campo `balance` de uma conta (diferença entre o campo e a soma das transações), o usuário não conseguia ressincronizar sem criar uma nova transação.
+- **Solução**: No modal de Diagnóstico de Dados (acessível pela Auditoria), foi implementado o botão "Sincronizar Saldo". Caso o sistema detecte que o saldo do cache discrepa da soma matemática (mas todas as transações estão corretas), este botão atualiza unicamente o campo `balance` da conta no Firestore para corresponder exatamente à soma matemática real + saldo inicial, sem gerar transações redundantes.
+
 ---
 
 ## 🔄 Correções de Registro
@@ -485,6 +497,12 @@
 - **Contexto**: Usuário queria visualizar no gráfico tanto transações realizadas quanto pendentes a vencer/receber, para ter uma visão mais completa do fluxo de caixa futuro.
 - **Solução**: Botão toggle no cabeçalho do card "Fluxo de Caixa". Quando ativado (`showPendingChart`), as 4 entradas do gráfico passam a incluir também transações com status `pendente`/`pending`, além das `pago`/`realizado`. Para cartão de crédito, em vez de transações individuais, soma os valores das **faturas** `aberta` + `fechada` do período como despesa.
 
+### Remoção de Script Auto-Healing Silencioso de Saldos
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-15
+- **Contexto**: Um script de auto-healing automático na tela de Lançamentos tentava ajustar silenciosamente o saldo das contas caso detectasse divergências. Isso acabava limpando e distorcendo os saldos ajustados manualmente pelos usuários.
+- **Solução**: O script silencioso foi removido completamente de `Transactions.tsx`. Agora, ajustes são feitos de forma explícita pelo usuário via transações de reconciliação ou sincronização manual do cache de saldo no modal de Diagnóstico.
+
 ---
 
 ## 💡 Padrões Descobertos
@@ -506,6 +524,10 @@
 - **Padrão**: Detecção de mudança de tipo de recorrência ANTES dos caminhos existentes, com `return` após executar. Evita que o código de update normal processe a conversão incorretamente.
 - **Cuidado**: Sempre chamar `close()` e `resetForm()` antes do `return`. Usar `toast.success()` com mensagem específica ("Convertido para N parcelas") para distinguir de update normal.
 
+### Reconciliação Contábil por Partidas Dobradas
+- **Data**: 2026-06-15
+- **Padrão**: Qualquer alteração no saldo real de uma conta deve ser justificada por uma transação de reconciliação (categoria `"Ajuste de Reconciliação"`). Nunca altere o saldo (`balance`) de uma conta de forma isolada, exceto para fins de sincronismo do cache com as transações já existentes.
+
 ---
 
 ## 📋 Decisões de Arquitetura
@@ -525,6 +547,11 @@
 - **Alternativas rejeitadas**: (1) Mostrar tudo com filtro toggle — rejeitado porque o usuário quer o extrato limpo. (2) Separar por abas — rejeitado por simplicidade.
 - **Data**: 2026-05-28
 - **Observação**: Pagamento de fatura continua aparecendo no Transactions (é uma saída da conta corrente). O ícone deve ser de pagamento, não de transferência genérica.
+
+### Proibição de Edição Direta de Saldo
+- **Escolha**: O saldo de uma conta (`balance`) não pode ser alterado de maneira arbitrária ou por rotinas silenciosas em segundo plano. Toda e qualquer alteração de saldo requer consentimento e registro via transação de reconciliação ou sincronização explícita do cache.
+- **Data**: 2026-06-15
+- **Impacto**: Impede a perda de dados históricos inseridos manualmente pelo usuário e garante consistência matemática contínua.
 
 ---
 
@@ -562,3 +589,10 @@
 - **Problema**: `allow update: false;` em Firestore rules causa `400 INVALID_ARGUMENT` — a API não indica qual é o erro de sintaxe.
 - **Sintoma**: POST `/rulesets` retorna 400 com mensagem genérica "Request contains an invalid argument." Mesmo logs detalhados do Google não mostram o erro real.
 - **Prevenção**: Sempre usar `allow <op>: if <expressão>;`. O `if` é obrigatório mesmo para literais booleanos. Incrementar mudanças uma a uma via API para isolar o erro.
+
+### Crash ao acessar expectedBalance em DiagnoseData nulo
+- **Data**: 2026-06-15
+- **Problema**: O modal de diagnóstico na tela de Contas causava crash na aplicação React ao tentar ler `diagnoseData.expectedBalance` ou `diagnoseData.currentBalance` quando o estado `diagnoseData` ainda estava nulo ou em carregamento.
+- **Sintoma**: Tela branca/erro de render ao abrir o diagnóstico de contas.
+- **Prevenção**: Adicionar verificação de segurança/guard clauses (ex: `if (!diagnoseData) return null`) antes de renderizar elementos que dependem de suas propriedades.
+

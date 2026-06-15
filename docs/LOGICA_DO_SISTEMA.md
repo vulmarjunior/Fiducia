@@ -14,8 +14,8 @@ O sistema opera com o banco de dados em tempo real Firestore (NoSQL). O design d
   - Armazena as configurações globais e flags básicas do perfil de cada usuário logado (gerado ou capturado logo após a autenticação bem-sucedida).
 - **`accounts` (Contas Bancárias)**:
   - Guarda as Contas Correntes, Poupanças e Carteiras de Investimento digitais.
-  - Campos core: `name`, `type`, `balance` (saldo atual), `userId`.
-- **`creditCards` (Cartões de Crédito)**:
+  - Campos core: `name`, `type`, `balance` (saldo atual - representação cacheada da soma matemática das transações pagas + saldo inicial), `initialBalance` (saldo de abertura da conta), `userId`.
+  - **Regra de Integridade**: O saldo nunca deve ser editado diretamente para fins de ajuste de valor. Qualquer ajuste de saldo solicitado pelo usuário deve gerar uma transação compensatória de tipo "receita" ou "despesa" com a categoria "Ajuste de Reconciliação". O campo `balance` só é atualizado diretamente em caso de ressincronização de cache de saldo divergente.
   - Modelação separada das contas correntes pois cartões operam na lógica de "ciclos de faturamento", com um limite de crédito e dias fixos para corte e pagamento.
   - Campos core: `name`, `limit`, `closingDay` (dia de fechamento da fatura), `dueDay` (dia de vencimento), `userId`.
 - **`categories` (Categorias)**:
@@ -99,3 +99,8 @@ Para replicar exatamente a funcionalidade orgânica produzida aqui acima, não c
   Garante integridade.
 4. **Gerenciamento de Segredos de IA**:
   Garantir que os tokens de chaves API sensíveis fiquem alocadas em infra server-side (ou em `.env` locais para `npm run dev`) mas *Cuidado* extremo ao realizar transições severas p/ Prod em arquitetura Client-Side-Only (CSR).
+5. **Integridade de Saldo e Reconciliação (Partidas Dobradas)**:
+  Nunca utilize atualizações diretas de saldo (`balance`) para corrigir divergências reais de contas sem a correspondente movimentação financeira.
+  - Para **Ajustes de Valor**: Crie uma transação com categoria `"Ajuste de Reconciliação"` para cobrir a diferença matemática. O saldo (`balance`) será ajustado via transação atômica associada à criação do lançamento.
+  - Para **Sincronização de Cache**: Se o saldo gravado no documento da conta divergir da soma real (Transações Pagas + Saldo Inicial), utilize a ferramenta "Sincronizar Saldo" no modal de Diagnóstico para realinhar o cache sem gerar transações (pois os lançamentos já estão corretos).
+  - Nunca utilize scripts automáticos/silenciosos de auto-healing para sobrescrever o saldo salvo sem consentimento explícito e ação do usuário, sob risco de corromper ajustes legítimos.
