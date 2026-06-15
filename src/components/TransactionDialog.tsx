@@ -432,6 +432,7 @@ export function TransactionDialog() {
 
             const tData: any = {
               ...baseTData,
+              status: i === 0 ? finalStatus : 'pendente',
               date: dateStr,
               createdAt: new Date().toISOString(),
             };
@@ -598,8 +599,8 @@ export function TransactionDialog() {
           if (formData.accountId) {
             accountSnap = await transaction.get(doc(db, 'accounts', formData.accountId));
 
-            if (accountSnap?.exists() && isEffectivelyPaid(oldT)) {
-              const oldEffect = getBalanceChange(oldT.type, oldT.amount);
+            if (accountSnap?.exists()) {
+              const oldEffect = isEffectivelyPaid(oldT) ? getBalanceChange(oldT.type, oldT.amount) : 0;
               const newStatus = formData.status;
               const newEffect = isEffectivelyPaid({ status: newStatus }) ? getBalanceChange(formData.type, firstAmount) : 0;
               balanceDelta = newEffect - oldEffect;
@@ -681,8 +682,8 @@ export function TransactionDialog() {
           if (formData.accountId) {
             accountSnap = await transaction.get(doc(db, 'accounts', formData.accountId));
 
-            if (accountSnap?.exists() && isEffectivelyPaid(oldT)) {
-              const oldEffect = getBalanceChange(oldT.type, oldT.amount);
+            if (accountSnap?.exists()) {
+              const oldEffect = isEffectivelyPaid(oldT) ? getBalanceChange(oldT.type, oldT.amount) : 0;
               const newEffect = isEffectivelyPaid({ status: formData.status }) ? getBalanceChange(formData.type, amount) : 0;
               balanceDelta = newEffect - oldEffect;
             }

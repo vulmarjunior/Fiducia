@@ -249,6 +249,68 @@ export function Transactions() {
     return () => window.removeEventListener('keydown', handler);
   }, [openTxDialog]);
 
+  // Auto-heal balances to fix past corruption
+  const hasHealedRef = React.useRef(false);
+  useEffect(() => {
+    if (isLoading || accounts.length === 0 || transactions.length === 0 || hasHealedRef.current) return;
+    hasHealedRef.current = true;
+
+    const healBalances = async () => {
+      const actualBalances: Record<string, number> = {};
+
+      for (const acc of accounts) {
+        if (acc.type === 'carteira' || acc.type === 'corrente' || acc.type === 'checking' || acc.type === 'poupanca' || acc.type === 'savings' || acc.type === 'investment' || acc.type === 'investimento') {
+          actualBalances[acc.id] = acc.initialBalance || 0;
+        }
+      }
+
+      for (const t of transactions) {
+        if (!isEffectivelyPaid(t)) continue;
+        if (t.type === 'transferencia' || t.type === 'transfer') {
+          if (t.accountId && actualBalances[t.accountId] !== undefined) {
+            actualBalances[t.accountId] -= t.amount;
+          }
+          if (t.destinationAccountId && actualBalances[t.destinationAccountId] !== undefined) {
+            actualBalances[t.destinationAccountId] += t.amount;
+          }
+        } else if (t.type === 'receita' || t.type === 'income') {
+          if (t.accountId && actualBalances[t.accountId] !== undefined) {
+            actualBalances[t.accountId] += t.amount;
+          }
+        } else if (t.type === 'despesa' || t.type === 'expense') {
+          if (t.accountId && actualBalances[t.accountId] !== undefined) {
+            actualBalances[t.accountId] -= t.amount;
+          }
+        }
+      }
+
+      for (const acc of accounts) {
+        if (actualBalances[acc.id] !== undefined) {
+          const expected = Number(actualBalances[acc.id].toFixed(2));
+          const current = Number((acc.balance || 0).toFixed(2));
+          if (Math.abs(expected - current) > 0.01) {
+            console.log(`Auto-healing account ${acc.name}: ${current} -> ${expected}`);
+            try {
+              await runTransaction(db, async (transaction) => {
+                const accRef = doc(db, 'accounts', acc.id);
+                const snap = await transaction.get(accRef);
+                if (snap.exists()) {
+                  transaction.update(accRef, { balance: expected });
+                }
+              });
+              toast.success(`Saldo da conta ${acc.name} sincronizado automaticamente.`);
+            } catch (err) {
+              console.error(`Failed to heal account ${acc.name}`, err);
+            }
+          }
+        }
+      }
+    };
+
+    // Atrasar levemente para não impactar o primeiro render da UI
+    setTimeout(healBalances, 2000);
+  }, [isLoading, accounts, transactions]);
+
 
   const handleClosePeriod = async () => {
     if (!user || !closePeriodAccountId) {
