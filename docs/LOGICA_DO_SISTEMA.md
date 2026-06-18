@@ -104,3 +104,38 @@ Para replicar exatamente a funcionalidade orgânica produzida aqui acima, não c
   - Para **Ajustes de Valor**: Crie uma transação com categoria `"Ajuste de Reconciliação"` para cobrir a diferença matemática. O saldo (`balance`) será ajustado via transação atômica associada à criação do lançamento.
   - Para **Sincronização de Cache**: Se o saldo gravado no documento da conta divergir da soma real (Transações Pagas + Saldo Inicial), utilize a ferramenta "Sincronizar Saldo" no modal de Diagnóstico para realinhar o cache sem gerar transações (pois os lançamentos já estão corretos).
   - Nunca utilize scripts automáticos/silenciosos de auto-healing para sobrescrever o saldo salvo sem consentimento explícito e ação do usuário, sob risco de corromper ajustes legítimos.
+
+6. **Função Central de Cálculo de Efeito de Saldo (`getTransactionEffect`)**:
+  Toda lógica que precise calcular quanto uma transação afeta o saldo de uma conta **deve** usar `getTransactionEffect(tx, accountId)` de `src/lib/utils.ts`. Nunca reimplemente localmente.
+  - Suporta tipos em português (`receita`, `despesa`, `transferencia`) e inglês (`income`, `expense`, `transfer`).
+  - Para transferências, retorna o sinal correto conforme a perspectiva da conta (débito na origem, crédito no destino).
+  - Retorna `0` para transações de cartão de crédito (que não afetam saldo bancário diretamente).
+  - Fórmula canônica do saldo: `account.balance = initialBalance + Σ getTransactionEffect(tx, accountId)` para `tx` com status `pago` / `realizado` / `paid`.
+
+7. **Campo `initialBalance` nas Contas**:
+  - Obrigatório desde 2026-06-03. Deve ser definido na criação da conta e nunca alterado manualmente.
+  - O botão "Zerar Conta" (handleReset) salva `initialBalance: 0` automaticamente.
+  - O botão "Sincronizar" no modal de Diagnóstico também salva `initialBalance: 0` se o campo estiver ausente (legado).
+  - Contas sem `initialBalance` são sinalizadas com aviso âmbar no modal de Diagnóstico.
+
+---
+
+## 5. Histórico de Alterações
+
+### 2026-06-18 — Correções Sistêmicas de Saldo
+
+**Contexto**: Auditoria completa da lógica de cálculo de saldo revelou 5 bugs ativos com impacto direto nos valores exibidos nas contas bancárias. Os bugs eram resultado de acumulação histórica de correções parciais e implementações divergentes da mesma lógica em múltiplos arquivos.
+
+**Arquivos alterados**:
+
+- **`src/lib/utils.ts`** — Adicionada função `getTransactionEffect(tx, accountId)`: fonte única de verdade para cálculo de efeito de transação no saldo. Bilíngue (pt/en) e direction-aware para transferências.
+
+- **`src/components/TransactionDialog.tsx`** — `getBalanceChange()` passou a reconhecer `'income'` além de `'receita'`. Bug anterior: receitas importadas via OFX com tipo em inglês eram tratadas como despesa (`-amount` em vez de `+amount`).
+
+- **`src/pages/Transactions.tsx`** — DELETE de séries: adicionado guard `if (paidTx.creditCardId) continue` — transações de cartão de crédito nunca afetam `account.balance`, portanto não devem ter saldo revertido ao serem excluídas.
+
+- **`src/pages/Accounts.tsx`** — Três correções:
+  1. `handleReset()` reescrito com `getDoc()` paralelo para leitura fresca do Firestore (eliminado race condition onde saldos de contas vizinhas eram calculados com estado React desatualizado). Ao zerar, agora salva `initialBalance: 0`.
+  2. `diagnoseBalance()` detecta e sinaliza `initialBalance` ausente com flag `initialBalanceMissing`.
+  3. UI do diagnóstico exibe aviso âmbar quando `initialBalance` está ausente e orienta o usuário a usar Ajustar Saldo após sincronizar. Botão Sincronizar também persiste `initialBalance: 0` quando ausente.
+

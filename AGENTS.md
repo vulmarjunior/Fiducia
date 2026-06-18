@@ -61,7 +61,7 @@ src/
 │   ├── pdfInvoiceService.ts # Extração de PDF e Groq parsing
 │   ├── groqService.ts
 ├── lib/
-│   ├── utils.ts          # cn(), calculateInvoicePeriod(), isEffectivelyPaid(), isPeriodClosed(), formatCurrency(), parseLocalDate(), etc.
+│   ├── utils.ts          # cn(), calculateInvoicePeriod(), isEffectivelyPaid(), isPeriodClosed(), formatCurrency(), parseLocalDate(), getTransactionEffect(), etc.
 │   ├── ofxParser.ts
 │   ├── defaultCategories.ts
 │   └── categoryIcons.tsx
@@ -124,6 +124,8 @@ Cada coleção tem `userId` para isolamento por usuário.
 - **useMemo/useCallback**: Toda função chamada dentro deles deve ser declarada **antes** (risco de TDZ — ver `dev-log.md`).
 - **Navegação com edição**: Dashboard → Transactions via `navigate(path, { state: { editId } })`. Limpar com `window.history.replaceState`.
 - **Fontes**: Inter (sans), JetBrains Mono (mono).
+- **Cálculo de saldo**: Sempre usar `getTransactionEffect(tx, accountId)` de `@/lib/utils` para calcular o efeito de uma transação no saldo. Nunca reimplementar localmente. Fórmula canônica: `balance = initialBalance + Σ getTransactionEffect(tx, id)` apenas para tx com status `pago`/`realizado`/`paid`.
+- **Saldo de cartão de crédito**: Transações com `creditCardId` **não** afetam `account.balance`. Só a transferência de pagamento da fatura (da conta corrente) afeta.
 
 ## Padrões de UI
 
