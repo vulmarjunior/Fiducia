@@ -479,6 +479,9 @@ export function Transactions() {
       const paidTx = series.find(tx => isEffectivelyPaid(tx));
       if (!paidTx) continue;
 
+      // Cartão de crédito nunca afeta saldo bancário — ignorar
+      if (paidTx.creditCardId) continue;
+
       const isParcelado = paidTx.installmentNumber != null && paidTx.totalInstallments != null;
       // Parcelado: only installment 1 ever affected balance
       // Non-parcelado (recurring): only the first occurrence affected balance

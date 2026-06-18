@@ -177,7 +177,6 @@ export function Accounts() {
     setIsResetting(true);
     try {
       let batch = writeBatch(db);
-      const affectedAccounts: Record<string, number> = {};
       let opCount = 0;
       const MAX_BATCH = 450;
 
@@ -189,61 +188,71 @@ export function Accounts() {
         }
       };
 
-      const tQuery = query(
-        collection(db, 'transactions'),
-        where('userId', '==', user.uid),
-        where('accountId', '==', resetConfirmId)
-      );
-      const tSnap = await getDocs(tQuery);
-
-      const destQuery = query(
-        collection(db, 'transactions'),
-        where('userId', '==', user.uid),
-        where('destinationAccountId', '==', resetConfirmId)
-      );
-      const destSnap = await getDocs(destQuery);
+      // 1. Lê todas as transações desta conta (origem e destino)
+      const [tSnap, destSnap] = await Promise.all([
+        getDocs(query(
+          collection(db, 'transactions'),
+          where('userId', '==', user.uid),
+          where('accountId', '==', resetConfirmId)
+        )),
+        getDocs(query(
+          collection(db, 'transactions'),
+          where('userId', '==', user.uid),
+          where('destinationAccountId', '==', resetConfirmId)
+        ))
+      ]);
 
       const allDocs = [...tSnap.docs, ...destSnap.docs];
       const seenIds = new Set<string>();
+      const accountBalanceChanges: Record<string, number> = {};
 
+      // 2. Calcula reversão de saldo para contas afetadas por transferências
       for (const docSnap of allDocs) {
         if (seenIds.has(docSnap.id)) continue;
         seenIds.add(docSnap.id);
         const data = docSnap.data();
 
-        if (data.type === 'transferencia' && isEffectivelyPaid(data)) {
+        if ((data.type === 'transferencia' || data.type === 'transfer') && isEffectivelyPaid(data)) {
           if (data.accountId === resetConfirmId && data.destinationAccountId) {
+            // Esta conta era origem: reverter o crédito dado ao destino
             const destId = data.destinationAccountId;
-            affectedAccounts[destId] = (affectedAccounts[destId] || 0) - data.amount;
+            accountBalanceChanges[destId] = (accountBalanceChanges[destId] || 0) - data.amount;
           }
           if (data.destinationAccountId === resetConfirmId && data.accountId) {
+            // Esta conta era destino: reverter o débito feito na origem
             const srcId = data.accountId;
-            affectedAccounts[srcId] = (affectedAccounts[srcId] || 0) + data.amount;
+            accountBalanceChanges[srcId] = (accountBalanceChanges[srcId] || 0) + data.amount;
           }
         }
+      }
 
+      // 3. Lê saldos FRESCOS do Firestore para contas afetadas (evita race condition)
+      const freshBalances: Record<string, number> = {};
+      await Promise.all(
+        Object.keys(accountBalanceChanges).map(async (accId) => {
+          const snap = await getDoc(doc(db, 'accounts', accId));
+          if (snap.exists()) freshBalances[accId] = snap.data().balance || 0;
+        })
+      );
+
+      // 4. Enfileira deleção de todas as transações
+      const uniqueDocs = allDocs.filter((d, idx, arr) => arr.findIndex(x => x.id === d.id) === idx);
+      for (const docSnap of uniqueDocs) {
         batch.delete(docSnap.ref);
         opCount++;
-
-        if (opCount >= MAX_BATCH) {
-          await commitBatch();
-        }
+        if (opCount >= MAX_BATCH) await commitBatch();
       }
 
-      for (const [accId, change] of Object.entries(affectedAccounts)) {
-        const accRef = doc(db, 'accounts', accId);
-        const acc = accounts.find(a => a.id === accId);
-        if (acc) {
-          batch.update(accRef, { balance: (acc.balance || 0) + change });
-          opCount++;
-          if (opCount >= MAX_BATCH) {
-            await commitBatch();
-          }
-        }
+      // 5. Atualiza saldos de contas afetadas com valores frescos
+      for (const [accId, change] of Object.entries(accountBalanceChanges)) {
+        if (change === 0 || freshBalances[accId] === undefined) continue;
+        batch.update(doc(db, 'accounts', accId), { balance: freshBalances[accId] + change });
+        opCount++;
+        if (opCount >= MAX_BATCH) await commitBatch();
       }
 
-      const accountRef = doc(db, 'accounts', resetConfirmId);
-      batch.update(accountRef, { balance: 0 });
+      // 6. Zera esta conta e garante que initialBalance seja 0
+      batch.update(doc(db, 'accounts', resetConfirmId), { balance: 0, initialBalance: 0 });
       opCount++;
 
       await commitBatch();
@@ -421,19 +430,21 @@ export function Accounts() {
       };
 
       const paidItems = paid.map(t => ({ date: t.date?.split('T')[0], description: t.description, amount: t.amount, type: t.type, effect: calcEffect(t), status: t.status }));
-      const paidTotal = paidItems.reduce((s, t) => s + t.effect, 0);
-      const initial = accData.initialBalance ?? 0;
-      const expected = initial + paidTotal;
+      const paidTotal = paid.reduce((s, t) => s + calcEffect(t), 0);
+      const initial = accData.initialBalance;
+      const initialBalance = initial ?? 0;
+      const mathBalance = initialBalance + paidTotal;
 
       setDiagnoseData({
         accountId,
         accountName: accData.name || accountId,
         firestoreBalance: accData.balance,
-        initialBalance: initial,
+        initialBalance: initialBalance,
+        initialBalanceMissing: initial === undefined || initial === null,
         paidTransactions: paidItems,
         paidTotal,
-        expectedBalance: expected,
-        difference: accData.balance - expected,
+        expectedBalance: mathBalance,
+        difference: accData.balance - mathBalance,
         pendingCount: pending.length,
       });
     } catch (error) {
@@ -825,6 +836,13 @@ export function Accounts() {
                   + {diagnoseData.pendingCount} lançamento(s) pendente(s) nesta conta (não afetam o saldo)
                 </div>
               )}
+
+              {diagnoseData.initialBalanceMissing && (
+                <div className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+                  ⚠️ <strong>Saldo inicial não registrado.</strong> O cálculo usa R$ 0,00 como base.
+                  Após sincronizar, use <strong>Ajustar Saldo</strong> se o saldo ainda não bater com o extrato.
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
@@ -832,7 +850,12 @@ export function Accounts() {
               <Button 
                 onClick={async () => {
                   try {
-                    await updateDoc(doc(db, 'accounts', diagnoseData.accountId), { balance: diagnoseData.expectedBalance });
+                    const updatePayload: any = { balance: diagnoseData.expectedBalance };
+                    // Se initialBalance estava ausente, registra agora para reconstruções futuras
+                    if (diagnoseData.initialBalanceMissing) {
+                      updatePayload.initialBalance = 0;
+                    }
+                    await updateDoc(doc(db, 'accounts', diagnoseData.accountId), updatePayload);
                     toast.success('Saldo sincronizado com sucesso!');
                     setDiagnoseData(null);
                   } catch (e) {

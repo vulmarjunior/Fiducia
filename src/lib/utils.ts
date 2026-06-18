@@ -109,3 +109,22 @@ export function isPeriodClosed(
 export function formatCurrency(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
+/**
+ * Calcula o efeito líquido de uma transação no saldo de uma conta específica.
+ * Suporta tipos em português ('receita','despesa','transferencia') e inglês ('income','expense','transfer').
+ * Retorna valor positivo para crédito, negativo para débito, 0 para irrelevante.
+ */
+export function getTransactionEffect(
+  tx: { type: string; amount: number; accountId?: string; destinationAccountId?: string },
+  perspectiveAccountId: string
+): number {
+  const t = tx.type;
+  if (t === 'receita' || t === 'income') return tx.amount;
+  if (t === 'despesa' || t === 'expense') return -tx.amount;
+  if (t === 'transferencia' || t === 'transfer') {
+    if (tx.accountId === perspectiveAccountId) return -tx.amount;   // saindo
+    if (tx.destinationAccountId === perspectiveAccountId) return tx.amount; // entrando
+  }
+  return 0;
+}

@@ -21,7 +21,7 @@ import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 const now = new Date();
 const currentDateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
 const getBalanceChange = (type: string, amount: number) => {
-  return type === 'receita' ? amount : -amount;
+  return (type === 'receita' || type === 'income') ? amount : -amount;
 };
 
 function computeInstallmentParts(total: number, count: number) {

@@ -503,9 +503,20 @@
 - **Contexto**: Um script de auto-healing automático na tela de Lançamentos tentava ajustar silenciosamente o saldo das contas caso detectasse divergências. Isso acabava limpando e distorcendo os saldos ajustados manualmente pelos usuários.
 - **Solução**: O script silencioso foi removido completamente de `Transactions.tsx`. Agora, ajustes são feitos de forma explícita pelo usuário via transações de reconciliação ou sincronização manual do cache de saldo no modal de Diagnóstico.
 
+### Correções de Saldo — Auditoria Sistêmica
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-18
+- **Contexto**: Diagnóstico revelou acumulação histórica de bugs nos saldos das contas bancárias. 4 implementações divergentes de `calcEffect` espalhadas pelo código. `getBalanceChange` não reconhecia tipos em inglês (`income`/`expense`). DELETE de séries de cartão tentava reverter saldo bancário (cartão nunca afeta saldo). `handleReset` usava estado React stale para calcular ajuste de contas vizinhas.
+- **Correções implementadas**:
+  1. **`lib/utils.ts`** — Nova função `getTransactionEffect(tx, accountId)`: bilíngue, direction-aware para transferências. Fonte única de verdade para calcular efeito de transação no saldo.
+  2. **`TransactionDialog.tsx`** — `getBalanceChange` agora aceita `'income'` além de `'receita'`. Corrige importações OFX com tipos em inglês que eram tratadas como despesa.
+  3. **`Transactions.tsx`** — DELETE de séries: adicionado guard `if (paidTx.creditCardId) continue;` — transações de cartão de crédito não afetam saldo bancário.
+  4. **`Accounts.tsx`** — `handleReset` reescrito: usa `getDoc` para ler saldos frescos do Firestore antes do batch (elimina race condition com estado React stale). Ao zerar, salva `initialBalance: 0` na conta.
+  5. **`Accounts.tsx`** — `diagnoseBalance` detecta e sinaliza `initialBalance` ausente. UI exibe aviso âmbar com orientação para usar Ajustar Saldo. Botão "Sincronizar" também salva `initialBalance: 0` quando ausente.
+
 ---
 
-## 💡 Padrões Descobertos
+
 
 ### Navegação com state + edição automática
 - **Data**: 2026-05-26
