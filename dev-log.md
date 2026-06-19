@@ -559,7 +559,15 @@
 - **Data**: 2026-05-28
 - **Observação**: Pagamento de fatura continua aparecendo no Transactions (é uma saída da conta corrente). O ícone deve ser de pagamento, não de transferência genérica.
 
-### Proibição de Edição Direta de Saldo
+### `accountId` ausente no `updateData` do EDIT (TransactionDialog)
+- **Status**: 🔄 Corrigido
+- **Data**: 2026-06-19
+- **Problema**: Ao editar um lançamento e trocar a conta, o sistema exibia toast de sucesso mas a conta não mudava no Firestore. A lógica de reversão/aplicação de saldo funcionava corretamente — revertia da conta antiga e aplicava na nova — mas o campo `accountId` não estava incluído no objeto `updateData` que era escrito no documento da transação. O mesmo problema afetava `destinationAccountId` em transferências.
+- **Causa**: O `updateData` na linha 745 de `TransactionDialog.tsx` listava todos os campos editáveis *exceto* `accountId` e `destinationAccountId`.
+- **Correção**: Adicionado `accountId: formData.accountId` ao `updateData` e, para transferências, `destinationAccountId: formData.destinationAccountId`.
+
+---
+
 - **Escolha**: O saldo de uma conta (`balance`) não pode ser alterado de maneira arbitrária ou por rotinas silenciosas em segundo plano. Toda e qualquer alteração de saldo requer consentimento e registro via transação de reconciliação ou sincronização explícita do cache.
 - **Data**: 2026-06-15
 - **Impacto**: Impede a perda de dados históricos inseridos manualmente pelo usuário e garante consistência matemática contínua.

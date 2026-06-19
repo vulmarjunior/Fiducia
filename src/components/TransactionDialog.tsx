@@ -747,6 +747,7 @@ export function TransactionDialog() {
         amount,
         description: formData.description,
         date: dateToLocalISOString(formData.date),
+        accountId: formData.accountId,
         categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
         status: isCreditCard ? 'realizado' : formData.status,
         tags: formData.tagIds.length > 0 ? formData.tagIds : [],
@@ -756,6 +757,8 @@ export function TransactionDialog() {
 
       if (formData.type !== 'transferencia') {
         updateData.categoryId = formData.categoryId;
+      } else {
+        updateData.destinationAccountId = formData.destinationAccountId || null;
       }
 
       if (isCreditCard && card) {
