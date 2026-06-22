@@ -1106,30 +1106,30 @@ export function CreditCards() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                        <List className="w-3.5 h-3.5" /> Lançamentos
-                      </h4>
-                      {isPaid ? (
-                        <Badge className="bg-fiducia-green/10 text-fiducia-green border-fiducia-green/20 hover:bg-fiducia-green/20">Fatura Paga</Badge>
-                      ) : isClosed ? (
-                        <Badge className="bg-fiducia-red/10 text-fiducia-red border-fiducia-red/20 hover:bg-fiducia-red/20">Fatura Fechada</Badge>
-                      ) : (
-                        <Badge className="bg-fiducia-blue/10 text-fiducia-blue border-fiducia-blue/20 hover:bg-fiducia-blue/20">Fatura Aberta</Badge>
-                      )}
-                      {(!invoice || invoice.status === 'aberta') && totalInvoice > 0 && (
-                        <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleCloseInvoice}>
-                          <Lock className="h-3 w-3" /> FECHAR FATURA
-                        </Button>
-                      )}
-                      {invoice && (invoice.status === 'fechada' || invoice.status === 'paga') && (
-                        <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={handleReopenInvoice}>
-                          <RefreshCcw className="h-3 w-3" /> REABRIR FATURA
-                        </Button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap justify-between items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                          <List className="w-3.5 h-3.5" /> Lançamentos
+                        </h4>
+                        {isPaid ? (
+                          <Badge className="bg-fiducia-green/10 text-fiducia-green border-fiducia-green/20 hover:bg-fiducia-green/20">Fatura Paga</Badge>
+                        ) : isClosed ? (
+                          <Badge className="bg-fiducia-red/10 text-fiducia-red border-fiducia-red/20 hover:bg-fiducia-red/20">Fatura Fechada</Badge>
+                        ) : (
+                          <Badge className="bg-fiducia-blue/10 text-fiducia-blue border-fiducia-blue/20 hover:bg-fiducia-blue/20">Fatura Aberta</Badge>
+                        )}
+                        {(!invoice || invoice.status === 'aberta') && totalInvoice > 0 && (
+                          <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleCloseInvoice}>
+                            <Lock className="h-3 w-3" /> FECHAR FATURA
+                          </Button>
+                        )}
+                        {invoice && (invoice.status === 'fechada' || invoice.status === 'paga') && (
+                          <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={handleReopenInvoice}>
+                            <RefreshCcw className="h-3 w-3" /> REABRIR FATURA
+                          </Button>
+                        )}
+                      </div>
                       <div className="flex items-center bg-secondary/30 rounded-lg border p-0.5">
                         <Button
                           variant={invoiceViewMode === 'organized' ? 'default' : 'ghost'}
@@ -1148,15 +1148,15 @@ export function CreditCards() {
                           <Clock className="w-3 h-3" /> Cronológico
                         </Button>
                       </div>
-                      <div className="relative w-48">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                          placeholder="Buscar lançamento..." 
-                          className="pl-9 h-9 text-xs"
-                          value={invoiceSearchTerm}
-                          onChange={(e) => setInvoiceSearchTerm(e.target.value)}
-                        />
-                      </div>
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Buscar lançamento..." 
+                        className="pl-9 h-9 text-xs w-full"
+                        value={invoiceSearchTerm}
+                        onChange={(e) => setInvoiceSearchTerm(e.target.value)}
+                      />
                     </div>
                   </div>
 
@@ -1407,25 +1407,79 @@ export function CreditCards() {
                   )}
                   
                   {(() => {
-                    const futureInstallments = transactions
-                      .filter(t => t.accountId === selectedCardForInvoice.id && t.installmentNumber && t.totalInstallments && t.invoicePeriod > currentPeriod && (t.status === 'pendente' || t.status === 'pending'))
-                      .reduce<Record<string, number>>((acc, t) => {
-                        acc[t.invoicePeriod] = (acc[t.invoicePeriod] || 0) + t.amount;
-                        return acc;
-                      }, {});
-                    const futurePeriods = Object.entries(futureInstallments).sort(([a], [b]) => a.localeCompare(b));
-                    if (futurePeriods.length === 0) return null;
+                    const futureTxs = transactions
+                      .filter(t =>
+                        t.accountId === selectedCardForInvoice.id &&
+                        t.installmentNumber &&
+                        t.totalInstallments &&
+                        t.invoicePeriod > currentPeriod &&
+                        (t.status === 'pendente' || t.status === 'pending')
+                      )
+                      .sort((a, b) => {
+                        const pa = a.invoicePeriod.localeCompare(b.invoicePeriod);
+                        if (pa !== 0) return pa;
+                        const da = (a.postingDate || a.date).localeCompare(b.postingDate || b.date);
+                        if (da !== 0) return da;
+                        return (a.installmentNumber || 0) - (b.installmentNumber || 0);
+                      });
+
+                    if (futureTxs.length === 0) return null;
+
+                    const groupedByPeriod: Record<string, any[]> = {};
+                    for (const ft of futureTxs) {
+                      if (!groupedByPeriod[ft.invoicePeriod]) groupedByPeriod[ft.invoicePeriod] = [];
+                      groupedByPeriod[ft.invoicePeriod].push(ft);
+                    }
+                    const sortedPeriods = Object.keys(groupedByPeriod).sort();
+
+                    const grandTotal = futureTxs.reduce((sum, ft) => sum + ft.amount, 0);
+
                     return (
-                      <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 p-4">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Comprometimento Futuro (Parcelas)</p>
-                        <div className="space-y-1">
-                          {futurePeriods.slice(0, 5).map(([period, amount]) => {
+                      <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-amber-200/50 dark:border-amber-800/50 flex justify-between items-center">
+                          <div>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Comprometimento Futuro</p>
+                            <p className="text-[9px] text-muted-foreground mt-0.5">
+                              {futureTxs.length} parcela{futureTxs.length > 1 ? 's' : ''} em {sortedPeriods.length} fatura{sortedPeriods.length > 1 ? 's' : ''} futura{sortedPeriods.length > 1 ? 's' : ''} — aparecerão como Parcelamentos Anteriores
+                            </p>
+                          </div>
+                          <span className="font-mono font-black text-sm text-fiducia-amber">R$ {grandTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="divide-y divide-amber-200/30 dark:divide-amber-800/30">
+                          {sortedPeriods.map(period => {
+                            const periodTxs = groupedByPeriod[period];
                             const [y, m] = period.split('-').map(Number);
                             const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                            const periodTotal = periodTxs.reduce((sum, ft) => sum + ft.amount, 0);
+
                             return (
-                              <div key={period} className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground capitalize">{label}</span>
-                                <span className="font-mono font-bold text-fiducia-amber">R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <div key={period} className="px-4 py-2.5">
+                                <div className="flex justify-between items-center mb-1.5">
+                                  <span className="text-xs font-black text-muted-foreground capitalize">{label}</span>
+                                  <span className="text-[10px] font-mono font-bold text-fiducia-amber">R$ {periodTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="space-y-1">
+                                  {periodTxs.map(ft => (
+                                    <div key={ft.id} className="flex items-center justify-between text-[11px] pl-3 border-l-2 border-amber-300/40 dark:border-amber-700/40">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="truncate text-secondary-foreground">
+                                          {ft.description.replace(/\s*\(\d+\/\d+\)\s*$/, '')}
+                                        </span>
+                                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1 rounded shrink-0">
+                                          {ft.installmentNumber}/{ft.totalInstallments}
+                                        </span>
+                                        {ft.postingDate && (
+                                          <span className="text-[9px] text-muted-foreground/60 shrink-0 hidden sm:inline">
+                                            {parseLocalDate(ft.postingDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="font-mono font-bold text-muted-foreground shrink-0 ml-2">
+                                        R$ {ft.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             );
                           })}
