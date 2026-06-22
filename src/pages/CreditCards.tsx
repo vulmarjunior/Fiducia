@@ -695,6 +695,7 @@ export function CreditCards() {
 
   const classifyInvoiceTransaction = (t: any, cardId: string, currentPeriod: string) => {
     if ((t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === cardId) return 'PAGAMENTOS_AJUSTES';
+    if ((t.type === 'transfer' || t.type === 'transferencia') && t.accountId === cardId) return 'OUTROS_DEBITOS';
     if ((t.type === 'income' || t.type === 'receita') && t.accountId === cardId) return 'CREDITOS_ESTORNOS';
     if (t.installmentNumber && t.installmentNumber >= 2) return 'PARCELAMENTOS_ANTERIORES';
     return 'COMPRAS_DO_PERIODO';
