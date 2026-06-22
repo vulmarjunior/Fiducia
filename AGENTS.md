@@ -2,6 +2,68 @@
 
 > Documento de referência rápida sobre o projeto. Complementa o `dev-log.md` (descobertas técnicas) e o `docs/LOGICA_DO_SISTEMA.md` (arquitetura detalhada).
 > **Importante**: Pastas `fontes/fiducia1/` e `fontes/fidúcia2/` são versões antigas descartadas. Ignorar para desenvolvimento.
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
+## Inicialização Obrigatória
+
+Antes de qualquer análise ou alteração:
+
+1. Leia integralmente `docs/MASTER_PLAN.md`.
+2. Leia integralmente `docs/pendencias_dev.md`.
+3. Não prossiga sem compreender a versão, a pauta ativa e o estado atual.
+
+---
+
+## Protocolo de Documentação (4 Camadas)
+
+Este projeto segue um protocolo permanente de memória e registro. Consulte a camada correta conforme o tipo de informação:
+
+| Camada | Arquivo | Função |
+|--------|---------|--------|
+| **Estratégica** | `docs/MASTER_PLAN.md` | Versão atual, estado do projeto, entregas, backlog, riscos, decisões arquiteturais |
+| **Efêmera** | `docs/pendencias_dev.md` | Objetivo da sessão atual, escopo, plano, decisões, arquivos tocados, validações |
+| **Histórica** | `CHANGELOG.md` | Releases por versão/data, resultado para o usuário, alterações técnicas, correções |
+| **Arquivo** | `docs/archive/sessions/` | Sessões concluídas (conteúdo transferido de `pendencias_dev.md`) |
+
+### Regra de ouro
+
+- Nunca duplique informação entre camadas. Use resumos e referências.
+- Estratégia → MASTER_PLAN. Execução atual → pendencias_dev. Releases → CHANGELOG. Sessões encerradas → archive.
+
+### Protocolo de Início de Sessão
+
+1. Ler `docs/MASTER_PLAN.md`
+2. Ler `docs/pendencias_dev.md`
+3. Conferir `CHANGELOG.md`, `package.json` e `git log --oneline -20`
+4. Identificar: versão documentada vs código, pauta ativa, conflitos com plano mestre
+5. Se a solicitação conflitar com o plano, parar e pedir autorização
+6. Nunca repetir trabalho já registrado sem verificar estado real do código
+
+### Protocolo de Encerramento de Sessão
+
+1. Atualizar `CHANGELOG.md` (se houve entrega)
+2. Atualizar versão em `package.json` (se aplicável, conforme SemVer)
+3. Atualizar `docs/MASTER_PLAN.md`
+4. Atualizar documentação arquitetural (se nova regra duradoura)
+5. Registrar em `pendencias_dev.md`: resultado, arquivos, validações, pendências
+6. Transferir sessão concluída para `docs/archive/sessions/YYYY-MM-DD-descricao.md`
+7. Limpar `pendencias_dev.md` (deixar template vazio ou próxima pauta)
+8. Conferir consistência: versão em todos os pontos oficiais
+9. Apresentar resumo: resultado, versão, validações, pendências, próximo passo
+
+### Versionamento (SemVer)
+
+- **PATCH**: correção sem mudança incompatível
+- **MINOR**: funcionalidade nova retrocompatível
+- **MAJOR**: mudança incompatível ou estrutural
+- **Não incrementar** para análise, documentação ou trabalho incompleto
+
+### Assinatura Obrigatória
+
+Toda documentação oficial alterada deve conter:
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
 
 ---
 

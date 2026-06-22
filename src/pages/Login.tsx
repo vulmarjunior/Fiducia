@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Logo } from '../components/Logo';
+import { APP_VERSION } from '../lib/utils';
 
 export function Login() {
   const { login } = useAuth();
@@ -53,6 +54,9 @@ export function Login() {
             <button type="button" className="underline underline-offset-2 hover:text-foreground transition-colors">Termos de Serviço</button>{' '}
             e{' '}
             <button type="button" className="underline underline-offset-2 hover:text-foreground transition-colors">Política de Privacidade</button>.
+          </p>
+          <p className="mt-3 text-center text-xs text-muted-foreground/60">
+            v{APP_VERSION}
           </p>
         </CardContent>
       </Card>

@@ -2,7 +2,7 @@
 
 > Documentação viva de descobertas técnicas. Atualizada automaticamente durante o desenvolvimento.
 > **Stack**: Firebase, Firestore, TypeScript, React 19, Tailwind CSS 4, Shadcn/UI
-> **Última atualização**: 2026-06-04
+> **Última atualização**: 2026-06-22
 
 ---
 
@@ -467,10 +467,25 @@
 - **Solução**: Novo bloco `becameRecurring` no `handleEditSubmit` com early return (mesmo padrão da conversão avulso→parcelado). Original vira 1ª ocorrência da série (`parentId`, `isRecurring`, `frequency`). Cria N−1 instâncias futuras com status `pendente`. Ajusta saldo (reverte efeito antigo, aplica novo). Usa `getRecurrenceParams` para avanço de data conforme frequência escolhida. Funciona para conta corrente (não cartão).
 
 ### Cartão de Crédito — comprometimento futuro
-- **Status**: ✅ Implementado
+- **Status**: ✅ Implementado (melhorado em 2026-06-22)
 - **Data**: 2026-06-04
 - **Contexto**: Usuário não tinha visibilidade das parcelas futuras já comprometidas em próximas faturas.
-- **Solução**: Seção "Comprometimento Futuro (Parcelas)" no modal de fatura, mostrando até 5 períodos futuros com a soma das parcelas pendentes.
+- **Solução**: Seção "Comprometimento Futuro" no modal de fatura. **Atualizado em 2026-06-22** para exibir parcelas individuais agrupadas por competência (mês/ano), com descrição, badge `N/T`, `postingDate` e subtotal por período + total geral. Indica que as parcelas aparecerão como "Parcelamentos Anteriores" nas faturas futuras.
+
+### Fatura de Cartão — Organização por Grupos e Modos de Visualização
+- **Status**: ✅ Implementado
+- **Data**: 2026-06-22
+- **Contexto**: Parcelas de compras de ciclos anteriores eram misturadas indiscriminadamente às compras do ciclo atual. A data original da compra era usada como data de lançamento das parcelas futuras, fazendo-as aparecer como novas compras.
+- **Solução**:
+  - **3 novos campos em Transaction** (`types/index.ts:87-89`): `originalPurchaseDate`, `postingDate`, `isSystemGeneratedDate` para distinguir a data da compra original da data de lançamento da parcela na fatura.
+  - **Classificação automática** (`classifyInvoiceTransaction`): `PARCELAMENTOS_ANTERIORES` (parcelas 2+), `COMPRAS_DO_PERIODO` (à vista + 1ª parcela), `CREDITOS_ESTORNOS`, `PAGAMENTOS_AJUSTES`, `OUTROS_DEBITOS`.
+  - **5 grupos visuais** com subtotais, ordenação específica por grupo (parcelamentos por `postingDate`+descrição+parcela, compras por data real).
+  - **2 modos de visualização**: Organizado (grupos, padrão) e Cronológico (tabela plana por `postingDate`).
+  - **Exibição de parcelas**: badge `Parcela N/T`, data original como referência secundária, indicação `(data estimada)` para datas geradas pelo sistema.
+  - **Criação/conversão de parcelamentos** (`TransactionDialog.tsx`): define `originalPurchaseDate` = data da compra em todas as parcelas, `postingDate` = data da parcela, `isSystemGeneratedDate: true` nas parcelas 2+.
+  - **PDF Import** atualizado para preencher os novos campos.
+  - **handleMoveInvoice** atualiza `postingDate` ao mover parcelas entre faturas.
+- **Arquivos modificados**: `src/types/index.ts`, `src/components/TransactionDialog.tsx`, `src/pages/CreditCards.tsx`.
 
 ### Reports — seletor de período completo e projeção de caixa
 - **Status**: ✅ Implementado
@@ -539,6 +554,13 @@
 - **Data**: 2026-06-15
 - **Padrão**: Qualquer alteração no saldo real de uma conta deve ser justificada por uma transação de reconciliação (categoria `"Ajuste de Reconciliação"`). Nunca altere o saldo (`balance`) de uma conta de forma isolada, exceto para fins de sincronismo do cache com as transações já existentes.
 
+### Classificação de Transações de Fatura — 5 Grupos
+- **Data**: 2026-06-22
+- **Regra**: Use `classifyInvoiceTransaction(t, cardId, currentPeriod)` para classificar transações nos 5 grupos da fatura.
+- **Aplica-se a**: `CreditCards.tsx` — modal de detalhamento de fatura.
+- **Código de referência**: `src/pages/CreditCards.tsx:697-703` — a função verifica em ordem: pagamentos (transfer→card), débitos (transfer←card), créditos (income no card), parcelamentos anteriores (installmentNumber ≥ 2), compras do período (default).
+- **Fonte**: Decisão de design para separar visualmente parcelas de ciclos anteriores das compras do ciclo atual.
+
 ---
 
 ## 📋 Decisões de Arquitetura
@@ -559,7 +581,10 @@
 - **Data**: 2026-05-28
 - **Observação**: Pagamento de fatura continua aparecendo no Transactions (é uma saída da conta corrente). O ícone deve ser de pagamento, não de transferência genérica.
 
-### `accountId` ausente no `updateData` do EDIT (TransactionDialog)
+### Campos `originalPurchaseDate` e `postingDate` em Transaction
+- **Escolha**: Adicionar campos opcionais `originalPurchaseDate`, `postingDate` e `isSystemGeneratedDate` ao tipo Transaction para separar a data da compra original da data de lançamento da parcela na fatura. O campo `date` continua servindo como referência contábil (para cálculo de invoice period e ordenação de balanço), enquanto `postingDate` é usado para exibição e ordenação na fatura. `isSystemGeneratedDate` marca parcelas futuras cuja data de lançamento foi estimada pelo sistema.
+- **Alternativas rejeitadas**: (1) Criar uma coleção separada "purchases" — complexidade desnecessária, duplicação de dados. (2) Usar `date` tanto para compra quanto para lançamento — a data original seria sobrescrita, poluindo a rastreabilidade contábil.
+- **Data**: 2026-06-22
 - **Status**: 🔄 Corrigido
 - **Data**: 2026-06-19
 - **Problema**: Ao editar um lançamento e trocar a conta, o sistema exibia toast de sucesso mas a conta não mudava no Firestore. A lógica de reversão/aplicação de saldo funcionava corretamente — revertia da conta antiga e aplicava na nova — mas o campo `accountId` não estava incluído no objeto `updateData` que era escrito no documento da transação. O mesmo problema afetava `destinationAccountId` em transferências.

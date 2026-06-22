@@ -7,6 +7,7 @@ import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
 import { useState, useEffect } from 'react';
 import { Logo } from './Logo';
+import { APP_VERSION } from '../lib/utils';
 
 export function Layout() {
   const { logout, user } = useAuth();
@@ -184,6 +185,9 @@ export function Layout() {
             </div>
             <LogOut className="w-4 h-4 text-muted-foreground group-hover:text-fiducia-red transition-colors" />
           </div>
+          <p className="text-center text-[10px] text-muted-foreground/50 font-mono">
+            Fiducia v{APP_VERSION}
+          </p>
         </div>
       </aside>
 
