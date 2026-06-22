@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock, Layers, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed } from '../lib/utils';
@@ -54,6 +54,7 @@ export function CreditCards() {
   const [txToDelete, setTxToDelete] = useState<any>(null);
   const [deleteScope, setDeleteScope] = useState('only');
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
+  const [invoiceViewMode, setInvoiceViewMode] = useState<'organized' | 'chronological'>('organized');
 
   // PDF Import state
   const [isPdfReviewOpen, setIsPdfReviewOpen] = useState(false);
@@ -358,6 +359,7 @@ export function CreditCards() {
 
       await updateDoc(doc(db, 'transactions', tx.id), {
         invoicePeriod: newInvoicePeriod,
+        ...(tx.installmentNumber && tx.installmentNumber >= 2 ? { postingDate: dateToLocalISOString(`${year}-${month.toString().padStart(2, '0')}-01`) } : {}),
         updatedAt: new Date().toISOString()
       });
 
@@ -575,11 +577,12 @@ export function CreditCards() {
 
         // Transação principal (a que está na fatura atual)
         const txRef = doc(collection(db, 'transactions'));
+        const origDateIso = dateToLocalISOString(tx.date);
         batch.set(txRef, {
           userId: user.uid,
           type: tx.type,
           amount: tx.amount,
-          date: dateToLocalISOString(tx.date),
+          date: origDateIso,
           description: tx.description + (tx.installmentInfo ? ` (${tx.installmentInfo})` : ''),
           creditCardId: selectedCardForInvoice.id,
           accountId: selectedCardForInvoice.id,
@@ -591,6 +594,8 @@ export function CreditCards() {
             parentId,
             installmentNumber: mainInstallmentNumber,
             totalInstallments: mainTotalInstallments,
+            originalPurchaseDate: origDateIso,
+            postingDate: origDateIso,
           }),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -614,13 +619,14 @@ export function CreditCards() {
                 selectedCardForInvoice.dueDay
               );
               const futureInstallment = mainInstallmentNumber + i;
+              const postingDateIso = dateToLocalISOString(futureDateStr);
 
               const futureRef = doc(collection(db, 'transactions'));
               batch.set(futureRef, {
                 userId: user.uid,
                 type: tx.type,
                 amount: tx.amount,
-                date: dateToLocalISOString(futureDateStr),
+                date: postingDateIso,
                 description: `${tx.description} (${futureInstallment}/${mainTotalInstallments})`,
                 creditCardId: selectedCardForInvoice.id,
                 accountId: selectedCardForInvoice.id,
@@ -631,6 +637,9 @@ export function CreditCards() {
                 parentId,
                 installmentNumber: futureInstallment,
                 totalInstallments: mainTotalInstallments,
+                originalPurchaseDate: origDateIso,
+                postingDate: postingDateIso,
+                isSystemGeneratedDate: true,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
               });
@@ -682,6 +691,13 @@ export function CreditCards() {
     });
     setEditingId(card.id);
     setIsDialogOpen(true);
+  };
+
+  const classifyInvoiceTransaction = (t: any, cardId: string, currentPeriod: string) => {
+    if ((t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === cardId) return 'PAGAMENTOS_AJUSTES';
+    if ((t.type === 'income' || t.type === 'receita') && t.accountId === cardId) return 'CREDITOS_ESTORNOS';
+    if (t.installmentNumber && t.installmentNumber >= 2) return 'PARCELAMENTOS_ANTERIORES';
+    return 'COMPRAS_DO_PERIODO';
   };
 
   return (
@@ -1112,99 +1128,282 @@ export function CreditCards() {
                         </Button>
                       )}
                     </div>
-                    <div className="relative w-full md:w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        placeholder="Buscar lançamento..." 
-                        className="pl-9 h-9 text-xs"
-                        value={invoiceSearchTerm}
-                        onChange={(e) => setInvoiceSearchTerm(e.target.value)}
-                      />
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center bg-secondary/30 rounded-lg border p-0.5">
+                        <Button
+                          variant={invoiceViewMode === 'organized' ? 'default' : 'ghost'}
+                          size="sm"
+                          className={`h-7 text-[10px] font-bold gap-1 px-2 ${invoiceViewMode === 'organized' ? 'bg-white shadow-sm text-foreground hover:bg-white' : 'text-muted-foreground'}`}
+                          onClick={() => setInvoiceViewMode('organized')}
+                        >
+                          <Layers className="w-3 h-3" /> Organizado
+                        </Button>
+                        <Button
+                          variant={invoiceViewMode === 'chronological' ? 'default' : 'ghost'}
+                          size="sm"
+                          className={`h-7 text-[10px] font-bold gap-1 px-2 ${invoiceViewMode === 'chronological' ? 'bg-white shadow-sm text-foreground hover:bg-white' : 'text-muted-foreground'}`}
+                          onClick={() => setInvoiceViewMode('chronological')}
+                        >
+                          <Clock className="w-3 h-3" /> Cronológico
+                        </Button>
+                      </div>
+                      <div className="relative w-48">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          placeholder="Buscar lançamento..." 
+                          className="pl-9 h-9 text-xs"
+                          value={invoiceSearchTerm}
+                          onChange={(e) => setInvoiceSearchTerm(e.target.value)}
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="border rounded-xl overflow-x-auto shadow-sm bg-white">
-                    <table className="w-full text-sm">
-                      <thead className="bg-secondary/30 border-b">
-                        <tr>
-                          <th className="p-3 text-left font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Data</th>
-                          <th className="p-3 text-left font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Descrição</th>
-                          <th className="p-3 text-right font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Valor</th>
-                          <th className="p-3 text-center font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {filteredTransactions
-                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                          .map((t) => {
-                            const isPayment = (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === selectedCardForInvoice.id;
-                            const isIncome = (t.type === 'income' || t.type === 'receita') && t.accountId === selectedCardForInvoice.id;
-                            const isNegative = isPayment || isIncome;
+                  {filteredTransactions.length === 0 ? (
+                    <div className="border rounded-xl p-12 text-center text-muted-foreground italic bg-muted/10">
+                      <div className="flex flex-col items-center gap-2">
+                        <AlertCircle className="w-8 h-8 opacity-20" />
+                        <p>Nenhum lançamento encontrado para este período.</p>
+                      </div>
+                    </div>
+                  ) : invoiceViewMode === 'organized' ? (() => {
+                    const groupOrder = [
+                      { key: 'PARCELAMENTOS_ANTERIORES', label: 'Parcelamentos Anteriores', icon: '🔄', bgClass: 'bg-amber-50/30 dark:bg-amber-950/20', borderClass: 'border-amber-200 dark:border-amber-800' },
+                      { key: 'COMPRAS_DO_PERIODO', label: 'Compras do Período', icon: '🛒', bgClass: 'bg-red-50/30 dark:bg-red-950/20', borderClass: 'border-red-200 dark:border-red-800' },
+                      { key: 'OUTROS_DEBITOS', label: 'Outros Débitos', icon: '📋', bgClass: 'bg-slate-50/30 dark:bg-slate-800/20', borderClass: 'border-slate-200 dark:border-slate-700' },
+                      { key: 'CREDITOS_ESTORNOS', label: 'Créditos e Estornos', icon: '✅', bgClass: 'bg-green-50/30 dark:bg-green-950/20', borderClass: 'border-green-200 dark:border-green-800' },
+                      { key: 'PAGAMENTOS_AJUSTES', label: 'Pagamentos e Ajustes', icon: '💳', bgClass: 'bg-blue-50/30 dark:bg-blue-950/20', borderClass: 'border-blue-200 dark:border-blue-800' },
+                    ];
 
-                            return (
-                              <tr key={t.id} className="hover:bg-muted/30 transition-colors">
-                                <td className="p-3 whitespace-nowrap text-muted-foreground font-medium">
-                                  {parseLocalDate(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                                </td>
-                                <td className="p-3">
-                                  <div className="flex flex-col">
-                                    <span className="font-bold text-secondary-foreground">{t.description}</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase font-medium">
-                                      {isPayment ? 'Pagamento de Fatura' : (categories.find(c => c.id === t.categoryId)?.name || t.categoryId)}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className={`p-3 text-right font-mono font-black ${isNegative ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
-                                  {isNegative ? '-' : '+'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="p-3 text-center">
-                                  <div className="flex items-center justify-center">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger className="h-8 w-8 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 text-muted-foreground">
-                                        <MoreVertical className="w-4 h-4" />
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end" className="w-48">
-                                        <DropdownMenuItem onClick={() => handleMoveInvoice(t, 'prev')}>
-                                          <ChevronLeft className="w-4 h-4 mr-2" />
-                                          Mover p/ Anterior
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleMoveInvoice(t, 'next')}>
-                                          <ChevronRight className="w-4 h-4 mr-2" />
-                                          Mover p/ Seguinte
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          onClick={() => openTxDialog({ editId: t.id })}
-                                        >
-                                          <Edit className="w-4 h-4 mr-2" />
-                                          Editar
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="text-fiducia-red focus:text-fiducia-red focus:bg-red-50"
-                                          onClick={() => setTxToDelete(t)}
-                                        >
-                                          <Trash2 className="w-4 h-4 mr-2" />
-                                          Excluir
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        {filteredTransactions.length === 0 && (
+                    const grouped: Record<string, any[]> = {};
+                    for (const t of filteredTransactions) {
+                      const grp = classifyInvoiceTransaction(t, selectedCardForInvoice.id, currentPeriod);
+                      if (!grouped[grp]) grouped[grp] = [];
+                      grouped[grp].push(t);
+                    }
+
+                    const sortGroup = (txs: any[], groupKey: string) => {
+                      return [...txs].sort((a, b) => {
+                        if (groupKey === 'PARCELAMENTOS_ANTERIORES') {
+                          const pa = a.postingDate || a.date;
+                          const pb = b.postingDate || b.date;
+                          const d = parseLocalDate(pa).getTime() - parseLocalDate(pb).getTime();
+                          if (d !== 0) return d;
+                          const da = (a.description || '').localeCompare(b.description || '');
+                          if (da !== 0) return da;
+                          return (a.installmentNumber || 0) - (b.installmentNumber || 0);
+                        }
+                        if (groupKey === 'COMPRAS_DO_PERIODO') {
+                          return parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime();
+                        }
+                        const pa = a.postingDate || a.date;
+                        const pb = b.postingDate || b.date;
+                        return parseLocalDate(pa).getTime() - parseLocalDate(pb).getTime();
+                      });
+                    };
+
+                    return groupOrder.map(g => {
+                      const txs = grouped[g.key];
+                      if (!txs || txs.length === 0) return null;
+                      const sorted = sortGroup(txs, g.key);
+                      const subtotal = sorted.reduce((acc, t) => {
+                        const isPayment = (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === selectedCardForInvoice.id;
+                        const isIncome = (t.type === 'income' || t.type === 'receita') && t.accountId === selectedCardForInvoice.id;
+                        return isPayment || isIncome ? acc - t.amount : acc + t.amount;
+                      }, 0);
+
+                      return (
+                        <div key={g.key} className={`border rounded-xl overflow-hidden shadow-sm bg-white ${g.borderClass}`}>
+                          <div className={`${g.bgClass} px-4 py-2.5 border-b flex justify-between items-center`}>
+                            <h5 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{g.icon} {g.label}</h5>
+                            <span className={`text-xs font-mono font-bold ${subtotal > 0 ? 'text-fiducia-red' : subtotal < 0 ? 'text-fiducia-green' : 'text-muted-foreground'}`}>
+                              {sorted.length} lançamento{sorted.length > 1 ? 's' : ''} · R$ {Math.abs(subtotal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <table className="w-full text-sm">
+                            <tbody className="divide-y">
+                              {sorted.map((t: any) => {
+                                const isPayment = (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === selectedCardForInvoice.id;
+                                const isIncome = (t.type === 'income' || t.type === 'receita') && t.accountId === selectedCardForInvoice.id;
+                                const isNegative = isPayment || isIncome;
+                                const hasOriginalDate = t.originalPurchaseDate && t.installmentNumber && t.installmentNumber >= 2;
+                                const displayDate = (t.installmentNumber && t.installmentNumber >= 2) ? (t.postingDate || t.date) : t.date;
+                                const categoryName = isPayment ? 'Pagamento de Fatura' : (categories.find(c => c.id === t.categoryId)?.name || t.categoryId || '');
+
+                                return (
+                                  <tr key={t.id} className="hover:bg-muted/30 transition-colors">
+                                    <td className="p-3 whitespace-nowrap text-muted-foreground font-medium w-[85px]">
+                                      <div className="flex flex-col">
+                                        <span className="text-xs">{parseLocalDate(displayDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                                        {hasOriginalDate && (
+                                          <span className="text-[9px] text-muted-foreground/60 mt-0.5" title={`Compra original: ${parseLocalDate(t.originalPurchaseDate!).toLocaleDateString('pt-BR')}`}>
+                                            compra {parseLocalDate(t.originalPurchaseDate!).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="flex flex-col">
+                                        <span className="font-bold text-secondary-foreground">
+                                          {t.installmentNumber && t.totalInstallments
+                                            ? t.description.replace(/\s*\(\d+\/\d+\)\s*$/, '')
+                                            : t.description}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground uppercase font-medium flex items-center gap-1.5 flex-wrap">
+                                          {categoryName && <span>{categoryName}</span>}
+                                          {t.installmentNumber && t.totalInstallments && (
+                                            <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                              Parcela {t.installmentNumber}/{t.totalInstallments}
+                                            </span>
+                                          )}
+                                          {t.isSystemGeneratedDate && (
+                                            <span className="text-[9px] text-muted-foreground/50" title="Data de lançamento gerada pelo sistema">(data estimada)</span>
+                                          )}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className={`p-3 text-right font-mono font-black w-[130px] ${isNegative ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                                      {isNegative ? '-' : '+'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="p-3 text-center w-[60px]">
+                                      <div className="flex items-center justify-center">
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger className="h-8 w-8 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 text-muted-foreground">
+                                            <MoreVertical className="w-4 h-4" />
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end" className="w-48">
+                                            <DropdownMenuItem onClick={() => handleMoveInvoice(t, 'prev')}>
+                                              <ChevronLeft className="w-4 h-4 mr-2" />
+                                              Mover p/ Anterior
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleMoveInvoice(t, 'next')}>
+                                              <ChevronRight className="w-4 h-4 mr-2" />
+                                              Mover p/ Seguinte
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onClick={() => openTxDialog({ editId: t.id })}
+                                            >
+                                              <Edit className="w-4 h-4 mr-2" />
+                                              Editar
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              className="text-fiducia-red focus:text-fiducia-red focus:bg-red-50"
+                                              onClick={() => setTxToDelete(t)}
+                                            >
+                                              <Trash2 className="w-4 h-4 mr-2" />
+                                              Excluir
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    });
+                  })() : (
+                    <div className="border rounded-xl overflow-x-auto shadow-sm bg-white">
+                      <table className="w-full text-sm">
+                        <thead className="bg-secondary/30 border-b">
                           <tr>
-                            <td colSpan={4} className="p-12 text-center text-muted-foreground italic bg-muted/10">
-                              <div className="flex flex-col items-center gap-2">
-                                <AlertCircle className="w-8 h-8 opacity-20" />
-                                <p>Nenhum lançamento encontrado para este período.</p>
-                              </div>
-                            </td>
+                            <th className="p-3 text-left font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Lançamento</th>
+                            <th className="p-3 text-left font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Descrição</th>
+                            <th className="p-3 text-right font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Valor</th>
+                            <th className="p-3 text-center font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Ações</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y">
+                          {filteredTransactions
+                            .sort((a, b) => {
+                              const da = a.postingDate || a.date;
+                              const db = b.postingDate || b.date;
+                              return parseLocalDate(da).getTime() - parseLocalDate(db).getTime();
+                            })
+                            .map((t) => {
+                              const isPayment = (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === selectedCardForInvoice.id;
+                              const isIncome = (t.type === 'income' || t.type === 'receita') && t.accountId === selectedCardForInvoice.id;
+                              const isNegative = isPayment || isIncome;
+                              const displayDate = t.postingDate || t.date;
+                              const hasOriginalDate = t.originalPurchaseDate && t.installmentNumber && t.installmentNumber >= 2;
+
+                              return (
+                                <tr key={t.id} className="hover:bg-muted/30 transition-colors">
+                                  <td className="p-3 whitespace-nowrap text-muted-foreground font-medium">
+                                    <div className="flex flex-col">
+                                      <span className="text-xs">{parseLocalDate(displayDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                                      {hasOriginalDate && (
+                                        <span className="text-[9px] text-muted-foreground/60 mt-0.5">
+                                          compra {parseLocalDate(t.originalPurchaseDate!).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="flex flex-col">
+                                      <span className="font-bold text-secondary-foreground">
+                                        {t.installmentNumber && t.totalInstallments
+                                          ? t.description.replace(/\s*\(\d+\/\d+\)\s*$/, '')
+                                          : t.description}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground uppercase font-medium flex items-center gap-1.5 flex-wrap">
+                                        {isPayment ? 'Pagamento de Fatura' : (categories.find(c => c.id === t.categoryId)?.name || t.categoryId || '')}
+                                        {t.installmentNumber && t.totalInstallments && (
+                                          <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                            Parcela {t.installmentNumber}/{t.totalInstallments}
+                                          </span>
+                                        )}
+                                        {t.isSystemGeneratedDate && (
+                                          <span className="text-[9px] text-muted-foreground/50">(data estimada)</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className={`p-3 text-right font-mono font-black ${isNegative ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                                    {isNegative ? '-' : '+'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <div className="flex items-center justify-center">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger className="h-8 w-8 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 text-muted-foreground">
+                                          <MoreVertical className="w-4 h-4" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48">
+                                          <DropdownMenuItem onClick={() => handleMoveInvoice(t, 'prev')}>
+                                            <ChevronLeft className="w-4 h-4 mr-2" />
+                                            Mover p/ Anterior
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => handleMoveInvoice(t, 'next')}>
+                                            <ChevronRight className="w-4 h-4 mr-2" />
+                                            Mover p/ Seguinte
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() => openTxDialog({ editId: t.id })}
+                                          >
+                                            <Edit className="w-4 h-4 mr-2" />
+                                            Editar
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            className="text-fiducia-red focus:text-fiducia-red focus:bg-red-50"
+                                            onClick={() => setTxToDelete(t)}
+                                          >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Excluir
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                   
                   {(() => {
                     const futureInstallments = transactions

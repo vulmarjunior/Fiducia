@@ -314,6 +314,8 @@ export function TransactionDialog() {
         const numInstallments = parseInt(formData.installmentsCount) || 2;
         const { base: installmentBase, remainder } = computeInstallmentParts(amount, numInstallments);
         const parentId = crypto.randomUUID();
+        const purchaseDateStr = dateToLocalISOString(formData.date);
+        const purchaseDateObj = parseLocalDate(formData.date);
 
         await runTransaction(db, async (transaction) => {
           let accountSnap: any = null;
@@ -326,9 +328,11 @@ export function TransactionDialog() {
             : calculateInvoicePeriod(formData.date, card?.closingDay || 1, card?.dueDay || 1);
 
           for (let i = 0; i < numInstallments; i++) {
-            const date = parseLocalDate(formData.date);
-            date.setMonth(date.getMonth() + i);
-            const dateStr = date.toISOString();
+            const installmentDate = new Date(purchaseDateObj);
+            installmentDate.setMonth(installmentDate.getMonth() + i);
+            const dateStr = dateToLocalISOString(
+              `${installmentDate.getFullYear()}-${(installmentDate.getMonth() + 1).toString().padStart(2, '0')}-${installmentDate.getDate().toString().padStart(2, '0')}`
+            );
             const instAmount = getInstallmentAmount(i, formData.remainderPosition, numInstallments, installmentBase, remainder);
 
             const tData: any = {
@@ -341,6 +345,9 @@ export function TransactionDialog() {
               totalInstallments: numInstallments,
               description: `${formData.description} (${i + 1}/${numInstallments})`,
               status: i === 0 ? finalStatus : 'pendente',
+              originalPurchaseDate: purchaseDateStr,
+              postingDate: dateStr,
+              ...(i > 0 && { isSystemGeneratedDate: true }),
             };
 
             if (isCreditCard && card) {
@@ -535,10 +542,13 @@ export function TransactionDialog() {
             installmentNumber: 1,
             totalInstallments: numInstallments,
             ccRecurrenceType: 'parcelado',
+            originalPurchaseDate: dateToLocalISOString(formData.date),
+            postingDate: dateToLocalISOString(formData.date),
             updatedAt: new Date().toISOString(),
           });
 
           const origDate = parseLocalDate(formData.date);
+          const purchaseDateStr = dateToLocalISOString(formData.date);
           let currentPeriod = formData.invoicePeriod || calculateInvoicePeriod(formData.date, card.closingDay, card.dueDay);
 
           for (let i = 1; i < numInstallments; i++) {
@@ -546,12 +556,15 @@ export function TransactionDialog() {
             futureDate.setMonth(futureDate.getMonth() + i);
             currentPeriod = getNextPeriod(currentPeriod);
             const instAmount = getInstallmentAmount(i, formData.remainderPosition, numInstallments, installmentBase, remainder);
+            const postingDateStr = dateToLocalISOString(
+              `${futureDate.getFullYear()}-${(futureDate.getMonth() + 1).toString().padStart(2, '0')}-${futureDate.getDate().toString().padStart(2, '0')}`
+            );
 
             transaction.set(doc(collection(db, 'transactions')), {
               userId: user.uid,
               type: formData.type,
               amount: instAmount,
-              date: futureDate.toISOString(),
+              date: postingDateStr,
               description: `${formData.description} (${i + 1}/${numInstallments})`,
               creditCardId: formData.accountId,
               accountId: formData.accountId,
@@ -565,6 +578,9 @@ export function TransactionDialog() {
               installmentNumber: i + 1,
               totalInstallments: numInstallments,
               ccRecurrenceType: 'parcelado',
+              originalPurchaseDate: purchaseDateStr,
+              postingDate: postingDateStr,
+              isSystemGeneratedDate: true,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             });
@@ -620,21 +636,27 @@ export function TransactionDialog() {
             parentId,
             installmentNumber: 1,
             totalInstallments: numInstallments,
+            originalPurchaseDate: dateToLocalISOString(formData.date),
+            postingDate: dateToLocalISOString(formData.date),
             updatedAt: new Date().toISOString(),
           });
 
           const origDate = parseLocalDate(formData.date);
+          const purchaseDateStr = dateToLocalISOString(formData.date);
 
           for (let i = 1; i < numInstallments; i++) {
             const futureDate = new Date(origDate);
             futureDate.setMonth(futureDate.getMonth() + i);
             const instAmount = getInstallmentAmount(i, formData.remainderPosition, numInstallments, installmentBase, remainder);
+            const postingDateStr = dateToLocalISOString(
+              `${futureDate.getFullYear()}-${(futureDate.getMonth() + 1).toString().padStart(2, '0')}-${futureDate.getDate().toString().padStart(2, '0')}`
+            );
 
             transaction.set(doc(collection(db, 'transactions')), {
               userId: user.uid,
               type: formData.type,
               amount: instAmount,
-              date: futureDate.toISOString(),
+              date: postingDateStr,
               description: `${formData.description} (${i + 1}/${numInstallments})`,
               accountId: formData.accountId,
               categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
@@ -645,6 +667,9 @@ export function TransactionDialog() {
               parentId,
               installmentNumber: i + 1,
               totalInstallments: numInstallments,
+              originalPurchaseDate: purchaseDateStr,
+              postingDate: postingDateStr,
+              isSystemGeneratedDate: true,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             });

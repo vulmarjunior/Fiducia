@@ -82,6 +82,9 @@ export interface Transaction {
   totalInstallments?: number;
   parentId?: string;
   ccRecurrenceType?: 'avulso' | 'parcelado' | 'fixo';
+  originalPurchaseDate?: string;
+  postingDate?: string;
+  isSystemGeneratedDate?: boolean;
   ofxId?: string;
   tags?: string[];
   observation?: string;
