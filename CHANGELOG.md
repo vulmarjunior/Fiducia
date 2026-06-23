@@ -5,6 +5,27 @@
 
 ---
 
+## [0.3.0] — 2026-06-23 — Relatório de Análise de Faturas de Cartão
+
+**Resultado:** Nova aba "Faturas" em Relatórios permite analisar o comportamento das faturas de cartão de crédito ao longo do tempo: evolução mensal, peso por cartão, status (aberta/fechada/paga/futura) e comprometimento futuro com parcelamentos.
+
+**Alterações técnicas:**
+- `src/lib/invoiceAnalysis.ts` — Motor de análise de faturas: agrega transações por cartão/período, determina status (persistido ou calculado), calcula totais, médias, variações e participação percentual
+- `src/lib/invoiceAnalysis.test.ts` — 13 testes unitários cobrindo status, filtros, créditos, futuras, variação mês a mês e consistência de cores
+- `src/pages/Reports.tsx` — Nova aba "Faturas" (6ª aba) com:
+  - Filtros: período (3M/6M/12M/personalizado), cartão, status (abertas/fechadas/pagas/futuras), toggle estornos
+  - 6 KPIs: abertas, fechadas, pagas, comprometimento futuro, média mensal, maior fatura
+  - Gráfico de barras empilhadas (mês × cartão) + tendência (área) + donut (participação por cartão)
+  - Tabela detalhada clicável com linha do tempo por cartão/período/status/vencimento/variação
+- `package.json` — Versão atualizada para `0.3.0`
+
+**Validações:**
+- `npm run lint` — Sem erros
+- `npm run test` — 23 testes passando (13 novos + 10 existentes)
+- `npm run build` — Build de produção OK
+
+---
+
 ## [0.2.0] — 2026-06-23 — Motor de Cobertura de Caixa
 
 **Resultado:** A projeção futura passa a responder se caixa atual + valores a receber cobrem as obrigações bancárias e de cartão ao longo do tempo, com detecção de risco diário.

@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import { isEffectivelyPaid } from '../lib/utils';
 import { buildCashCoverageProjection } from '../lib/cashCoverage';
+import { buildInvoiceAnalysis } from '../lib/invoiceAnalysis';
 import { PageHelp } from '../components/PageHelp';
 import { callGroq } from '../services/groqService';
 import { Button } from '../components/ui/button';
@@ -32,7 +33,7 @@ const isPending = (t: any) => t.status === 'pendente' || t.status === 'pending';
 const toMonthStr = (d: Date) => `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
 const toDateStr = (d: Date) => `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
 
-type Tab = 'cashflow' | 'categories' | 'trend' | 'projection' | 'ai';
+type Tab = 'cashflow' | 'categories' | 'trend' | 'projection' | 'invoices' | 'ai';
 
 export function Reports() {
   const { user, isAuthReady } = useAuth();
@@ -67,6 +68,13 @@ export function Reports() {
   // Aba 5 — IA
   const [aiInsight, setAiInsight] = useState('');
   const [isLoadingAi, setIsLoadingAi] = useState(false);
+
+  // Aba 6 — Faturas de Cartão
+  const [invPeriod, setInvPeriod] = useState<'3months' | '6months' | '12months' | 'custom'>('6months');
+  const [invCustomEnd, setInvCustomEnd] = useState('');
+  const [invSelectedCard, setInvSelectedCard] = useState<string>('all');
+  const [invStatusFilter, setInvStatusFilter] = useState<'all' | 'open' | 'closed' | 'paid' | 'future'>('all');
+  const [invIncludeCredits, setInvIncludeCredits] = useState(false);
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -262,6 +270,60 @@ export function Reports() {
     });
   };
 
+  // ─── ABA 6: FATURAS DE CARTÃO ──────────────────────────────────────────────
+  const invDateRange = useMemo(() => {
+    let start: Date;
+    let end: Date;
+    if (invPeriod === 'custom' && invCustomEnd) {
+      end = new Date(invCustomEnd + 'T23:59:59');
+      start = new Date(end.getFullYear(), end.getMonth() - 12, 1);
+    } else {
+      const months = invPeriod === '3months' ? 3 : invPeriod === '6months' ? 6 : 12;
+      start = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+    }
+    return { start, end };
+  }, [invPeriod, invCustomEnd]);
+
+  const invoiceAnalysis = useMemo(() => buildInvoiceAnalysis({
+    creditCards,
+    transactions,
+    invoices,
+    startDate: invDateRange.start,
+    endDate: invDateRange.end,
+    selectedCardId: invSelectedCard,
+    statusFilter: invStatusFilter,
+    includeCredits: invIncludeCredits,
+  }), [creditCards, transactions, invoices, invDateRange, invSelectedCard, invStatusFilter, invIncludeCredits]);
+
+  const invChartBars = useMemo(() => {
+    const cardSet = new Set<string>();
+    invoiceAnalysis.monthlyData.forEach(m => {
+      Object.keys(m.cards).forEach(id => cardSet.add(id));
+    });
+    return Array.from(cardSet).map(id => {
+      const card = creditCards.find(c => c.id === id);
+      return { id, name: card?.name || id };
+    });
+  }, [invoiceAnalysis.monthlyData, creditCards]);
+
+  const invChartData = useMemo(() =>
+    invoiceAnalysis.monthlyData
+      .filter(m => m.total > 0)
+      .map(m => {
+        const data: any = { name: m.label.split(' de ')[0], month: m.month };
+        Object.entries(m.cards).forEach(([cardId, cardData]) => {
+          data[cardData.name] = cardData.amount;
+        });
+        return data;
+      }), [invoiceAnalysis.monthlyData]);
+
+  const invTrendData = useMemo(() =>
+    invoiceAnalysis.trend.map(t => ({
+      ...t,
+      name: t.label.split(' de ')[0],
+    })), [invoiceAnalysis.trend]);
+
   // ─── ABA 5: IA ────────────────────────────────────────────────────────────
   const generateAI = async () => {
     if (isLoadingAi || transactions.length < 5) return;
@@ -300,6 +362,7 @@ Responda em Português com Markdown (bullets, negrito). Seja empático.`;
     { id: 'categories', label: 'Categorias', icon: Target },
     { id: 'trend', label: 'Tendência', icon: TrendingDown },
     { id: 'projection', label: 'Projeção Futura', icon: TrendingUp },
+    { id: 'invoices', label: 'Faturas', icon: CreditCard },
     { id: 'ai', label: 'Análise IA', icon: Brain },
   ];
 
@@ -316,7 +379,8 @@ Responda em Português com Markdown (bullets, negrito). Seja empático.`;
             { label: '2. Categorias', desc: 'Distribuição percentual dos gastos ou receitas. Traz a métrica % Renda, que mostra o impacto real de cada grupo de despesa frente ao seu faturamento total.' },
             { label: '3. Tendência & Orçamento', desc: 'Curva cumulativa diária de saídas no mês e comparação direta com os limites de gastos configurados em sua conta.' },
             { label: '4. Projeção Futura', desc: 'Simulação matemática de saldo futuro: Saldo Base Atual + Receitas Pendentes - Despesas Pendentes - Faturas de Cartão projetadas no mês de vencimento. Permite incluir ou excluir investimentos do cálculo.' },
-            { label: '5. Análise IA', desc: 'O assistente Fiducia processa seus últimos 3 meses de fluxo de caixa e os lançamentos recentes para dar uma nota de score financeiro e recomendações personalizadas.' },
+            { label: '5. Faturas de Cartão', desc: 'Análise do comportamento das faturas ao longo do tempo: evolução mensal, peso por cartão, status (aberta/fechada/paga/futura) e comprometimento futuro já assumido com parcelamentos.' },
+            { label: '6. Análise IA', desc: 'O assistente Fiducia processa seus últimos 3 meses de fluxo de caixa e os lançamentos recentes para dar uma nota de score financeiro e recomendações personalizadas.' },
           ]}
         />
       </div>
@@ -332,6 +396,7 @@ Responda em Português com Markdown (bullets, negrito). Seja empático.`;
               <Icon className="w-4 h-4" />
               {tab.label}
               {tab.id === 'projection' && <span className="text-[9px] font-bold bg-fiducia-blue text-white px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
+              {tab.id === 'invoices' && <span className="text-[9px] font-bold bg-fiducia-amber text-white px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
             </button>
           );
         })}
@@ -901,7 +966,247 @@ Responda em Português com Markdown (bullets, negrito). Seja empático.`;
       )}
 
       {/* ══════════════════════════════════════════════════════════════
-          ABA 5 — ANÁLISE IA
+          ABA 5 — FATURAS DE CARTÃO
+      ══════════════════════════════════════════════════════════════ */}
+      {activeTab === 'invoices' && (
+        <div className="space-y-6">
+          {/* Filtros */}
+          <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+                {(['3months', '6months', '12months', 'custom'] as const).map(p => (
+                  <FBtn key={p} active={invPeriod === p} onClick={() => setInvPeriod(p)}>
+                    {p === '3months' ? '3 Meses' : p === '6months' ? '6 Meses' : p === '12months' ? '12 Meses' : 'Personalizado'}
+                  </FBtn>
+                ))}
+              </div>
+              {invPeriod === 'custom' && (
+                <input type="date" value={invCustomEnd} onChange={e => setInvCustomEnd(e.target.value)}
+                  className="h-8 bg-background border border-border rounded-xl px-3 text-xs" />
+              )}
+              <select value={invSelectedCard} onChange={e => setInvSelectedCard(e.target.value)}
+                className="h-8 bg-background border border-border rounded-xl px-3 text-xs text-foreground">
+                <option value="all">Todos os cartões</option>
+                {creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+                {(['all', 'open', 'closed', 'paid', 'future'] as const).map(p => (
+                  <FBtn key={p} active={invStatusFilter === p} onClick={() => setInvStatusFilter(p)}>
+                    {p === 'all' ? 'Todas' : p === 'open' ? 'Abertas' : p === 'closed' ? 'Fechadas' : p === 'paid' ? 'Pagas' : 'Futuras'}
+                  </FBtn>
+                ))}
+              </div>
+              <button onClick={() => setInvIncludeCredits(!invIncludeCredits)}
+                className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border transition-all ${invIncludeCredits ? 'bg-fiducia-green/10 border-fiducia-green/30 text-fiducia-green dark:text-fiducia-green' : 'bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50'}`}>
+                {invIncludeCredits ? 'Incluindo Estornos' : 'S/ Estornos'}
+              </button>
+            </div>
+          </div>
+
+          {/* KPIs */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-fiducia-amber/5 border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3"><CreditCard className="w-4 h-4 text-fiducia-amber" /><span className="text-[10px] font-bold text-fiducia-amber uppercase tracking-wider">Faturas Abertas</span></div>
+              <div className="text-2xl font-bold font-mono text-fiducia-amber">{fmt(invoiceAnalysis.summary.totalOpen)}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Em andamento no período</div>
+            </div>
+            <div className="bg-fiducia-red/5 border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3"><ArrowDownRight className="w-4 h-4 text-fiducia-red" /><span className="text-[10px] font-bold text-fiducia-red uppercase tracking-wider">Faturas Fechadas</span></div>
+              <div className="text-2xl font-bold font-mono text-fiducia-red">{fmt(invoiceAnalysis.summary.totalClosed)}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Aguardando pagamento</div>
+            </div>
+            <div className="bg-fiducia-green/5 border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3"><ArrowUpRight className="w-4 h-4 text-fiducia-green" /><span className="text-[10px] font-bold text-fiducia-green uppercase tracking-wider">Pagas no Período</span></div>
+              <div className="text-2xl font-bold font-mono text-fiducia-green">{fmt(invoiceAnalysis.summary.totalPaid)}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Faturas quitadas</div>
+            </div>
+            <div className="bg-fiducia-blue/5 border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-fiducia-blue" /><span className="text-[10px] font-bold text-fiducia-blue uppercase tracking-wider">Comprometimento Futuro</span></div>
+              <div className="text-2xl font-bold font-mono text-fiducia-blue">{fmt(invoiceAnalysis.summary.totalFuture)}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Parcelas a vencer</div>
+            </div>
+            <div className="bg-purple-50 dark:bg-purple-950/20 border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3"><Target className="w-4 h-4 text-purple-600 dark:text-purple-400" /><span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Média Mensal</span></div>
+              <div className="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">{fmt(invoiceAnalysis.summary.monthlyAverage)}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Por mês com dados</div>
+            </div>
+            <div className="bg-orange-50 dark:bg-orange-950/20 border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3"><BarChart2 className="w-4 h-4 text-orange-600 dark:text-orange-400" /><span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">Maior Fatura</span></div>
+              <div className="text-2xl font-bold font-mono text-orange-600 dark:text-orange-400">{fmt(invoiceAnalysis.summary.largestInvoice)}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Recorde no período</div>
+            </div>
+          </div>
+
+          {/* Gráficos */}
+          <div className="grid lg:grid-cols-[2fr_300px] gap-6 items-start">
+            {/* Barras empilhadas */}
+            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between p-5 border-b border-border">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <BarChart2 className="w-4 h-4 text-fiducia-blue" />
+                    <h3 className="text-[15px] font-bold text-foreground">Evolução Mensal por Cartão</h3>
+                  </div>
+                  <p className="text-[12px] text-muted-foreground mt-0.5">Total de faturas por mês — cada cor é um cartão</p>
+                </div>
+                {invChartBars.length > 0 && (
+                  <div className="flex items-center gap-3">
+                    {invChartBars.map(card => {
+                      const cardData = invoiceAnalysis.cardBreakdown.find(c => c.cardId === card.id);
+                      return (
+                        <div key={card.id} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cardData?.color || '#888' }} />{card.name}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="p-5">
+                {invChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={invChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 500 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
+                      <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                      {invChartBars.map(card => {
+                        const cardData = invoiceAnalysis.cardBreakdown.find(c => c.cardId === card.id);
+                        return <Bar key={card.id} dataKey={card.name} fill={cardData?.color || '#888'} stackId="cards" radius={[0, 0, 0, 0]} />;
+                      })}
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-center py-12 text-[13px] text-muted-foreground italic">Nenhum dado de fatura no período selecionado.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Donut + Tendência */}
+            <div className="space-y-6">
+              {invoiceAnalysis.cardBreakdown.length > 0 && (
+                <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-2 p-4 border-b border-border">
+                    <CreditCard className="w-4 h-4 text-fiducia-blue" />
+                    <h3 className="text-[14px] font-bold text-foreground">Participação por Cartão</h3>
+                  </div>
+                  <div className="p-4">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie data={invoiceAnalysis.cardBreakdown} dataKey="total" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={55}>
+                          {invoiceAnalysis.cardBreakdown.map(c => <Cell key={c.cardId} fill={c.color} />)}
+                        </Pie>
+                        <Tooltip formatter={(v: number) => fmt(v)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-1.5 mt-3">
+                      {invoiceAnalysis.cardBreakdown.map(c => (
+                        <div key={c.cardId} className="flex items-center justify-between text-[11px]">
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                            <span className="truncate text-muted-foreground">{c.name}</span>
+                          </span>
+                          <span className="font-mono font-bold ml-2 shrink-0">{c.pct.toFixed(1)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {invTrendData.some(t => t.total > 0) && (
+                <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-2 p-4 border-b border-border">
+                    <TrendingUp className="w-4 h-4 text-fiducia-amber" />
+                    <h3 className="text-[14px] font-bold text-foreground">Tendência Mensal</h3>
+                  </div>
+                  <div className="p-4">
+                    <ResponsiveContainer width="100%" height={180}>
+                      <AreaChart data={invTrendData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
+                        <Tooltip formatter={(v: number) => fmt(v)} />
+                        <Area type="monotone" dataKey="total" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.15} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Tabela detalhada */}
+          <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 p-5 border-b border-border">
+              <CreditCard className="w-4 h-4 text-fiducia-blue" />
+              <h3 className="text-[15px] font-bold text-foreground">Detalhamento de Faturas</h3>
+              <span className="text-[11px] text-muted-foreground ml-2">({invoiceAnalysis.detailList.length} registros)</span>
+            </div>
+            <div className="overflow-x-auto">
+              {invoiceAnalysis.detailList.length > 0 ? (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-b border-border">
+                      <th className="text-left py-3 px-4">Cartão</th>
+                      <th className="text-left py-3 px-4">Período</th>
+                      <th className="text-left py-3 px-4">Status</th>
+                      <th className="text-left py-3 px-4">Vencimento</th>
+                      <th className="text-right py-3 px-4">Valor</th>
+                      <th className="text-right py-3 px-4">% Total</th>
+                      <th className="text-right py-3 px-4">Var. Mês Ant.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceAnalysis.detailList.map(item => {
+                      const [y, mn] = item.period.split('-').map(Number);
+                      const periodLabel = new Date(y, mn - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                      const dueDateLabel = item.dueDate.split('-').reverse().join('/');
+                      const statusBadge = item.status === 'paid'
+                        ? 'bg-fiducia-green/10 text-fiducia-green'
+                        : item.status === 'closed'
+                        ? 'bg-fiducia-red/10 text-fiducia-red'
+                        : item.status === 'open'
+                        ? 'bg-fiducia-amber/10 text-fiducia-amber'
+                        : 'bg-fiducia-blue/10 text-fiducia-blue';
+                      const statusLabel = item.status === 'open' ? 'Aberta' : item.status === 'closed' ? 'Fechada' : item.status === 'paid' ? 'Paga' : 'Futura';
+                      return (
+                        <tr key={`${item.cardId}-${item.period}`} onClick={() => navigate('/cards')}
+                          className="hover:bg-muted/30 border-b border-border/30 transition-colors cursor-pointer">
+                          <td className="py-2.5 px-4 font-semibold">{item.cardName}</td>
+                          <td className="py-2.5 px-4 capitalize">{periodLabel}</td>
+                          <td className="py-2.5 px-4">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadge}`}>{statusLabel}</span>
+                          </td>
+                          <td className="py-2.5 px-4 text-muted-foreground">{dueDateLabel}</td>
+                          <td className="py-2.5 px-4 text-right font-mono font-bold">{fmt(item.amount)}</td>
+                          <td className="py-2.5 px-4 text-right text-muted-foreground">{item.pctOfTotal.toFixed(1)}%</td>
+                          <td className="py-2.5 px-4 text-right font-mono">
+                            {item.variation === 0 && item.previousAmount === 0 ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : item.variation > 0 ? (
+                              <span className="text-fiducia-red flex items-center justify-end gap-0.5"><ArrowUpRight className="w-3 h-3" />+{item.variation.toFixed(0)}%</span>
+                            ) : (
+                              <span className="text-fiducia-green flex items-center justify-end gap-0.5"><ArrowDownRight className="w-3 h-3" />{item.variation.toFixed(0)}%</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-center py-12 text-[13px] text-muted-foreground italic">
+                  {creditCards.length === 0 ? 'Cadastre um cartão de crédito para ver a análise.' : 'Nenhuma fatura encontrada com os filtros atuais.'}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          ABA 6 — ANÁLISE IA
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'ai' && (
         <div className="space-y-6">

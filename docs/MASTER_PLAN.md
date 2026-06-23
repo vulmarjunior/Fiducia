@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.2.0` |
+| **Versão atual** | `0.3.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-06-23 (motor de cobertura de caixa) |
+| **Última alteração em código** | 2026-06-23 (relatório de análise de faturas de cartão) |
 | **Último deploy** | Não registrado formalmente |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -57,7 +57,7 @@ npm run build      # vite build
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
 | Conciliação | ✅ Funcional | OFX/CSV, auto-match, AI match, AI análise de divergências |
-| Relatórios | ✅ Funcional | Regime duplo, projeção de caixa com cobertura diária e composição de obrigações |
+| Relatórios | ✅ Funcional | Regime duplo, projeção de caixa com cobertura diária e composição de obrigações, análise de faturas de cartão |
 | Auditoria | ✅ Funcional | Diagnóstico, correção de saldo, reabertura de períodos |
 | Orçamentos | ✅ Funcional | Metas por categoria, tabela Orçado x Realizado |
 | Metas | ✅ Funcional | Metas financeiras com progresso |
@@ -72,7 +72,7 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** v0.2.0 entregue com motor único de cobertura de caixa para previsão diária de obrigações e recebíveis.
+**Foco atual:** v0.3.0 entregue com relatório de análise de faturas de cartão: evolução mensal, peso por cartão, status e comprometimento futuro.
 
 **Próximo passo sugerido:** Evoluir a cobertura com recorrências futuras ainda não materializadas, cenários conservador/realista/projetado e visualização diária detalhada.
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-06-23 | v0.3.0 — Relatório de análise de faturas de cartão | Relatórios |
 | 2026-06-23 | v0.2.0 — Motor de cobertura de caixa + diagnóstico de obrigações | Relatórios / Dashboard |
 | 2026-06-22 | v0.1.0 — Primeira versão formal + exibição no Login e Dashboard | Versionamento |
 | 2026-06-22 | Classificação de faturas em 5 grupos + campos de data dupla | Cartões — UX da fatura |

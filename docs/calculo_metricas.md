@@ -114,3 +114,64 @@ Itens atrasados são aplicados na data atual para evitar que o passado distorça
 ### Interpretação
 
 Uma cobertura final positiva não elimina risco. Se `minimumBalance` ficar negativo em algum dia, o sistema deve alertar descasamento de datas: o usuário pode ter dinheiro suficiente no período, mas não no dia em que a obrigação vence.
+
+---
+
+## 6. Relatório de Análise de Faturas de Cartão (v0.3.0)
+
+Nova aba "Faturas" em Relatórios, disponível em `src/pages/Reports.tsx` (aba 6) com motor em `src/lib/invoiceAnalysis.ts`.
+
+### Fontes de dados
+
+| Fonte | Coleção Firestore | Campos relevantes |
+|-------|-------------------|-------------------|
+| Transações | `transactions` | `type`, `amount`, `status`, `accountId`, `creditCardId`, `invoicePeriod` |
+| Cartões | `creditCards` | `name`, `closingDay`, `dueDay` |
+| Faturas | `invoices` | `cardId`, `period`, `status`, `totalAmount` |
+
+### Métricas calculadas
+
+| Indicador | Fórmula |
+|-----------|---------|
+| **Faturas Abertas** | Soma dos valores de faturas com status `open` no período selecionado |
+| **Faturas Fechadas** | Soma dos valores de faturas com status `closed` no período |
+| **Pagas no Período** | Soma das faturas com status `paid` no período |
+| **Comprometimento Futuro** | Soma das parcelas pendentes com `invoicePeriod` futuro ao mês corrente |
+| **Média Mensal** | `(totalOpen + totalClosed + totalPaid) / mesesComDados` |
+| **Maior Fatura** | `max(amount)` entre todas as faturas do período |
+
+### Determinação de status
+
+1. Se há documento `Invoice` persistido com `status` explícito → usa o status do documento
+2. Senão, calcula por data:
+   - `today < closingDate` → **aberta**
+   - `today >= closingDate && today < dueDate` → **fechada**
+   - `today >= dueDate` → **paga**
+3. Se o período é futuro ao mês corrente **E** não há transações realizadas/pagas no período → **futura** (projeção de parcelamento)
+
+### Cálculo do valor da fatura
+
+- **Sem estornos** (`includeCredits = false`): `sum(despesas do período)`
+- **Com estornos** (`includeCredits = true`): `max(0, despesas - pagamentos - créditos)`
+
+### Variação mês a mês
+
+Para cada fatura no período `N`, compara-se com a fatura do mesmo cartão no período `N-1`:
+```
+variação = (amount_N - amount_{N-1}) / amount_{N-1} * 100
+```
+
+### Gráficos
+
+- **Barras empilhadas** (mês × cartão): `monthlyData.cards[cardId]` agrupado por `stackId`
+- **Donut**: `cardBreakdown` — participação percentual de cada cartão no total do período
+- **Tendência (área)**: `trend` — total mensal ao longo do período selecionado
+
+### Filtros disponíveis
+
+| Filtro | Opções | Estado |
+|--------|--------|--------|
+| Período | 3M / 6M / 12M / Personalizado | `invPeriod` |
+| Cartão | Todos / cartão específico | `invSelectedCard` |
+| Status | Todas / Abertas / Fechadas / Pagas / Futuras | `invStatusFilter` |
+| Estornos | Incluir / Excluir | `invIncludeCredits` |
