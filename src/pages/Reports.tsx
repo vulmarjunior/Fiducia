@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isEffectivelyPaid } from '../lib/utils';
+import { buildCashCoverageProjection } from '../lib/cashCoverage';
 import { PageHelp } from '../components/PageHelp';
 import { callGroq } from '../services/groqService';
 import { Button } from '../components/ui/button';
@@ -188,58 +189,48 @@ export function Reports() {
 
   const projEndMonthStr = toMonthStr(projEndDate);
 
-  const projectionData = useMemo(() => {
-    const saldoBase = includeSavings
-      ? accounts.reduce((s, a) => s + (a.balance || 0), 0)
-      : accounts.filter(a => !a.excludeFromCashFlow).reduce((s, a) => s + (a.balance || 0), 0);
+  const cashCoverageProjection = useMemo(() => buildCashCoverageProjection({
+    accounts,
+    transactions,
+    creditCards,
+    invoices,
+    options: {
+      startDate: now,
+      endDate: projEndDate,
+      includeSavings,
+    },
+  }), [accounts, transactions, creditCards, invoices, includeSavings, projEndDate]);
 
-    // Pendentes (conta corrente) — inclui atrasados para planejamento completo
-    const pendingTx = transactions.filter(t =>
-      isPending(t) && !isCreditCardTx(t) &&
-      !creditCards.some(c => c.id === t.accountId) &&
-      !isTransfer(t) &&
-      t.date.substring(0, 10) <= toDateStr(projEndDate)
-    );
-
-    // Faturas de cartão não pagas dentro do período
-    const pendingInvoices = invoices.filter(i =>
-      i.status !== 'paga' && i.period >= currentMonthStr && i.period <= projEndMonthStr
-    );
-
-    const months: string[] = [];
-    let d = new Date(now.getFullYear(), now.getMonth(), 1);
-    while (toMonthStr(d) <= projEndMonthStr) {
-      months.push(toMonthStr(d));
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-    }
-
-    let accum = saldoBase;
-    return months.map(m => {
-      const monthTx = pendingTx.filter(t => t.date.startsWith(m));
-      const monthInvoices = pendingInvoices.filter(i => i.period === m);
-      const incomeTxList = monthTx.filter(t => isIncome(t)).sort((a, b) => a.date.localeCompare(b.date));
-      const expenseTxList = monthTx.filter(t => isExpense(t)).sort((a, b) => a.date.localeCompare(b.date));
-      const incomeTotal = incomeTxList.reduce((s, t) => s + t.amount, 0);
-      const expenseTotal = expenseTxList.reduce((s, t) => s + t.amount, 0);
-      const invoiceTotal = monthInvoices.reduce((s, i) => s + (i.totalAmount || 0), 0);
-      const net = incomeTotal - expenseTotal - invoiceTotal;
-      accum += net;
-      const [y, mn] = m.split('-').map(Number);
-      return {
-        month: m, label: new Date(y, mn - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
-        shortLabel: new Date(y, mn - 1, 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
-        incomeTotal, expenseTotal, invoiceTotal, net, accum,
-        incomeTxList, expenseTxList, invoiceList: monthInvoices,
-      };
-    });
-  }, [transactions, invoices, accounts, creditCards, projPeriod, projCustomEnd, includeSavings, projEndDate, projEndMonthStr, currentMonthStr]);
-
+  const projectionData = useMemo(() => cashCoverageProjection.monthlyProjection.map(m => ({
+    ...m,
+    incomeTxList: m.incomeEvents.map(event => event.raw).filter(Boolean),
+    expenseTxList: m.expenseEvents.map(event => event.raw).filter(Boolean),
+    invoiceList: m.invoiceEvents.map(event => ({
+      id: event.invoiceId || event.id,
+      cardId: event.cardId,
+      period: event.invoicePeriod,
+      status: event.source === 'invoice_closed' ? 'fechada' : 'aberta',
+      totalAmount: event.amount,
+      source: event.source,
+      certainty: event.certainty,
+      originalDate: event.originalDate,
+    })),
+  })), [cashCoverageProjection]);
   const projKPIs = useMemo(() => ({
-    totalIncome: projectionData.reduce((s, m) => s + m.incomeTotal, 0),
-    totalPay: projectionData.reduce((s, m) => s + m.expenseTotal + m.invoiceTotal, 0),
-    totalInvoice: projectionData.reduce((s, m) => s + m.invoiceTotal, 0),
-    finalAccum: projectionData.length > 0 ? projectionData[projectionData.length - 1].accum : 0,
-  }), [projectionData]);
+    totalIncome: cashCoverageProjection.totalIncome,
+    totalPay: cashCoverageProjection.totalObligations,
+    totalInvoice: cashCoverageProjection.totalInvoices,
+    finalAccum: cashCoverageProjection.endingBalance,
+    minimumBalance: cashCoverageProjection.minimumBalance,
+    minimumBalanceDate: cashCoverageProjection.minimumBalanceDate,
+    firstRiskDate: cashCoverageProjection.firstRiskDate,
+    isAtRisk: cashCoverageProjection.isAtRisk,
+    coverageBalance: cashCoverageProjection.coverageBalance,
+    bankExpenses: cashCoverageProjection.totalBankExpenses,
+    closedInvoices: cashCoverageProjection.totalClosedInvoices,
+    openInvoices: cashCoverageProjection.totalOpenInvoices,
+    futureCard: cashCoverageProjection.totalFutureCard,
+  }), [cashCoverageProjection]);
 
   const projChartData = useMemo(() =>
     projectionData.map(m => ({
@@ -654,6 +645,42 @@ Responda em Português com Markdown (bullets, negrito). Seja empático.`;
               </div>
             </div>
           </div>
+          <div className={`border rounded-2xl p-5 shadow-sm ${projKPIs.isAtRisk ? 'bg-fiducia-red/5 border-fiducia-red/20' : 'bg-fiducia-green/5 border-fiducia-green/20'}`}>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <div className={`text-[11px] font-bold uppercase tracking-wider ${projKPIs.isAtRisk ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
+                  {projKPIs.isAtRisk ? 'Risco de caixa detectado' : 'Cobertura positiva no periodo'}
+                </div>
+                <div className="text-[15px] font-semibold text-foreground mt-1">
+                  {projKPIs.isAtRisk
+                    ? `O saldo fica negativo em ${projKPIs.firstRiskDate?.split('-').reverse().join('/')}.`
+                    : `Caixa e recebiveis cobrem as obrigacoes ate ${toDateStr(projEndDate).split('-').reverse().join('/')}.`}
+                </div>
+                <div className="text-[12px] text-muted-foreground mt-1">
+                  Caixa inicial + a receber - obrigacoes = {fmt(projKPIs.coverageBalance)}. Menor saldo projetado: {fmt(projKPIs.minimumBalance)} em {projKPIs.minimumBalanceDate.split('-').reverse().join('/')}.
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-right">
+                <div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Banco</div>
+                  <div className="text-[13px] font-bold font-mono text-fiducia-red">-{fmt(projKPIs.bankExpenses)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Fechadas</div>
+                  <div className="text-[13px] font-bold font-mono text-fiducia-red">-{fmt(projKPIs.closedInvoices)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Abertas</div>
+                  <div className="text-[13px] font-bold font-mono text-fiducia-amber">-{fmt(projKPIs.openInvoices)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Futuras</div>
+                  <div className="text-[13px] font-bold font-mono text-fiducia-blue">-{fmt(projKPIs.futureCard)}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
 
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

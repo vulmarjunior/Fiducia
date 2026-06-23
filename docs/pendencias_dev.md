@@ -7,24 +7,24 @@
 
 ## Próxima Pauta (sugerida)
 
-**Sessão:** Correção de inconsistências documentais
+**Sessão:** Evolução da previsão de caixa pós-v0.2.0
 
 ### Objetivo
 
-1. Corrigir referência à Gemini em `docs/LOGICA_DO_SISTEMA.md` (linhas 7 e 76) para Groq
-2. Atualizar status de `docs/ia-conciliacao-inteligente.md` ou movê-lo para archive
-3. Revisar `docs/plano-de-melhorias.md` item por item contra código real
-4. Remover ou isolar `docs/Microsoft.Services.Store.winmd`
+1. Incluir `recurrenceRules` no motor de cobertura para gerar compromissos futuros ainda não materializados
+2. Criar cenários conservador / realista / projetado
+3. Refinar a aba Projeção Futura com visão diária expandível e alertas por data crítica
+4. Corrigir inconsistências documentais antigas: Gemini→Groq, IA conciliação e plano de melhorias
 
 ### Backlog (MASTER_PLAN §6)
 
-Itens ⚠️ Pendente aguardando priorização:
+Itens pendentes aguardando priorização:
 - Correção de categorias por string legível (migration)
 - Alerta de limite disponível
 - Estorno total/parcial
 - Pagamento parcial de fatura
 - Paradigmas de orçamento
-- Testes automatizados
+- Testes de integração
 
 ---
 

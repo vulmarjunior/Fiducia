@@ -1,7 +1,8 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { buildCashCoverageProjection } from './cashCoverage';
 
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.2.0';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -124,102 +125,22 @@ export function projectDailyBalance(
   invoices: any[],
   days: number = 90
 ) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const fmtDate = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-  const startingBalance = accounts
-    .filter((a: any) => !a.excludeFromCashFlow)
-    .reduce((sum: number, a: any) => sum + (a.balance || 0), 0);
-
-  const dailyDeltas: Record<string, number> = {};
-
-  const addDelta = (dateStr: string, delta: number) => {
-    if (!dateStr) return;
-    const d = parseLocalDate(dateStr);
-    const key = d < today ? fmtDate(today) : dateStr;
-    dailyDeltas[key] = (dailyDeltas[key] || 0) + delta;
-  };
-
-  const isPending = (t: any) => t.status === 'pendente' || t.status === 'pending';
-  const isCardTx = (t: any) =>
-    t.creditCardId || creditCards.some((c: any) => c.id === t.accountId);
-
-  for (const tx of transactions) {
-    if (!isPending(tx) || isCardTx(tx)) continue;
-    if (tx.type === 'transferencia' || tx.type === 'transfer') continue;
-    const dateStr = tx.date?.split('T')[0];
-    if (!dateStr) continue;
-    const delta = (tx.type === 'receita' || tx.type === 'income') ? tx.amount : -tx.amount;
-    addDelta(dateStr, delta);
-  }
-
-  for (const card of creditCards) {
-    const cardPeriods = new Set<string>();
-    for (const tx of transactions) {
-      if ((tx.accountId === card.id || tx.destinationAccountId === card.id) && tx.invoicePeriod) {
-        cardPeriods.add(tx.invoicePeriod);
-      }
-    }
-
-    for (const period of cardPeriods) {
-      const paidInv = invoices.find(
-        (i: any) => i.cardId === card.id && i.period === period && i.status === 'paga'
-      );
-      if (paidInv) continue;
-
-      const periodTx = transactions.filter(
-        (t: any) =>
-          (t.accountId === card.id || t.destinationAccountId === card.id) &&
-          t.invoicePeriod === period
-      );
-      const expenses = periodTx
-        .filter((t: any) => t.type === 'expense' || t.type === 'despesa')
-        .reduce((s: number, t: any) => s + t.amount, 0);
-      const payments = periodTx
-        .filter((t: any) => (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === card.id)
-        .reduce((s: number, t: any) => s + t.amount, 0);
-      const incomes = periodTx
-        .filter((t: any) => (t.type === 'income' || t.type === 'receita') && t.accountId === card.id)
-        .reduce((s: number, t: any) => s + t.amount, 0);
-      const balance = expenses - payments - incomes;
-
-      if (balance <= 0.01) continue;
-
-      const [pYear, pMonth] = period.split('-').map(Number);
-      const dueDate = new Date(pYear, pMonth - 1, card.dueDay);
-      addDelta(fmtDate(dueDate), -balance);
-    }
-  }
-
-  let currentBalance = startingBalance;
-  let minBalance = currentBalance;
-  let minDate = fmtDate(today);
-  const projection: Array<{ date: string; balance: number }> = [];
-
-  for (let i = 0; i < days; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() + i);
-    const dateStr = fmtDate(d);
-    currentBalance += (dailyDeltas[dateStr] || 0);
-    if (currentBalance < minBalance) {
-      minBalance = currentBalance;
-      minDate = dateStr;
-    }
-    projection.push({ date: dateStr, balance: currentBalance });
-  }
+  const projection = buildCashCoverageProjection({
+    accounts,
+    transactions,
+    creditCards,
+    invoices,
+    options: { days },
+  });
 
   return {
-    startingBalance,
-    minimumBalance: minBalance,
-    minimumBalanceDate: minDate,
-    isAtRisk: minBalance < 0,
-    dailyProjection: projection,
+    ...projection,
+    dailyProjection: projection.dailyProjection.map(day => ({
+      date: day.date,
+      balance: day.endingBalance,
+    })),
   };
 }
-
 export function getTransactionEffect(
   tx: { type: string; amount: number; accountId?: string; destinationAccountId?: string },
   perspectiveAccountId: string

@@ -5,6 +5,27 @@
 
 ---
 
+## [0.2.0] — 2026-06-23 — Motor de Cobertura de Caixa
+
+**Resultado:** A projeção futura passa a responder se caixa atual + valores a receber cobrem as obrigações bancárias e de cartão ao longo do tempo, com detecção de risco diário.
+
+**Alterações técnicas:**
+- `src/lib/cashCoverage.ts` — Novo motor único de previsão: eventos futuros, simulação diária, agregação mensal, faturas abertas/fechadas/futuras e menor saldo projetado
+- `src/lib/cashCoverage.test.ts` — Testes unitários para descasamento de datas, fatura fechada, fatura aberta sem invoice persistida, contas excluídas do fluxo e atrasados
+- `src/lib/utils.ts` — `projectDailyBalance()` passa a usar o novo motor mantendo compatibilidade com o Dashboard
+- `src/pages/Reports.tsx` — Aba Projeção Futura passa a consumir o motor de cobertura e exibe diagnóstico de cobertura, risco e composição das obrigações
+- `package.json`, `package-lock.json` e `APP_VERSION` — Versão atualizada para `0.2.0`
+
+**Validações:**
+- `npx vitest run src/lib/cashCoverage.test.ts src/utils/creditCardUtils.test.ts`
+- `npm run lint`
+- `npm run test`
+- `npm run build`
+
+**Limitações:** Recorrências futuras ainda dependem de transações já materializadas; a IA interpreta dados, mas não calcula a cobertura.
+
+---
+
 ## [0.1.0] — 2026-06-22
 
 > Primeira versão formal do projeto. Versionamento inicia a partir da adoção do protocolo de documentação em 4 camadas.

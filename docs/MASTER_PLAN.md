@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.1.0` |
+| **Versão atual** | `0.2.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-06-22 (melhorias fatura cartão) |
+| **Última alteração em código** | 2026-06-23 (motor de cobertura de caixa) |
 | **Último deploy** | Não registrado formalmente |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -52,12 +52,12 @@ npm run build      # vite build
 
 | Área | Estado | Observação |
 |------|--------|------------|
-| Dashboard | ✅ Funcional | KPIs, fluxo de caixa, insight IA, Disponível Seguro |
+| Dashboard | ✅ Funcional | KPIs, fluxo de caixa, insight IA, Cobertura de Caixa via motor único |
 | Transações | ✅ Funcional | CRUD com runTransaction, parcelamento, recorrência, quick confirm |
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
 | Conciliação | ✅ Funcional | OFX/CSV, auto-match, AI match, AI análise de divergências |
-| Relatórios | ✅ Funcional | Regime duplo (cash/accrual), projeção de caixa, seletor de período |
+| Relatórios | ✅ Funcional | Regime duplo, projeção de caixa com cobertura diária e composição de obrigações |
 | Auditoria | ✅ Funcional | Diagnóstico, correção de saldo, reabertura de períodos |
 | Orçamentos | ✅ Funcional | Metas por categoria, tabela Orçado x Realizado |
 | Metas | ✅ Funcional | Metas financeiras com progresso |
@@ -66,15 +66,15 @@ npm run build      # vite build
 | Autenticação | ✅ Funcional | Google Auth + modo convidado anônimo |
 | PWA | ✅ Instalável | iOS meta tags, update com toast |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
-| Testes | ⚠️ Parcial | Apenas `creditCardUtils.test.ts` (unitário); sem testes de integração |
+| Testes | ⚠️ Parcial | Unitários para cartão e cobertura de caixa; sem testes de integração |
 
 ---
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Versionamento formal iniciado (v0.1.0). Protocolo de documentação em 4 camadas implantado.
+**Foco atual:** v0.2.0 entregue com motor único de cobertura de caixa para previsão diária de obrigações e recebíveis.
 
-**Próximo passo autorizado:** Corrigir inconsistências documentais pendentes (Gemini→Groq, status `ia-conciliacao-inteligente.md`, `plano-de-melhorias.md`).
+**Próximo passo sugerido:** Evoluir a cobertura com recorrências futuras ainda não materializadas, cenários conservador/realista/projetado e visualização diária detalhada.
 
 ---
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-06-23 | v0.2.0 — Motor de cobertura de caixa + diagnóstico de obrigações | Relatórios / Dashboard |
 | 2026-06-22 | v0.1.0 — Primeira versão formal + exibição no Login e Dashboard | Versionamento |
 | 2026-06-22 | Classificação de faturas em 5 grupos + campos de data dupla | Cartões — UX da fatura |
 | 2026-06-19 | Correção: edição de conta não trocava `accountId`/`destinationAccountId` | Transações — bug crítico |
@@ -114,7 +115,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 6 | Estorno total / parcial de compras | ⚠️ Pendente | Especificado, não implementado |
 | 7 | Pagamento parcial de fatura | ⚠️ Pendente | Especificado, não implementado |
 | 8 | Paradigmas de orçamento (impacto fracionado vs integral) | ⚠️ Pendente | Especificado, não implementado |
-| 9 | Testes automatizados (integração + unitários) | ⚠️ Pendente | Apenas `creditCardUtils.test.ts` |
+| 9 | Testes automatizados (integração + unitários) | 🔄 Parcial | Unitários para cartão e cobertura; integração pendente |
 | 10 | Gestão de versão / releases | ✅ Concluído | v0.1.0 definida; exibida no Login e Dashboard |
 
 ---
@@ -143,6 +144,7 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 5. **Fontes de verdade separadas**: Dashboard (regime de caixa), Reports (regime de competência).
 6. **Campos `originalPurchaseDate` e `postingDate`**: Separação entre data da compra e data de lançamento na fatura.
 7. **Proibição de auto-healing**: Scripts silenciosos de correção de saldo removidos.
+8. **Motor único de cobertura de caixa**: Projeção futura transforma contas pendentes e faturas de cartão em eventos datados, simula saldo diário e agrega por mês para Dashboard/Reports.
 
 ---
 
@@ -166,9 +168,9 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 
 ## 10. Próximo Passo Autorizado
 
-Concluir a implantação do protocolo de documentação (esta sessão). Em seguida:
+Após v0.2.0, priorizar evolução da previsão de caixa. Em seguida:
 
-1. Revisar `docs/plano-de-melhorias.md` e atualizar status de cada item verificando código real.
-2. Mover `docs/ia-conciliacao-inteligente.md` para `docs/archive/` ou atualizar seu status para "Implementado — manter como referência".
-3. Corrigir referência à Gemini em `docs/LOGICA_DO_SISTEMA.md` para Groq.
-4. Definir primeira versão formal (ex: `0.1.0`) com base nas funcionalidades completas.
+1. Incluir recorrências futuras ainda não materializadas no motor de cobertura.
+2. Criar cenários conservador/realista/projetado para diferenciar recebíveis confirmados, esperados e projetados.
+3. Refinar a UI da aba Projeção com visão diária expandível e alertas por data crítica.
+4. Corrigir inconsistências documentais pendentes: Gemini→Groq, status de IA conciliação e plano de melhorias.

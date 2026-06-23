@@ -1,5 +1,7 @@
 # Relatório Técnico: Cálculo de Indicadores e Métricas no Fiducia
 
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
 Este relatório descreve com precisão as regras de negócio e matemáticas aplicadas no sistema para obter cada um dos indicadores exibidos nos painéis de **Dashboard** e **Relatórios**.
 
 O sistema opera em dois regimes paralelos: **Regime de Caixa** (baseado em pagamento efetivo e liquidez) no Dashboard, e **Regime de Competência** (baseado na data do compromisso) nos Relatórios.
@@ -64,3 +66,51 @@ A tela de Relatórios trabalha sob o **Regime de Competência**. Aqui o que impo
 ### 📉 Tendência de Gastos (Evolução Diária)
 - **O que é**: Um gráfico que mostra a "queima" do seu orçamento ao longo dos dias do mês atual.
 - **Como é calculado**: O sistema percorre o mês desde o dia `01` até o dia de `hoje`. Para cada dia, ele soma as despesas e as acumula com o valor do dia anterior (soma cumulativa). Resulta em uma linha ascendente que permite visualizar em quais dias do mês ocorreram os maiores saltos de gasto.
+
+---
+
+## 3. Cobertura de Caixa e Previsão de Obrigações (v0.2.0)
+
+A partir da versão `0.2.0`, a previsão de caixa passa a usar um motor único em `src/lib/cashCoverage.ts`. O objetivo é responder se o caixa atual somado aos valores a receber cobre as obrigações assumidas e projetadas ao longo do tempo.
+
+### Fontes consideradas
+
+| Fonte | Tratamento | Data usada |
+|-------|------------|------------|
+| Saldo de contas | Caixa inicial | Data atual |
+| Receitas pendentes bancárias | Entrada futura confirmada | Data da transação |
+| Despesas pendentes bancárias | Saída futura confirmada | Data da transação |
+| Fatura fechada | Obrigação confirmada de cartão | Vencimento da fatura |
+| Fatura aberta | Obrigação esperada de cartão | Vencimento provável da fatura |
+| Períodos futuros de cartão | Comprometimento projetado | Vencimento da fatura futura |
+
+Contas marcadas com `excludeFromCashFlow` ficam fora do caixa inicial, salvo quando a opção de incluir investimentos/reservas estiver ativa.
+
+### Simulação diária
+
+O motor transforma cada compromisso em um evento financeiro datado e calcula:
+
+```text
+saldo_dia = saldo_dia_anterior + entradas_do_dia - saidas_do_dia
+```
+
+Itens atrasados são aplicados na data atual para evitar que o passado distorça a projeção, mas preservam a data original para exibição de alerta.
+
+### Indicadores gerados
+
+| Indicador | Significado |
+|-----------|-------------|
+| `startingBalance` | Caixa inicial considerado na projeção |
+| `totalIncome` | Total de valores a receber no período |
+| `totalObligations` | Total de despesas bancárias + faturas de cartão no período |
+| `coverageBalance` | `startingBalance + totalIncome - totalObligations` |
+| `minimumBalance` | Menor saldo diário projetado |
+| `minimumBalanceDate` | Data em que ocorre o menor saldo |
+| `firstRiskDate` | Primeira data em que o saldo fica negativo |
+| `totalClosedInvoices` | Faturas fechadas ainda não pagas |
+| `totalOpenInvoices` | Faturas abertas do período corrente |
+| `totalFutureCard` | Compromissos de cartão em períodos futuros |
+
+### Interpretação
+
+Uma cobertura final positiva não elimina risco. Se `minimumBalance` ficar negativo em algum dia, o sistema deve alertar descasamento de datas: o usuário pode ter dinheiro suficiente no período, mas não no dia em que a obrigação vence.
