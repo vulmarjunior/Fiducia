@@ -443,6 +443,8 @@ export function TransactionDialog() {
             destSnap = await transaction.get(doc(db, 'accounts', formData.destinationAccountId));
           }
 
+          const parentId = crypto.randomUUID();
+
           for (let i = 0; i < iterations; i++) {
             const date = parseLocalDate(formData.date);
             if (!isCreditCard && formData.isRecurring && i > 0) {
@@ -467,7 +469,7 @@ export function TransactionDialog() {
             }
 
             if (!isCreditCard && formData.isRecurring && iterations > 1) {
-              tData.parentId = crypto.randomUUID();
+              tData.parentId = parentId;
               tData.isRecurring = true;
               tData.frequency = formData.frequency;
             }
@@ -860,111 +862,190 @@ export function TransactionDialog() {
         toast.success('Série atualizada');
       } else if (isSeries && financialFieldsChanged && editScope !== 'only') {
         const seriesKey = editingTx.parentId || editingTx.installmentId;
+        const editingDate = (editingTx.date || '').split('T')[0];
+
         const inScopeSiblings = transactions.filter((t: any) => {
-          const isInSeries = seriesKey
+          if (t.id === editingTx.id) return false;
+
+          const inSeriesByKey = seriesKey
             ? (t.parentId === seriesKey || t.installmentId === seriesKey || t.id === seriesKey)
             : false;
-          if (!isInSeries) return false;
-          if (t.id === editingTx.id) return false;
+
+          const inSeriesByRecurrence = !inSeriesByKey
+            && editingTx.isRecurring
+            && t.isRecurring
+            && editingTx.frequency
+            && t.frequency === editingTx.frequency
+            && t.description === editingTx.description
+            && (editingTx.installmentId ? t.installmentId === editingTx.installmentId : true);
+
+          if (!inSeriesByKey && !inSeriesByRecurrence) return false;
+
           if (editScope === 'future') {
-            return new Date(t.date).getTime() >= new Date(editingTx.date).getTime();
+            const tDate = (t.date || '').split('T')[0];
+            return tDate >= editingDate;
           }
           return true;
         });
 
-        const siblingUpdate: any = {
-          amount,
-          accountId: formData.accountId,
-          description: formData.description,
-          categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
-          tags: formData.tagIds.length > 0 ? formData.tagIds : [],
-          observation: formData.observation || '',
-          updatedAt: new Date().toISOString(),
-        };
-        if (isCreditCard && card) {
-          siblingUpdate.creditCardId = formData.accountId;
-        }
+        if (inScopeSiblings.length === 0) {
+          await runTransaction(db, async (transaction) => {
+            const txRef = doc(db, 'transactions', editingTx.id);
+            const txSnap = await transaction.get(txRef);
+            if (!txSnap.exists()) throw new Error('Transaction not found');
+            const oldT = txSnap.data() as any;
 
-        await runTransaction(db, async (transaction) => {
-          const txRef = doc(db, 'transactions', editingTx.id);
-          const txSnap = await transaction.get(txRef);
-          if (!txSnap.exists()) throw new Error('Transaction not found');
-          const oldT = txSnap.data() as any;
+            const accountDeltas: Record<string, number> = {};
 
-          const accountDeltas: Record<string, number> = {};
+            if (!creditCards.some((cc: any) => cc.id === oldT.accountId)) {
+              const oldPaid = isEffectivelyPaid(oldT);
+              const newPaid = isEffectivelyPaid({ status: formData.status }) && !isCreditCard;
 
-          if (!creditCards.some((cc: any) => cc.id === oldT.accountId)) {
-            const oldPaid = isEffectivelyPaid(oldT);
-            const newPaid = isEffectivelyPaid({ status: formData.status }) && !isCreditCard;
+              if (oldPaid) {
+                if (oldT.type === 'transferencia') {
+                  if (oldT.accountId) accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) + oldT.amount;
+                  if (oldT.destinationAccountId) accountDeltas[oldT.destinationAccountId] = (accountDeltas[oldT.destinationAccountId] || 0) - oldT.amount;
+                } else {
+                  accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) - getBalanceChange(oldT.type, oldT.amount);
+                }
+              }
 
-            if (oldPaid) {
-              if (oldT.type === 'transferencia') {
-                if (oldT.accountId) accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) + oldT.amount;
-                if (oldT.destinationAccountId) accountDeltas[oldT.destinationAccountId] = (accountDeltas[oldT.destinationAccountId] || 0) - oldT.amount;
-              } else {
-                accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) - getBalanceChange(oldT.type, oldT.amount);
+              if (newPaid && !isCreditCard) {
+                if (formData.type === 'transferencia') {
+                  if (formData.accountId) accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) - amount;
+                  if (formData.destinationAccountId) accountDeltas[formData.destinationAccountId] = (accountDeltas[formData.destinationAccountId] || 0) + amount;
+                } else {
+                  accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) + getBalanceChange(formData.type, amount);
+                }
               }
             }
 
-            if (newPaid && !isCreditCard) {
-              if (formData.type === 'transferencia') {
+            if (isCreditCard) {
+              const relatedInvoice = invoices.find((i: any) => i.paymentTransactionId === editingId);
+              if (relatedInvoice) {
+                const invRef = doc(db, 'invoices', relatedInvoice.id);
+                const invSnap = await transaction.get(invRef);
+                if (invSnap.exists()) {
+                  const newStatus = formData.status === 'pago' && relatedInvoice.status !== 'paga' ? 'paga'
+                    : formData.status !== 'pago' && relatedInvoice.status === 'paga' ? 'fechada' : null;
+                  if (newStatus) transaction.update(invRef, { status: newStatus });
+                }
+              }
+            }
+
+            const accountSnaps: Record<string, any> = {};
+            for (const accId of Object.keys(accountDeltas)) {
+              if (accountDeltas[accId] === 0) continue;
+              accountSnaps[accId] = await transaction.get(doc(db, 'accounts', accId));
+            }
+            for (const [accId, delta] of Object.entries(accountDeltas)) {
+              if (delta === 0) continue;
+              const snap = accountSnaps[accId];
+              if (snap?.exists()) {
+                transaction.update(doc(db, 'accounts', accId), { balance: (snap.data().balance || 0) + delta });
+              }
+            }
+
+            transaction.update(txRef, updateData);
+          });
+
+          logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: formData.description }).catch(() => {});
+          toast.success('Lançamento atualizado (nenhum lançamento futuro na série)');
+        } else {
+          const siblingUpdate: any = {
+            amount,
+            accountId: formData.accountId,
+            description: formData.description,
+            categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
+            tags: formData.tagIds.length > 0 ? formData.tagIds : [],
+            observation: formData.observation || '',
+            updatedAt: new Date().toISOString(),
+          };
+          if (isCreditCard && card) {
+            siblingUpdate.creditCardId = formData.accountId;
+          }
+
+          await runTransaction(db, async (transaction) => {
+            const txRef = doc(db, 'transactions', editingTx.id);
+            const txSnap = await transaction.get(txRef);
+            if (!txSnap.exists()) throw new Error('Transaction not found');
+            const oldT = txSnap.data() as any;
+
+            const accountDeltas: Record<string, number> = {};
+
+            if (!creditCards.some((cc: any) => cc.id === oldT.accountId)) {
+              const oldPaid = isEffectivelyPaid(oldT);
+              const newPaid = isEffectivelyPaid({ status: formData.status }) && !isCreditCard;
+
+              if (oldPaid) {
+                if (oldT.type === 'transferencia') {
+                  if (oldT.accountId) accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) + oldT.amount;
+                  if (oldT.destinationAccountId) accountDeltas[oldT.destinationAccountId] = (accountDeltas[oldT.destinationAccountId] || 0) - oldT.amount;
+                } else {
+                  accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) - getBalanceChange(oldT.type, oldT.amount);
+                }
+              }
+
+              if (newPaid && !isCreditCard) {
+                if (formData.type === 'transferencia') {
+                  if (formData.accountId) accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) - amount;
+                  if (formData.destinationAccountId) accountDeltas[formData.destinationAccountId] = (accountDeltas[formData.destinationAccountId] || 0) + amount;
+                } else {
+                  accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) + getBalanceChange(formData.type, amount);
+                }
+              }
+            }
+
+            for (const sib of inScopeSiblings) {
+              if (!isEffectivelyPaid(sib)) continue;
+              if (creditCards.some((cc: any) => cc.id === sib.accountId)) continue;
+
+              if (sib.type === 'transferencia') {
+                if (sib.accountId) accountDeltas[sib.accountId] = (accountDeltas[sib.accountId] || 0) + sib.amount;
+                if (sib.destinationAccountId) accountDeltas[sib.destinationAccountId] = (accountDeltas[sib.destinationAccountId] || 0) - sib.amount;
                 if (formData.accountId) accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) - amount;
-                if (formData.destinationAccountId) accountDeltas[formData.destinationAccountId] = (accountDeltas[formData.destinationAccountId] || 0) + amount;
+                if (sib.destinationAccountId) accountDeltas[sib.destinationAccountId] = (accountDeltas[sib.destinationAccountId] || 0) + amount;
               } else {
-                accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) + getBalanceChange(formData.type, amount);
+                accountDeltas[sib.accountId] = (accountDeltas[sib.accountId] || 0) - getBalanceChange(sib.type, sib.amount);
+                accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) + getBalanceChange(sib.type, amount);
               }
             }
-          }
 
-          for (const sib of inScopeSiblings) {
-            if (!isEffectivelyPaid(sib)) continue;
-            if (creditCards.some((cc: any) => cc.id === sib.accountId)) continue;
-
-            if (sib.type === 'transferencia') {
-              if (sib.accountId) accountDeltas[sib.accountId] = (accountDeltas[sib.accountId] || 0) + sib.amount;
-              if (sib.destinationAccountId) accountDeltas[sib.destinationAccountId] = (accountDeltas[sib.destinationAccountId] || 0) - sib.amount;
-              if (formData.accountId) accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) - amount;
-              if (sib.destinationAccountId) accountDeltas[sib.destinationAccountId] = (accountDeltas[sib.destinationAccountId] || 0) + amount;
-            } else {
-              accountDeltas[sib.accountId] = (accountDeltas[sib.accountId] || 0) - getBalanceChange(sib.type, sib.amount);
-              accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) + getBalanceChange(sib.type, amount);
-            }
-          }
-
-          if (isCreditCard) {
-            const relatedInvoice = invoices.find((i: any) => i.paymentTransactionId === editingId);
-            if (relatedInvoice) {
-              const invRef = doc(db, 'invoices', relatedInvoice.id);
-              const invSnap = await transaction.get(invRef);
-              if (invSnap.exists()) {
-                const newStatus = formData.status === 'pago' && relatedInvoice.status !== 'paga' ? 'paga'
-                  : formData.status !== 'pago' && relatedInvoice.status === 'paga' ? 'fechada' : null;
-                if (newStatus) transaction.update(invRef, { status: newStatus });
+            if (isCreditCard) {
+              const relatedInvoice = invoices.find((i: any) => i.paymentTransactionId === editingId);
+              if (relatedInvoice) {
+                const invRef = doc(db, 'invoices', relatedInvoice.id);
+                const invSnap = await transaction.get(invRef);
+                if (invSnap.exists()) {
+                  const newStatus = formData.status === 'pago' && relatedInvoice.status !== 'paga' ? 'paga'
+                    : formData.status !== 'pago' && relatedInvoice.status === 'paga' ? 'fechada' : null;
+                  if (newStatus) transaction.update(invRef, { status: newStatus });
+                }
               }
             }
-          }
 
-          const accountSnaps: Record<string, any> = {};
-          for (const accId of Object.keys(accountDeltas)) {
-            if (accountDeltas[accId] === 0) continue;
-            accountSnaps[accId] = await transaction.get(doc(db, 'accounts', accId));
-          }
-          for (const [accId, delta] of Object.entries(accountDeltas)) {
-            if (delta === 0) continue;
-            const snap = accountSnaps[accId];
-            if (snap?.exists()) {
-              transaction.update(doc(db, 'accounts', accId), { balance: (snap.data().balance || 0) + delta });
+            const accountSnaps: Record<string, any> = {};
+            for (const accId of Object.keys(accountDeltas)) {
+              if (accountDeltas[accId] === 0) continue;
+              accountSnaps[accId] = await transaction.get(doc(db, 'accounts', accId));
             }
-          }
+            for (const [accId, delta] of Object.entries(accountDeltas)) {
+              if (delta === 0) continue;
+              const snap = accountSnaps[accId];
+              if (snap?.exists()) {
+                transaction.update(doc(db, 'accounts', accId), { balance: (snap.data().balance || 0) + delta });
+              }
+            }
 
-          transaction.update(txRef, updateData);
-          for (const sib of inScopeSiblings) {
-            transaction.update(doc(db, 'transactions', sib.id), siblingUpdate);
-          }
-        });
+            transaction.update(txRef, updateData);
+            for (const sib of inScopeSiblings) {
+              transaction.update(doc(db, 'transactions', sib.id), siblingUpdate);
+            }
+          });
 
-        logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Série atualizada (${editScope === 'all' ? 'todos' : 'futuros'}): ${formData.description}` }).catch(() => {});
-        toast.success(editScope === 'all' ? 'Série atualizada' : 'Lançamentos futuros atualizados');
+          logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Série atualizada (${editScope === 'all' ? 'todos' : 'futuros'}): ${formData.description}` }).catch(() => {});
+          toast.success(editScope === 'all' ? 'Série atualizada' : 'Lançamentos futuros atualizados');
+        }
       } else {
         await runTransaction(db, async (transaction) => {
           const txRef = doc(db, 'transactions', editingId);
