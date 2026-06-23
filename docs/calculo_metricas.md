@@ -175,3 +175,44 @@ variação = (amount_N - amount_{N-1}) / amount_{N-1} * 100
 | Cartão | Todos / cartão específico | `invSelectedCard` |
 | Status | Todas / Abertas / Fechadas / Pagas / Futuras | `invStatusFilter` |
 | Estornos | Incluir / Excluir | `invIncludeCredits` |
+
+---
+
+## 7. Análise Inteligente com Groq (v0.3.1)
+
+A aba "Análise IA" em Relatórios foi refatorada para enviar dados calculados pelos motores internos do Fiducia em vez de enviar transações brutas.
+
+### Decisão arquitetural
+
+> A Groq interpreta dados calculados pelo Fiducia. Ela não é fonte de verdade dos cálculos financeiros.
+
+### Motores acionados
+
+| Motor | Arquivo | Dados fornecidos |
+|-------|---------|------------------|
+| Cobertura de Caixa | `src/lib/cashCoverage.ts` | Saldo inicial, total a receber, obrigações, saldo projetado mínimo, primeira data de risco |
+| Análise de Faturas | `src/lib/invoiceAnalysis.ts` | Faturas abertas/fechadas/pagas/futuras, média mensal, maior fatura, breakdown por cartão |
+| Categorias | Cálculo inline | Top 5 despesas e receitas do ano com peso percentual |
+| Fluxo de Caixa | Cálculo inline | Últimos 3 meses com receitas, despesas e saldo |
+| Orçamentos | Cálculo inline | Itens estourados no mês corrente |
+
+### Funções principais
+
+| Função | Arquivo | Descrição |
+|--------|---------|-----------|
+| `buildFinancialInsightContext()` | `src/lib/financialInsight.ts` | Reúne dados de todos os motores em um contexto estruturado com seções: `health`, `cashCoverage`, `invoices`, `categories`, `cashflow`, `budgets`, `criticalDates` |
+| `buildGroqFinancialAnalysisPrompt()` | `src/lib/financialInsight.ts` | Gera prompt com regras rigorosas (não inventar, não recalcular, ser específico) e formato fixo de 5 seções na resposta |
+
+### Formato da resposta da IA
+
+1. **Diagnóstico Principal** — resumo da situação financeira
+2. **Datas Críticas** — dias de atenção e por quê
+3. **Principais Causas** — o que está pressionando ou aliviando
+4. **Riscos se Nada Mudar** — cenário projetado
+5. **Ações Recomendadas** — por ordem de impacto, com valores e datas
+
+### Parâmetros da chamada Groq
+
+- **Modelo:** `llama-3.3-70b-versatile`
+- **Temperatura:** 0.5 (reduzida de 0.7 para respostas mais consistentes)
+- **Max tokens:** 1200 (aumentado de 1000 para comportar as 5 seções)

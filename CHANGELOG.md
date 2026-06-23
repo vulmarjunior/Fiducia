@@ -5,6 +5,25 @@
 
 ---
 
+## [0.3.1] — 2026-06-23 — Análise Inteligente com Groq
+
+**Resultado:** A aba "Análise IA" deixa de gerar dicas genéricas e passa a interpretar dados calculados pelos motores internos do Fiducia: cobertura de caixa, faturas, categorias, orçamentos e datas críticas.
+
+**Alterações técnicas:**
+- `src/lib/financialInsight.ts` — `buildFinancialInsightContext()` reúne dados de cashCoverage, invoiceAnalysis, categorias, fluxo de caixa, orçamentos e datas críticas em um contexto estruturado; `buildGroqFinancialAnalysisPrompt()` gera prompt rigoroso com regras (não inventar, não recalcular, ser específico) e formato fixo de 5 seções
+- `src/lib/financialInsight.test.ts` — 11 testes unitários: contexto nulo sem dados, cobertura com risco, faturas, categorias, orçamentos, tendência, data crítica, prompt estruturado, prompt com risco e prompt sem orçamentos
+- `src/pages/Reports.tsx` — Aba IA refatorada: usa `buildFinancialInsightContext` + `buildGroqFinancialAnalysisPrompt`, exibe contexto usado na análise (cards com métricas enviadas), disclaimer "IA interpreta, sistema calcula", temperatura reduzida (0.5) para respostas mais consistentes
+- `package.json`, `src/lib/utils.ts` — Versão `0.3.1`
+
+**Decisão arquitetural:** A Groq interpreta dados calculados pelo Fiducia. Ela não é fonte de verdade dos cálculos financeiros.
+
+**Validações:**
+- `npm run lint` — Sem erros
+- `npm run test` — 34/34 passando (11 novos)
+- `npm run build` — Build OK
+
+---
+
 ## [0.3.0] — 2026-06-23 — Relatório de Análise de Faturas de Cartão
 
 **Resultado:** Nova aba "Faturas" em Relatórios permite analisar o comportamento das faturas de cartão de crédito ao longo do tempo: evolução mensal, peso por cartão, status (aberta/fechada/paga/futura) e comprometimento futuro com parcelamentos.

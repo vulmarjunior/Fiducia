@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { isEffectivelyPaid } from '../lib/utils';
 import { buildCashCoverageProjection } from '../lib/cashCoverage';
 import { buildInvoiceAnalysis } from '../lib/invoiceAnalysis';
+import { buildFinancialInsightContext, buildGroqFinancialAnalysisPrompt } from '../lib/financialInsight';
 import { PageHelp } from '../components/PageHelp';
 import { callGroq } from '../services/groqService';
 import { Button } from '../components/ui/button';
@@ -324,23 +325,29 @@ export function Reports() {
       name: t.label.split(' de ')[0],
     })), [invoiceAnalysis.trend]);
 
-  // ─── ABA 5: IA ────────────────────────────────────────────────────────────
+  // ─── ABA 6: IA ────────────────────────────────────────────────────────────
+  const [financialContext, setFinancialContext] = useState<any>(null);
+
   const generateAI = async () => {
     if (isLoadingAi || transactions.length < 5) return;
     setIsLoadingAi(true);
     try {
-      const recent = transactions.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 50)
-        .map(t => ({ date: t.date, desc: t.description, amount: t.amount, type: t.type, category: categories.find(c => c.id === t.categoryId)?.name || 'Geral' }));
-      const summary = cashFlowData.slice(-3);
-      const prompt = `Como consultor financeiro especialista (Fiducia AI), analise os dados e forneça:
-1. Score de Saúde Financeira (0-100) com breve explicação.
-2. Três dicas personalizadas e acionáveis.
-3. Previsão otimista e realista para o próximo mês.
-Saldo Total: R$ ${totalBalance.toFixed(2)}
-Resumo (3 meses): ${JSON.stringify(summary)}
-Transações recentes: ${JSON.stringify(recent)}
-Responda em Português com Markdown (bullets, negrito). Seja empático.`;
-      const res = await callGroq([{ role: 'user', content: prompt }], { maxTokens: 1000 });
+      const context = buildFinancialInsightContext({
+        accounts,
+        transactions,
+        categories,
+        creditCards,
+        invoices,
+        budgets,
+      });
+      if (!context) {
+        toast.error('Dados insuficientes para gerar análise.');
+        setIsLoadingAi(false);
+        return;
+      }
+      setFinancialContext(context);
+      const prompt = buildGroqFinancialAnalysisPrompt(context);
+      const res = await callGroq([{ role: 'user', content: prompt }], { maxTokens: 1200, temperature: 0.5 });
       setAiInsight(res || 'Não foi possível gerar a análise.');
     } catch {
       toast.error('Erro ao gerar análise. Tente novamente.');
@@ -1210,6 +1217,7 @@ Responda em Português com Markdown (bullets, negrito). Seja empático.`;
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'ai' && (
         <div className="space-y-6">
+          {/* Bloco principal */}
           <div className="bg-gradient-to-br from-fiducia-blue/10 to-fiducia-blue/5 border border-fiducia-blue/20 rounded-2xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
@@ -1218,34 +1226,102 @@ Responda em Português com Markdown (bullets, negrito). Seja empático.`;
                 </div>
                 <div>
                   <div className="text-[16px] font-bold text-foreground">Fiducia AI</div>
-                  <div className="text-[12px] text-muted-foreground">Análise completa da sua saúde financeira</div>
+                  <div className="text-[12px] text-muted-foreground">Análise inteligente — IA interpreta, sistema calcula</div>
                 </div>
               </div>
               <Button onClick={generateAI} disabled={isLoadingAi || transactions.length < 5}
                 className="bg-fiducia-blue hover:bg-fiducia-blue/90 text-white gap-2 font-semibold shadow-lg shadow-fiducia-blue/20">
                 {isLoadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {aiInsight ? 'Renovar Análise' : 'Gerar Análise'}
+                {aiInsight ? 'Renovar Análise' : 'Gerar Análise Inteligente'}
               </Button>
             </div>
             {aiInsight ? (
-              <div className="bg-background/50 rounded-xl p-5 text-[13px] leading-relaxed border border-border/50">
-                <div dangerouslySetInnerHTML={{
-                  __html: aiInsight
-                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\n/g, '<br/>')
-                }} />
+              <div className="space-y-4">
+                <div className="bg-background/50 rounded-xl p-5 text-[13px] leading-relaxed border border-border/50">
+                  <div dangerouslySetInnerHTML={{
+                    __html: aiInsight
+                      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/\n/g, '<br/>')
+                  }} />
+                </div>
+                <div className="text-[10px] text-muted-foreground/60 italic px-1">
+                  Os cálculos financeiros são feitos pelo motor do Fiducia. A IA apenas interpreta os resultados. Verifique os números nos relatórios antes de tomar decisões.
+                </div>
               </div>
             ) : (
               <div className="text-center py-10">
                 <Sparkles className="w-8 h-8 text-fiducia-blue animate-pulse mx-auto mb-3" />
                 <p className="text-[13px] text-muted-foreground font-medium">
-                  {transactions.length < 5 ? 'Adicione pelo menos 5 lançamentos para gerar a análise.' : 'Clique em "Gerar Análise" para receber insights personalizados.'}
+                  {transactions.length < 5 ? 'Adicione pelo menos 5 lançamentos para gerar a análise.' : 'Clique em "Gerar Análise Inteligente" para receber um diagnóstico completo baseado nos dados calculados pelo sistema.'}
                 </p>
               </div>
             )}
           </div>
 
+          {/* Contexto usado na análise */}
+          {financialContext && aiInsight && (
+            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+              <div className="flex items-center gap-2 p-4 border-b border-border">
+                <Sparkles className="w-4 h-4 text-fiducia-amber" />
+                <h3 className="text-[14px] font-bold text-foreground">Contexto Enviado à IA</h3>
+                <span className="text-[10px] text-muted-foreground ml-2">(dados calculados pelo Fiducia)</span>
+              </div>
+              <div className="p-4 grid md:grid-cols-2 lg:grid-cols-3 gap-4 text-[12px]">
+                <div>
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Saúde Financeira</div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Saldo:</span><span className="font-mono font-bold">{fmt(financialContext.health.totalBalance)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Economia mensal:</span><span className={`font-mono font-bold ${financialContext.health.monthlySavings >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>{financialContext.health.monthlySavings >= 0 ? '+' : ''}{fmt(financialContext.health.monthlySavings)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Poupança:</span><span className="font-mono font-bold">{financialContext.health.savingsRate}%</span></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Cobertura 90 dias</div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Inicial:</span><span className="font-mono font-bold">{fmt(financialContext.cashCoverage.startingBalance)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">A receber:</span><span className="font-mono font-bold text-fiducia-green">+{fmt(financialContext.cashCoverage.totalIncome)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Obrigações:</span><span className="font-mono font-bold text-fiducia-red">-{fmt(financialContext.cashCoverage.totalObligations)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Cobertura:</span><span className={`font-mono font-bold ${financialContext.cashCoverage.coverageBalance >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>{fmt(financialContext.cashCoverage.coverageBalance)}</span></div>
+                  </div>
+                </div>
+                {financialContext.invoices.cardsCount > 0 && (
+                  <div>
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Faturas Cartão</div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Abertas:</span><span className="font-mono font-bold text-fiducia-amber">{fmt(financialContext.invoices.totalOpen)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Fechadas:</span><span className="font-mono font-bold text-fiducia-red">{fmt(financialContext.invoices.totalClosed)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Futuras:</span><span className="font-mono font-bold text-fiducia-blue">{fmt(financialContext.invoices.totalFuture)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Média:</span><span className="font-mono font-bold">{fmt(financialContext.invoices.monthlyAverage)}</span></div>
+                    </div>
+                  </div>
+                )}
+                {financialContext.budgets.totalOverspent > 0 && (
+                  <div>
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Orçamentos ⚠️</div>
+                    <div className="space-y-1">
+                      <span className="text-fiducia-red text-[11px]">{financialContext.budgets.totalOverspent} categorias estouradas</span>
+                    </div>
+                  </div>
+                )}
+                {financialContext.criticalDates.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Datas Críticas</div>
+                    <div className="space-y-1">
+                      {financialContext.criticalDates.slice(0, 3).map((d: any, i: number) => (
+                        <div key={i} className="text-[11px]">
+                          <span className="text-muted-foreground">{d.date.split('-').reverse().join('/')}:</span>
+                          <span className="font-semibold ml-1">{d.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Resumo dos últimos meses */}
           <div className="grid md:grid-cols-3 gap-4">
             {cashFlowData.slice(-3).map(m => (
               <div key={m.month} className="bg-card border border-border rounded-2xl p-4 shadow-sm">
