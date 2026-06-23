@@ -8,7 +8,7 @@ import { Button } from '../components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
-import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLocalDate } from '../lib/utils';
+import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLocalDate, projectDailyBalance } from '../lib/utils';
 import { callGroq } from '../services/groqService';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
@@ -186,45 +186,10 @@ Regras OBRIGATÓRIAS:
   ).reduce((sum, t) => sum + t.amount, 0);
   const monthlyBalance = monthlyIncome - monthlyExpense;
 
-  // Disponível Seguro calculation
-  const saldoCirculante = accounts
-    .filter(a => !a.excludeFromCashFlow)
-    .reduce((sum, a) => sum + (a.balance || 0), 0);
-  const hasExcludedAccounts = accounts.some(a => a.excludeFromCashFlow);
-  const excludedCount = accounts.filter(a => a.excludeFromCashFlow).length;
-  const circulatingCount = accounts.filter(a => !a.excludeFromCashFlow).length;
-
-  const gastosCartaoFaturaAberta = invoices
-    .filter(i => i.status === 'aberta')
-    .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
-  const gastosCartaoFaturaFechada = invoices
-    .filter(i => i.status === 'fechada')
-    .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
-  const gastosCartao = gastosCartaoFaturaAberta + gastosCartaoFaturaFechada;
-
-  const contasPendentes = transactions
-    .filter(t =>
-      !t.creditCardId &&
-      !creditCards.some(c => c.id === t.accountId) &&
-      (t.type === 'despesa' || t.type === 'expense') &&
-      (t.status === 'pendente' || t.status === 'pending') &&
-      t.date.split('T')[0].startsWith(currentMonthStr)
-    )
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const receitasPendentes = transactions
-    .filter(t =>
-      !t.creditCardId &&
-      !creditCards.some(c => c.id === t.accountId) &&
-      (t.type === 'receita' || t.type === 'income') &&
-      (t.status === 'pendente' || t.status === 'pending') &&
-      t.date.split('T')[0].startsWith(currentMonthStr) &&
-      t.type !== 'transferencia' && t.type !== 'transfer'
-    )
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const disponivelSeguro = saldoCirculante + receitasPendentes - gastosCartao - contasPendentes;
-  const isPositive = disponivelSeguro >= 0;
+  const cashCoverage = useMemo(
+    () => projectDailyBalance(accounts, transactions, creditCards, invoices, 90),
+    [accounts, transactions, creditCards, invoices]
+  );
 
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -445,9 +410,9 @@ Regras OBRIGATÓRIAS:
           </div>
           <PageHelp
             title="Dashboard"
-            description="Sua visão geral financeira: saldo total, receitas e despesas do mês, Disponível Seguro, gráfico de fluxo de caixa e lançamentos recentes."
+            description="Sua visão geral financeira: saldo total, receitas e despesas do mês, Cobertura de Caixa (projeção 90 dias), gráfico de fluxo de caixa e lançamentos recentes."
             items={[
-              { label: "Disponível Seguro", desc: "Métrica de caixa livre: Saldo Circulante + Receitas a Receber - Faturas de Cartão (Abertas e Fechadas) - Despesas Pendentes." },
+              { label: "Cobertura de Caixa", desc: "Simula o saldo diário pelos próximos 90 dias aplicando receitas, despesas pendentes e vencimentos de faturas na ordem cronológica. Detecta risco de descoberto por descasamento de datas." },
               { label: "Gráfico de Caixa", desc: "Mapeia a evolução real. Ele ignora transferências entre contas e não duplica despesas individuais do cartão de crédito (considera apenas o vencimento consolidado das faturas)." },
               { label: "Resolução de Timezone", desc: "Todas as datas do gráfico consideram o fuso horário local, garantindo que lançamentos de fim de mês caiam no período correto." },
               { label: "Dica IA", desc: "Análise autônoma com base nos seus gastos reais em conta corrente (ignora cartão para evitar distorções)." },
@@ -526,93 +491,49 @@ Regras OBRIGATÓRIAS:
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(monthlyExpense)}</div>
         </div>
 
-        {/* Disponível Seguro */}
-        <div className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
+        {/* Cobertura de Caixa */}
+        <div
+          className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
+          onClick={() => navigate('/reports')}
+        >
           <div className="flex items-center justify-between mb-4">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${isPositive ? 'bg-fiducia-purple/10 text-fiducia-purple' : 'bg-fiducia-red/10 text-fiducia-red'}`}>
-              {isPositive ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${cashCoverage.isAtRisk ? 'bg-fiducia-red/10 text-fiducia-red' : 'bg-fiducia-purple/10 text-fiducia-purple'}`}>
+              {cashCoverage.isAtRisk ? <ShieldAlert className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
             </div>
             <div className="relative group/tip">
               <Info className="w-4 h-4 text-muted-foreground cursor-help" />
-              <div className="absolute right-0 top-6 w-64 p-3 bg-popover border border-border rounded-xl shadow-lg text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-10">
-                <strong className="block mb-1">Disponível Seguro</strong>
-                = (Saldo Circulante) + (Receitas a Receber) − (Faturas de Cartão) − (Contas Pendentes)
+              <div className="absolute right-0 top-6 w-72 p-3 bg-popover border border-border rounded-xl shadow-lg text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-10">
+                <strong className="block mb-1">Cobertura de Caixa</strong>
+                Simula o saldo diário pelos próximos 90 dias, aplicando receitas, despesas pendentes e vencimentos de faturas de cartão <strong>na ordem cronológica</strong>.
                 <br /><br />
-                Considera faturas <strong>abertas</strong> (acumulando) e <strong>fechadas</strong> (a vencer). Faturas pagas são ignoradas (já saíram da conta).
-                {hasExcludedAccounts && <><br /><br />Contas marcadas como reserva/investimento são ignoradas deste cálculo.</>}
+                Diferente do antigo "Disponível Seguro" (que somava tudo no mês), esta métrica detecta riscos de descoberto por descasamento entre datas de entrada e saída.
+                <br /><br />
+                Clique para ver a projeção completa nos Relatórios.
               </div>
             </div>
           </div>
-          <div className="text-[13px] text-muted-foreground font-medium mb-1">Disponível Seguro</div>
-          <div className={`text-[24px] font-bold tracking-tight font-mono ${isPositive ? 'text-fiducia-purple' : 'text-fiducia-red'}`}>
-            {formatCurrency(disponivelSeguro)}
+          <div className="text-[13px] text-muted-foreground font-medium mb-1">Cobertura de Caixa (90 dias)</div>
+          <div className={`text-[24px] font-bold tracking-tight font-mono ${cashCoverage.isAtRisk ? 'text-fiducia-red' : 'text-fiducia-purple'}`}>
+            {formatCurrency(cashCoverage.minimumBalance)}
+          </div>
+          <div className="mt-2 text-[12px] text-muted-foreground leading-relaxed">
+            {cashCoverage.isAtRisk
+              ? <>⚠️ Saldo negativo em {cashCoverage.minimumBalanceDate.split('-').reverse().join('/')} — suas receitas podem não chegar a tempo de cobrir as despesas.</>
+              : <>✅ Saldo mínimo de {formatCurrency(cashCoverage.minimumBalance)} em {cashCoverage.minimumBalanceDate.split('-').reverse().join('/')} — sem risco de descoberto.</>
+            }
           </div>
           <div className="mt-3 pt-3 border-t border-border space-y-1.5">
             <div className="flex items-center justify-between text-[12px]">
-              <span className="flex items-center gap-1.5 text-fiducia-green">
-                <span className="w-2 h-2 rounded-full bg-fiducia-green shrink-0" />
-                Saldo Circulante
+              <span className="flex items-center gap-1.5 text-fiducia-blue">
+                <span className="w-2 h-2 rounded-full bg-fiducia-blue shrink-0" />
+                Saldo Inicial
               </span>
-              <span className="font-mono font-semibold text-fiducia-green">+{formatCurrency(saldoCirculante)}</span>
+              <span className="font-mono font-semibold text-fiducia-blue">{formatCurrency(cashCoverage.startingBalance)}</span>
             </div>
-            {receitasPendentes > 0 && (
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="flex items-center gap-1.5 text-fiducia-green/80">
-                  <span className="w-2 h-2 rounded-full bg-fiducia-green/60 shrink-0" />
-                  Receitas a Receber
-                </span>
-                <span className="font-mono font-semibold text-fiducia-green/80">+{formatCurrency(receitasPendentes)}</span>
-              </div>
-            )}
-            {gastosCartaoFaturaAberta > 0 && (
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="flex items-center gap-1.5 text-fiducia-red/80">
-                  <span className="w-2 h-2 rounded-full bg-fiducia-red/60 shrink-0" />
-                  Fatura Aberta
-                </span>
-                <span className="font-mono font-semibold text-fiducia-red/80">-{formatCurrency(gastosCartaoFaturaAberta)}</span>
-              </div>
-            )}
-            {gastosCartaoFaturaFechada > 0 && (
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="flex items-center gap-1.5 text-fiducia-red">
-                  <span className="w-2 h-2 rounded-full bg-fiducia-red shrink-0" />
-                  Fatura Fechada
-                </span>
-                <span className="font-mono font-semibold text-fiducia-red">-{formatCurrency(gastosCartaoFaturaFechada)}</span>
-              </div>
-            )}
-            {gastosCartao > 0 && (
-              <div className="flex items-center justify-between text-[12px] pt-0.5 border-t border-border/40">
-                <span className="flex items-center gap-1.5 font-semibold text-fiducia-red text-[11px]">
-                  Total Cartão
-                </span>
-                <span className="font-mono font-semibold text-fiducia-red">-{formatCurrency(gastosCartao)}</span>
-              </div>
-            )}
-            {contasPendentes > 0 && (
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="flex items-center gap-1.5 text-fiducia-amber">
-                  <span className="w-2 h-2 rounded-full bg-fiducia-amber shrink-0" />
-                  Contas Pendentes
-                </span>
-                <span className="font-mono font-semibold text-fiducia-amber">-{formatCurrency(contasPendentes)}</span>
-              </div>
-            )}
-            {gastosCartao === 0 && contasPendentes === 0 && (
-              <div className="text-[11px] text-muted-foreground italic">Nenhum compromisso pendente</div>
-            )}
           </div>
-          <div className={`mt-3 pt-2 border-t border-border text-[11px] font-semibold ${isPositive ? 'text-fiducia-purple' : 'text-fiducia-red'}`}>
-            {isPositive
-              ? '✅ Folga financeira — você tem margem depois de todas as contas.'
-              : '⚠️ Atenção — o saldo circulante não cobre todos os compromissos.'}
+          <div className="mt-3 pt-2 border-t border-border text-[10px] text-fiducia-blue font-semibold text-right">
+            Ver projeção completa →
           </div>
-          {hasExcludedAccounts && (
-            <div className="mt-2 text-[10px] text-muted-foreground">
-              {circulatingCount} conta{circulatingCount !== 1 ? 's' : ''} em circulação · {excludedCount} reserva{excludedCount !== 1 ? 's' : ''} ignorada{excludedCount !== 1 ? 's' : ''}
-            </div>
-          )}
         </div>
       </div>
 
