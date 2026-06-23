@@ -474,7 +474,23 @@ export function TransactionDialog() {
         toast.success(iterations > 1 ? 'Lançamentos gerados' : 'Lançamento adicionado');
       }
 
-      if (!keepOpenRef.current) {
+      if (keepOpenRef.current) {
+        if (isCreditCard) {
+          setFormData(prev => ({
+            ...prev,
+            amount: 0,
+            description: '',
+            categoryId: '',
+            tagIds: [],
+            observation: '',
+            ccRecurrenceType: 'avulso',
+          }));
+          setShowObservation(false);
+          setShowTags(false);
+          setShowRecurrence(false);
+          setTimeout(() => descriptionRef.current?.focus(), 100);
+        }
+      } else {
         close();
         resetForm();
       }
@@ -1374,7 +1390,7 @@ export function TransactionDialog() {
             className="h-14 rounded-2xl text-muted-foreground font-semibold hover:bg-muted">
             Cancelar
           </Button>
-          {!editingId && !isCreditCard && (
+          {!editingId && (
             <Button form="transaction-dialog-form" type="submit" onClick={() => { keepOpenRef.current = true; }}
               variant="outline" className={`h-14 rounded-2xl font-semibold transition-all border-2 ${
                 formData.type === 'despesa' ? 'border-red-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20' :
