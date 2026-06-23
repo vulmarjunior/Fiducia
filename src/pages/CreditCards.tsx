@@ -1007,7 +1007,9 @@ export function CreditCards() {
                 const matchesPeriod = t.invoicePeriod === currentPeriod;
                 const matchesSearch = invoiceSearchTerm === '' || 
                   t.description.toLowerCase().includes(invoiceSearchTerm.toLowerCase()) ||
-                  (categories.find(c => c.id === t.categoryId)?.name || '').toLowerCase().includes(invoiceSearchTerm.toLowerCase());
+                  (categories.find(c => c.id === t.categoryId)?.name || '').toLowerCase().includes(invoiceSearchTerm.toLowerCase()) ||
+                  t.amount?.toString().includes(invoiceSearchTerm) ||
+                  (t.amount != null ? t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '').includes(invoiceSearchTerm);
                 
                 return matchesCard && matchesPeriod && matchesSearch;
               });
