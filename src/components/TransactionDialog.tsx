@@ -125,6 +125,7 @@ export function TransactionDialog() {
   const [isNewTagOpen, setIsNewTagOpen] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#3b82f6');
+  const [editScope, setEditScope] = useState<'only' | 'future' | 'all'>('only');
   const keepOpenRef = useRef(false);
   const descriptionRef = useRef<HTMLInputElement>(null);
 
@@ -159,6 +160,7 @@ export function TransactionDialog() {
     setShowRecurrence(false);
     setShowObservation(false);
     setShowTags(false);
+    setEditScope('only');
     keepOpenRef.current = false;
   }, [options?.presetAccountId, options?.presetType]);
 
@@ -189,6 +191,7 @@ export function TransactionDialog() {
     setShowRecurrence(!!tx.parentId);
     setShowObservation(!!tx.observation);
     setShowTags(!!(tx.tags && tx.tags.length > 0));
+    setEditScope('only');
     if (options?.presetMonth) {
       setFormData(prev => ({ ...prev, invoicePeriod: options.presetMonth! }));
     }
@@ -855,6 +858,113 @@ export function TransactionDialog() {
         await batch.commit();
         logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Série atualizada: ${formData.description}` }).catch(() => {});
         toast.success('Série atualizada');
+      } else if (isSeries && financialFieldsChanged && editScope !== 'only') {
+        const seriesKey = editingTx.parentId || editingTx.installmentId;
+        const inScopeSiblings = transactions.filter((t: any) => {
+          const isInSeries = seriesKey
+            ? (t.parentId === seriesKey || t.installmentId === seriesKey || t.id === seriesKey)
+            : false;
+          if (!isInSeries) return false;
+          if (t.id === editingTx.id) return false;
+          if (editScope === 'future') {
+            return new Date(t.date).getTime() >= new Date(editingTx.date).getTime();
+          }
+          return true;
+        });
+
+        const siblingUpdate: any = {
+          amount,
+          accountId: formData.accountId,
+          description: formData.description,
+          categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
+          tags: formData.tagIds.length > 0 ? formData.tagIds : [],
+          observation: formData.observation || '',
+          updatedAt: new Date().toISOString(),
+        };
+        if (isCreditCard && card) {
+          siblingUpdate.creditCardId = formData.accountId;
+        }
+
+        await runTransaction(db, async (transaction) => {
+          const txRef = doc(db, 'transactions', editingTx.id);
+          const txSnap = await transaction.get(txRef);
+          if (!txSnap.exists()) throw new Error('Transaction not found');
+          const oldT = txSnap.data() as any;
+
+          const accountDeltas: Record<string, number> = {};
+
+          if (!creditCards.some((cc: any) => cc.id === oldT.accountId)) {
+            const oldPaid = isEffectivelyPaid(oldT);
+            const newPaid = isEffectivelyPaid({ status: formData.status }) && !isCreditCard;
+
+            if (oldPaid) {
+              if (oldT.type === 'transferencia') {
+                if (oldT.accountId) accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) + oldT.amount;
+                if (oldT.destinationAccountId) accountDeltas[oldT.destinationAccountId] = (accountDeltas[oldT.destinationAccountId] || 0) - oldT.amount;
+              } else {
+                accountDeltas[oldT.accountId] = (accountDeltas[oldT.accountId] || 0) - getBalanceChange(oldT.type, oldT.amount);
+              }
+            }
+
+            if (newPaid && !isCreditCard) {
+              if (formData.type === 'transferencia') {
+                if (formData.accountId) accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) - amount;
+                if (formData.destinationAccountId) accountDeltas[formData.destinationAccountId] = (accountDeltas[formData.destinationAccountId] || 0) + amount;
+              } else {
+                accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) + getBalanceChange(formData.type, amount);
+              }
+            }
+          }
+
+          for (const sib of inScopeSiblings) {
+            if (!isEffectivelyPaid(sib)) continue;
+            if (creditCards.some((cc: any) => cc.id === sib.accountId)) continue;
+
+            if (sib.type === 'transferencia') {
+              if (sib.accountId) accountDeltas[sib.accountId] = (accountDeltas[sib.accountId] || 0) + sib.amount;
+              if (sib.destinationAccountId) accountDeltas[sib.destinationAccountId] = (accountDeltas[sib.destinationAccountId] || 0) - sib.amount;
+              if (formData.accountId) accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) - amount;
+              if (sib.destinationAccountId) accountDeltas[sib.destinationAccountId] = (accountDeltas[sib.destinationAccountId] || 0) + amount;
+            } else {
+              accountDeltas[sib.accountId] = (accountDeltas[sib.accountId] || 0) - getBalanceChange(sib.type, sib.amount);
+              accountDeltas[formData.accountId] = (accountDeltas[formData.accountId] || 0) + getBalanceChange(sib.type, amount);
+            }
+          }
+
+          if (isCreditCard) {
+            const relatedInvoice = invoices.find((i: any) => i.paymentTransactionId === editingId);
+            if (relatedInvoice) {
+              const invRef = doc(db, 'invoices', relatedInvoice.id);
+              const invSnap = await transaction.get(invRef);
+              if (invSnap.exists()) {
+                const newStatus = formData.status === 'pago' && relatedInvoice.status !== 'paga' ? 'paga'
+                  : formData.status !== 'pago' && relatedInvoice.status === 'paga' ? 'fechada' : null;
+                if (newStatus) transaction.update(invRef, { status: newStatus });
+              }
+            }
+          }
+
+          const accountSnaps: Record<string, any> = {};
+          for (const accId of Object.keys(accountDeltas)) {
+            if (accountDeltas[accId] === 0) continue;
+            accountSnaps[accId] = await transaction.get(doc(db, 'accounts', accId));
+          }
+          for (const [accId, delta] of Object.entries(accountDeltas)) {
+            if (delta === 0) continue;
+            const snap = accountSnaps[accId];
+            if (snap?.exists()) {
+              transaction.update(doc(db, 'accounts', accId), { balance: (snap.data().balance || 0) + delta });
+            }
+          }
+
+          transaction.update(txRef, updateData);
+          for (const sib of inScopeSiblings) {
+            transaction.update(doc(db, 'transactions', sib.id), siblingUpdate);
+          }
+        });
+
+        logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Série atualizada (${editScope === 'all' ? 'todos' : 'futuros'}): ${formData.description}` }).catch(() => {});
+        toast.success(editScope === 'all' ? 'Série atualizada' : 'Lançamentos futuros atualizados');
       } else {
         await runTransaction(db, async (transaction) => {
           const txRef = doc(db, 'transactions', editingId);
@@ -1190,6 +1300,23 @@ export function TransactionDialog() {
                           Parcela {editingTx.installmentNumber} de {editingTx.totalInstallments} — série original
                         </div>
                       )}
+                      {editingId && editingTx?.parentId && (
+                        <div className="space-y-2 p-3 bg-background rounded-xl border border-border/50">
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase">Escopo da edição</div>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="editScope" value="only" checked={editScope === 'only'} onChange={(e) => setEditScope(e.target.value as any)} className="accent-primary" />
+                            <span className="text-xs">Apenas este lançamento</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="editScope" value="future" checked={editScope === 'future'} onChange={(e) => setEditScope(e.target.value as any)} className="accent-primary" />
+                            <span className="text-xs">Este e os futuros</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="editScope" value="all" checked={editScope === 'all'} onChange={(e) => setEditScope(e.target.value as any)} className="accent-primary" />
+                            <span className="text-xs">Todos os lançamentos</span>
+                          </label>
+                        </div>
+                      )}
                       {!(editingId && editingTx?.parentId) && (
                       <div className="flex gap-2">
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'avulso' })}
@@ -1250,6 +1377,23 @@ export function TransactionDialog() {
                       {editingId && editingTx?.parentId && editingTx.installmentNumber && editingTx.totalInstallments && (
                         <div className="text-xs font-bold text-muted-foreground bg-background rounded-xl p-3 text-center border border-border/50">
                           Parcela {editingTx.installmentNumber} de {editingTx.totalInstallments} — série original
+                        </div>
+                      )}
+                      {editingId && editingTx?.parentId && (
+                        <div className="space-y-2 p-3 bg-background rounded-xl border border-border/50">
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase">Escopo da edição</div>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="editScopeBank" value="only" checked={editScope === 'only'} onChange={(e) => setEditScope(e.target.value as any)} className="accent-primary" />
+                            <span className="text-xs">Apenas este lançamento</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="editScopeBank" value="future" checked={editScope === 'future'} onChange={(e) => setEditScope(e.target.value as any)} className="accent-primary" />
+                            <span className="text-xs">Este e os futuros</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="editScopeBank" value="all" checked={editScope === 'all'} onChange={(e) => setEditScope(e.target.value as any)} className="accent-primary" />
+                            <span className="text-xs">Todos os lançamentos</span>
+                          </label>
                         </div>
                       )}
                       {!(editingId && editingTx?.parentId) && (
