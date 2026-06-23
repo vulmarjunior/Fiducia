@@ -80,8 +80,13 @@ export function Audit() {
     return transactions.filter(t => t.accountId === selectedAccountId || t.destinationAccountId === selectedAccountId);
   }, [transactions, selectedAccountId]);
 
+  const selectedAccount = useMemo(() => {
+    return accounts.find(a => a.id === selectedAccountId);
+  }, [accounts, selectedAccountId]);
+
   const runningBalanceTransactions = useMemo(() => {
-    let balance = 0;
+    const account = accounts.find(a => a.id === selectedAccountId);
+    let balance = account?.initialBalance || 0;
     return accountTransactions
       .filter(t => isEffectivelyPaid(t))
       .map(t => {
@@ -98,7 +103,7 @@ export function Audit() {
       balance += change;
       return { ...t, runningBalance: balance };
     });
-  }, [accountTransactions, selectedAccountId]);
+  }, [accountTransactions, selectedAccountId, accounts]);
 
   const handleRecalculateBalance = async () => {
     if (!selectedAccountId) return;
@@ -108,10 +113,14 @@ export function Audit() {
         const accRef = doc(db, 'accounts', selectedAccountId);
         const accSnap = await transaction.get(accRef);
         if (!accSnap.exists()) throw new Error('Conta não encontrada');
+        const accData = accSnap.data() as any;
+        const initialBalance = accData.initialBalance || 0;
 
-        const finalBalance = runningBalanceTransactions.length > 0 
-          ? runningBalanceTransactions[runningBalanceTransactions.length - 1].runningBalance 
+        const transactionSum = runningBalanceTransactions.length > 0 
+          ? runningBalanceTransactions[runningBalanceTransactions.length - 1].runningBalance - initialBalance
           : 0;
+
+        const finalBalance = initialBalance + transactionSum;
 
         transaction.update(accRef, { balance: finalBalance });
       });

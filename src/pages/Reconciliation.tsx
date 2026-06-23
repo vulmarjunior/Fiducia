@@ -67,10 +67,16 @@ export function Reconciliation() {
     );
 
     const unsubscribeTx = onSnapshot(txQuery, (snapshot) => {
-      // Also filter out transactions that are already reconciled in case the query doesn't catch nulls properly
+      const account = accounts.find(a => a.id === selectedAccountId);
+      const openingDate = account?.openingDate;
+
       const txs = snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter((t: any) => !t.reconciliationStatus || t.reconciliationStatus === 'nao_conciliado');
+        .filter((t: any) => !t.reconciliationStatus || t.reconciliationStatus === 'nao_conciliado')
+        .filter((t: any) => {
+          if (!openingDate) return true;
+          return (t.date?.split('T')[0] || '') >= openingDate;
+        });
       
       // Sort by date descending
       txs.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -78,7 +84,7 @@ export function Reconciliation() {
     });
 
     return () => unsubscribeTx();
-  }, [user, isAuthReady, selectedAccountId, creditCards]);
+  }, [user, isAuthReady, selectedAccountId, creditCards, accounts]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

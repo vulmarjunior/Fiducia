@@ -284,6 +284,17 @@ export function TransactionDialog() {
       toast.error('Selecione uma categoria'); return;
     }
 
+    const targetAccount = accounts.find((a: any) => a.id === formData.accountId);
+    if (targetAccount?.openingDate && formData.date < targetAccount.openingDate) {
+      toast.error(`Data anterior à abertura da conta (${targetAccount.openingDate.split('-').reverse().join('/')}).`); return;
+    }
+    if (formData.type === 'transferencia' && formData.destinationAccountId) {
+      const destAccount = accounts.find((a: any) => a.id === formData.destinationAccountId);
+      if (destAccount?.openingDate && formData.date < destAccount.openingDate) {
+        toast.error(`Data anterior à abertura da conta de destino (${destAccount.openingDate.split('-').reverse().join('/')}).`); return;
+      }
+    }
+
     const finalStatus = isCreditCard ? 'realizado' : formData.status;
 
     const baseTData: any = {
@@ -509,6 +520,17 @@ export function TransactionDialog() {
 
     const amount = formData.amount;
     if (amount <= 0) { toast.error('Valor deve ser positivo'); return; }
+
+    const targetAccount = accounts.find((a: any) => a.id === editingTx.accountId);
+    if (targetAccount?.openingDate && formData.date < targetAccount.openingDate) {
+      toast.error(`Data anterior à abertura da conta (${targetAccount.openingDate.split('-').reverse().join('/')}).`); return;
+    }
+    if (editingTx.type === 'transferencia' && editingTx.destinationAccountId) {
+      const destAccount = accounts.find((a: any) => a.id === editingTx.destinationAccountId);
+      if (destAccount?.openingDate && formData.date < destAccount.openingDate) {
+        toast.error(`Data anterior à abertura da conta de destino (${destAccount.openingDate.split('-').reverse().join('/')}).`); return;
+      }
+    }
 
     const isSeries = editingTx.parentId || editingTx.installmentId;
     const baseFieldsChanged = formData.description !== editingTx.description ||

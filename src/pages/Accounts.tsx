@@ -31,7 +31,7 @@ export function Accounts() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '', type: 'corrente', balance: 0, agency: '', accountNumber: '',
-    bankCode: '', bankName: '', excludeFromCashFlow: false
+    bankCode: '', bankName: '', excludeFromCashFlow: false, openingDate: ''
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -111,6 +111,7 @@ export function Accounts() {
         balance: formData.balance,
         initialBalance: formData.balance,
         excludeFromCashFlow: formData.excludeFromCashFlow,
+        openingDate: formData.openingDate || null,
         createdAt: new Date().toISOString()
       };
 
@@ -126,6 +127,7 @@ export function Accounts() {
           name: accountData.name,
           type: accountData.type,
           excludeFromCashFlow: accountData.excludeFromCashFlow,
+          openingDate: formData.openingDate || null,
           bankCode: formData.bankCode || '',
           bankName: formData.bankName || '',
         };
@@ -270,7 +272,9 @@ export function Accounts() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', type: 'corrente', balance: 0, agency: '', accountNumber: '', bankCode: '', bankName: '', excludeFromCashFlow: false });
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${(today.getMonth()+1).toString().padStart(2,'0')}-${today.getDate().toString().padStart(2,'0')}`;
+    setFormData({ name: '', type: 'corrente', balance: 0, agency: '', accountNumber: '', bankCode: '', bankName: '', excludeFromCashFlow: false, openingDate: todayStr });
     setBankSearch('');
     setShowBankDropdown(false);
     setEditingId(null);
@@ -286,6 +290,7 @@ export function Accounts() {
       bankCode: account.bankCode || '',
       bankName: account.bankName || '',
       excludeFromCashFlow: account.excludeFromCashFlow || false,
+      openingDate: account.openingDate || '',
     });
     setBankSearch(account.bankName || '');
     setEditingId(account.id);
@@ -590,6 +595,17 @@ export function Accounts() {
                 </div>
               )}
 
+              <div className="space-y-2">
+                <Label htmlFor="openingDate">Data de Abertura da Conta</Label>
+                <Input
+                  id="openingDate"
+                  type="date"
+                  value={formData.openingDate}
+                  onChange={(e) => setFormData({...formData, openingDate: e.target.value})}
+                />
+                <p className="text-xs text-muted-foreground">Data em que a conta foi aberta no banco. Transações anteriores a esta data serão bloqueadas.</p>
+              </div>
+
               {editingId ? (
                 <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-border">
                   <Label className="text-sm font-medium">Saldo Atual</Label>
@@ -667,6 +683,11 @@ export function Accounts() {
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Building className="w-3 h-3" />
                     {account.bankName}
+                  </p>
+                )}
+                {account.openingDate && (
+                  <p className="text-xs text-muted-foreground">
+                    Desde {account.openingDate.split('-').reverse().join('/')}
                   </p>
                 )}
                 {(account.type === 'corrente' || account.type === 'checking') && (account.agency || account.accountNumber) && (

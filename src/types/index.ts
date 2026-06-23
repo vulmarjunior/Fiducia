@@ -18,6 +18,7 @@ export interface Account {
   bankName?: string;
   bankLogo?: string;
   excludeFromCashFlow?: boolean;
+  openingDate?: string;
   createdAt: string;
 }
 
