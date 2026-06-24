@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -262,44 +262,6 @@ export function Reports() {
       return { ...m, incomeTxList, expenseTxList, invoiceList };
     }).filter(m => m.incomeTxList.length > 0 || m.expenseTxList.length > 0 || m.invoiceList.length > 0 || projType === 'all');
   }, [projectionData, projType, projCategory]);
-
-  const orphanInvoices = useMemo(() => {
-    return invoices
-      .filter(inv => inv.status !== 'paga' && inv.totalAmount > 0)
-      .filter(inv => {
-        const hasTx = transactions.some(t =>
-          (t.creditCardId === inv.cardId || t.accountId === inv.cardId || t.destinationAccountId === inv.cardId) &&
-          t.invoicePeriod === inv.period
-        );
-        return !hasTx;
-      })
-      .map(inv => ({
-        ...inv,
-        cardName: creditCards.find(c => c.id === inv.cardId)?.name || 'Desconhecido',
-      }));
-  }, [invoices, transactions, creditCards]);
-
-  const allNonPaidInvoices = useMemo(() => {
-    return invoices
-      .filter(inv => inv.status !== 'paga' && (inv.totalAmount || 0) > 0)
-      .map(inv => ({
-        ...inv,
-        cardName: creditCards.find(c => c.id === inv.cardId)?.name || 'Desconhecido',
-        hasTransactions: transactions.some(t =>
-          (t.creditCardId === inv.cardId || t.accountId === inv.cardId || t.destinationAccountId === inv.cardId) &&
-          t.invoicePeriod === inv.period
-        ),
-      }));
-  }, [invoices, transactions, creditCards]);
-
-  const fixOrphanInvoice = async (invId: string) => {
-    try {
-      await updateDoc(doc(db, 'invoices', invId), { totalAmount: 0 });
-      toast.success('Fatura zerada com sucesso');
-    } catch {
-      toast.error('Erro ao zerar fatura');
-    }
-  };
 
   const toggleMonth = (month: string) => {
     setExpandedMonths(prev => {
@@ -721,31 +683,7 @@ export function Reports() {
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'projection' && (
         <div className="space-y-6">
-          <div className="bg-muted/30 border border-border rounded-2xl p-4">
-            <div className="text-[13px] font-bold text-foreground mb-2">Diagnóstico de Faturas</div>
-            <div className="text-[12px] text-muted-foreground space-y-1">
-              <div>Invoices no Firestore: <span className="font-mono font-bold">{invoices.length}</span> | Com saldo não pago: <span className="font-mono font-bold">{allNonPaidInvoices.length}</span> | Órfãs: <span className="font-mono font-bold">{orphanInvoices.length}</span></div>
-              <div>Transações carregadas: <span className="font-mono font-bold">{transactions.length}</span> | Cartões: <span className="font-mono font-bold">{creditCards.length}</span></div>
-              <div className="mt-2 text-[11px] font-semibold text-foreground">Eventos de fatura na projeção:</div>
-              {cashCoverageProjection.events.filter((e: any) => e.direction === 'out' && ['invoice_closed', 'invoice_open', 'card_future'].includes(e.source)).map((e: any) => (
-                <div key={e.id} className="ml-2 py-1 border-b border-border/30 last:border-b-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-[11px] text-muted-foreground">{e.month}</span>
-                    <span className="font-mono font-bold text-fiducia-red text-[11px]">-R$ {e.amount.toFixed(2)}</span>
-                    <span className="text-[10px] text-muted-foreground">[{e.source}]</span>
-                    <span className="text-[10px] font-medium text-foreground">{e.label}</span>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground ml-1">
-                    Vencimento: {e.originalDate} | Certeza: {e.certainty} | Status: {e.status}
-                    {e.cardId && ` | Cartão: ${creditCards.find((c: any) => c.id === e.cardId)?.name || e.cardId}`}
-                  </div>
-                </div>
-              ))}
-              {cashCoverageProjection.events.filter((e: any) => e.direction === 'out' && ['invoice_closed', 'invoice_open', 'card_future'].includes(e.source)).length === 0 && (
-                <div className="ml-2 text-[11px] text-muted-foreground italic">Nenhum evento de fatura</div>
-              )}
-            </div>
-          </div>
+          {/* Filtros */}
           {/* Filtros */}
           <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
             <div className="flex flex-wrap gap-3 items-center">
