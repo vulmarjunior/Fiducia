@@ -258,9 +258,15 @@ export function buildCashCoverageProjection({
       const originalDate = formatLocalDate(dueDate);
       if (originalDate > endStr) continue;
 
+      const periodTxns = transactions.filter((t: any) =>
+        (t.creditCardId === card.id || t.accountId === card.id || t.destinationAccountId === card.id) &&
+        t.invoicePeriod === period
+      );
       const computedBalance = calculateCardBalance(transactions, card.id, period);
       const invoiceAmount = typeof invoice?.totalAmount === 'number' ? invoice.totalAmount : 0;
-      const amount = Math.max(invoiceAmount, computedBalance);
+      const amount = (periodTxns.length > 0 || invoice?.status === 'fechada')
+        ? Math.max(invoiceAmount, computedBalance)
+        : 0;
       if (amount <= 0.01) continue;
 
       const closingDate = invoiceClosingDate(period, card.closingDay, card.dueDay);

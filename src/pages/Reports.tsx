@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -262,6 +262,31 @@ export function Reports() {
       return { ...m, incomeTxList, expenseTxList, invoiceList };
     }).filter(m => m.incomeTxList.length > 0 || m.expenseTxList.length > 0 || m.invoiceList.length > 0 || projType === 'all');
   }, [projectionData, projType, projCategory]);
+
+  const orphanInvoices = useMemo(() => {
+    return invoices
+      .filter(inv => inv.status !== 'paga' && inv.totalAmount > 0)
+      .filter(inv => {
+        const hasTx = transactions.some(t =>
+          (t.accountId === inv.cardId || t.destinationAccountId === inv.cardId) &&
+          t.invoicePeriod === inv.period
+        );
+        return !hasTx;
+      })
+      .map(inv => ({
+        ...inv,
+        cardName: creditCards.find(c => c.id === inv.cardId)?.name || 'Desconhecido',
+      }));
+  }, [invoices, transactions, creditCards]);
+
+  const fixOrphanInvoice = async (invId: string) => {
+    try {
+      await updateDoc(doc(db, 'invoices', invId), { totalAmount: 0 });
+      toast.success('Fatura zerada com sucesso');
+    } catch {
+      toast.error('Erro ao zerar fatura');
+    }
+  };
 
   const toggleMonth = (month: string) => {
     setExpandedMonths(prev => {
@@ -683,6 +708,39 @@ export function Reports() {
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'projection' && (
         <div className="space-y-6">
+          {orphanInvoices.length > 0 && (
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-amber-600 dark:text-amber-400 text-lg font-bold">!</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold text-amber-800 dark:text-amber-300 mb-1">
+                    Faturas órfãs detectadas ({orphanInvoices.length})
+                  </div>
+                  <p className="text-[12px] text-amber-700 dark:text-amber-400 mb-3">
+                    Estas faturas possuem saldo no banco de dados mas não têm transações vinculadas.
+                    Clique em "Zerar" para corrigir.
+                  </p>
+                  <div className="space-y-2">
+                    {orphanInvoices.map(inv => (
+                      <div key={inv.id} className="flex items-center justify-between bg-amber-100/50 dark:bg-amber-900/30 rounded-xl px-3 py-2">
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[12px] font-semibold text-amber-800 dark:text-amber-300">{inv.cardName}</span>
+                          <span className="text-[11px] text-amber-600 dark:text-amber-500 ml-2">{inv.period}</span>
+                          <span className="text-[11px] font-mono text-amber-700 dark:text-amber-400 ml-2">R$ {(inv.totalAmount || 0).toFixed(2)}</span>
+                        </div>
+                        <button onClick={() => fixOrphanInvoice(inv.id)}
+                          className="text-[11px] font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/40 px-3 py-1 rounded-lg transition-colors shrink-0 ml-2">
+                          Zerar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Filtros */}
           <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
             <div className="flex flex-wrap gap-3 items-center">

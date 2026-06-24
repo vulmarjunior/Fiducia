@@ -410,6 +410,7 @@ export function CreditCards() {
 
     try {
       const accountBalanceChanges: Record<string, number> = {};
+      const affectedCardPeriods = new Set<string>();
 
       for (const tx of transactionsToDelete) {
         if (tx.type === 'transferencia') {
@@ -422,6 +423,16 @@ export function CreditCards() {
         } else {
           // For credit card expenses, they don't affect a normal account balance directly
         }
+
+        if (tx.invoicePeriod) {
+          if (cards.some(c => c.id === tx.accountId)) {
+            affectedCardPeriods.add(`${tx.accountId}|${tx.invoicePeriod}`);
+          }
+          if (cards.some(c => c.id === tx.destinationAccountId)) {
+            affectedCardPeriods.add(`${tx.destinationAccountId}|${tx.invoicePeriod}`);
+          }
+        }
+
         batch.delete(doc(db, 'transactions', tx.id));
       }
 
@@ -430,6 +441,26 @@ export function CreditCards() {
         if (acc) {
           const accRef = doc(db, 'accounts', accId);
           batch.update(accRef, { balance: (acc.balance || 0) + change });
+        }
+      }
+
+      for (const key of affectedCardPeriods) {
+        const sep = key.indexOf('|');
+        const cardId = key.substring(0, sep);
+        const period = key.substring(sep + 1);
+        const deletedIds = new Set(transactionsToDelete.map(dt => dt.id));
+        const hasRemaining = transactions.some(t =>
+          !deletedIds.has(t.id) &&
+          (t.accountId === cardId || t.destinationAccountId === cardId) &&
+          t.invoicePeriod === period
+        );
+        if (!hasRemaining) {
+          const invoice = invoices.find(i =>
+            i.cardId === cardId && i.period === period && i.status !== 'paga'
+          );
+          if (invoice) {
+            batch.update(doc(db, 'invoices', invoice.id), { totalAmount: 0 });
+          }
         }
       }
 
