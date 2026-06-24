@@ -721,44 +721,37 @@ export function Reports() {
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'projection' && (
         <div className="space-y-6">
-          {(orphanInvoices.length > 0 || allNonPaidInvoices.length > 0) && (
-            <div className={`rounded-2xl p-4 shadow-sm border ${orphanInvoices.length > 0 ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700' : 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700'}`}>
-              <div className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${orphanInvoices.length > 0 ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-blue-100 dark:bg-blue-900/40'}`}>
-                  <span className={`text-lg font-bold ${orphanInvoices.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'}`}>!</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={`text-[13px] font-bold mb-1 ${orphanInvoices.length > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-blue-800 dark:text-blue-300'}`}>
-                    Faturas com saldo ({allNonPaidInvoices.length})
-                    {orphanInvoices.length > 0 && ` — ${orphanInvoices.length} órfã(s)`}
-                  </div>
-                  <p className={`text-[12px] mb-3 ${orphanInvoices.length > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-blue-700 dark:text-blue-400'}`}>
-                    {orphanInvoices.length > 0
-                      ? 'Faturas marcadas como "Órfã" não têm transações vinculadas. Clique "Zerar" para corrigir.'
-                      : 'Todas as faturas com saldo possuem transações vinculadas — nenhuma órfã detectada.'}
-                  </p>
-                  <div className="space-y-2">
-                    {allNonPaidInvoices.map(inv => (
-                      <div key={inv.id} className={`flex items-center justify-between rounded-xl px-3 py-2 ${inv.hasTransactions ? 'bg-blue-100/50 dark:bg-blue-900/30' : 'bg-amber-100/50 dark:bg-amber-900/30'}`}>
-                        <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
-                          <span className="text-[12px] font-semibold text-foreground">{inv.cardName}</span>
-                          <span className="text-[11px] text-muted-foreground">{inv.period}</span>
-                          <span className="text-[11px] font-mono text-foreground">R$ {(inv.totalAmount || 0).toFixed(2)}</span>
-                          {!inv.hasTransactions && (
-                            <span className="text-[10px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded-full">Órfã</span>
-                          )}
-                        </div>
-                        <button onClick={() => fixOrphanInvoice(inv.id)}
-                          className={`text-[11px] font-bold px-3 py-1 rounded-lg transition-colors shrink-0 ml-2 ${inv.hasTransactions ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/40' : 'text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/40'}`}>
-                          Zerar
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+          <div className="bg-muted/30 border border-border rounded-2xl p-4">
+            <div className="text-[13px] font-bold text-foreground mb-2">Diagnóstico de Faturas</div>
+            <div className="text-[12px] text-muted-foreground space-y-1">
+              <div>Total de invoices no Firestore: <span className="font-mono font-bold">{invoices.length}</span></div>
+              <div>Não pagas com saldo &gt; 0: <span className="font-mono font-bold">{allNonPaidInvoices.length}</span></div>
+              <div>Órfãs (sem transações): <span className="font-mono font-bold">{orphanInvoices.length}</span></div>
+              <div>Total de transações carregadas: <span className="font-mono font-bold">{transactions.length}</span></div>
+              <div>Total de cartões carregados: <span className="font-mono font-bold">{creditCards.length}</span></div>
             </div>
-          )}
+            {allNonPaidInvoices.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Lista:</div>
+                {allNonPaidInvoices.map(inv => (
+                  <div key={inv.id} className={`flex items-center justify-between rounded-xl px-3 py-2 ${inv.hasTransactions ? 'bg-blue-100/50 dark:bg-blue-900/30' : 'bg-amber-100/50 dark:bg-amber-900/30'}`}>
+                    <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+                      <span className="text-[12px] font-semibold text-foreground">{inv.cardName}</span>
+                      <span className="text-[11px] text-muted-foreground">{inv.period}</span>
+                      <span className="text-[11px] font-mono text-foreground">R$ {(inv.totalAmount || 0).toFixed(2)} [{inv.status}]</span>
+                      {!inv.hasTransactions && (
+                        <span className="text-[10px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded-full">Órfã</span>
+                      )}
+                    </div>
+                    <button onClick={() => fixOrphanInvoice(inv.id)}
+                      className={`text-[11px] font-bold px-3 py-1 rounded-lg transition-colors shrink-0 ml-2 ${inv.hasTransactions ? 'text-muted-foreground hover:bg-secondary' : 'text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/40'}`}>
+                      Zerar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           {/* Filtros */}
           <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
             <div className="flex flex-wrap gap-3 items-center">
