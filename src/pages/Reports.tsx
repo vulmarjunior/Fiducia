@@ -726,19 +726,23 @@ export function Reports() {
             <div className="text-[12px] text-muted-foreground space-y-1">
               <div>Invoices no Firestore: <span className="font-mono font-bold">{invoices.length}</span> | Com saldo não pago: <span className="font-mono font-bold">{allNonPaidInvoices.length}</span> | Órfãs: <span className="font-mono font-bold">{orphanInvoices.length}</span></div>
               <div>Transações carregadas: <span className="font-mono font-bold">{transactions.length}</span> | Cartões: <span className="font-mono font-bold">{creditCards.length}</span></div>
-              <div>Eventos na projeção por período:</div>
-              {cashCoverageProjection.monthlyProjection.filter((m: any) => m.invoiceTotal > 0).map((m: any) => (
-                <div key={m.month} className="flex items-center gap-2 ml-2">
-                  <span className="font-mono text-[11px]">{m.month}:</span>
-                  <span className="font-mono font-bold text-fiducia-red text-[11px]">-R$ {m.invoiceTotal.toFixed(2)}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    ({m.invoiceEvents.length} evento{m.invoiceEvents.length !== 1 ? 's' : ''}
-                    — fonte{m.invoiceEvents.map((e: any) => ` ${e.source}`).join(', ')})
-                  </span>
+              <div className="mt-2 text-[11px] font-semibold text-foreground">Eventos de fatura na projeção:</div>
+              {cashCoverageProjection.events.filter((e: any) => e.direction === 'out' && ['invoice_closed', 'invoice_open', 'card_future'].includes(e.source)).map((e: any) => (
+                <div key={e.id} className="ml-2 py-1 border-b border-border/30 last:border-b-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-[11px] text-muted-foreground">{e.month}</span>
+                    <span className="font-mono font-bold text-fiducia-red text-[11px]">-R$ {e.amount.toFixed(2)}</span>
+                    <span className="text-[10px] text-muted-foreground">[{e.source}]</span>
+                    <span className="text-[10px] font-medium text-foreground">{e.label}</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground ml-1">
+                    Vencimento: {e.originalDate} | Certeza: {e.certainty} | Status: {e.status}
+                    {e.cardId && ` | Cartão: ${creditCards.find((c: any) => c.id === e.cardId)?.name || e.cardId}`}
+                  </div>
                 </div>
               ))}
-              {cashCoverageProjection.monthlyProjection.filter((m: any) => m.invoiceTotal > 0).length === 0 && (
-                <div className="ml-2 text-[11px] text-muted-foreground italic">Nenhum evento de fatura na projeção</div>
+              {cashCoverageProjection.events.filter((e: any) => e.direction === 'out' && ['invoice_closed', 'invoice_open', 'card_future'].includes(e.source)).length === 0 && (
+                <div className="ml-2 text-[11px] text-muted-foreground italic">Nenhum evento de fatura</div>
               )}
             </div>
           </div>
