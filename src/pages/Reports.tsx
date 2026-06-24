@@ -724,33 +724,23 @@ export function Reports() {
           <div className="bg-muted/30 border border-border rounded-2xl p-4">
             <div className="text-[13px] font-bold text-foreground mb-2">Diagnóstico de Faturas</div>
             <div className="text-[12px] text-muted-foreground space-y-1">
-              <div>Total de invoices no Firestore: <span className="font-mono font-bold">{invoices.length}</span></div>
-              <div>Não pagas com saldo &gt; 0: <span className="font-mono font-bold">{allNonPaidInvoices.length}</span></div>
-              <div>Órfãs (sem transações): <span className="font-mono font-bold">{orphanInvoices.length}</span></div>
-              <div>Total de transações carregadas: <span className="font-mono font-bold">{transactions.length}</span></div>
-              <div>Total de cartões carregados: <span className="font-mono font-bold">{creditCards.length}</span></div>
+              <div>Invoices no Firestore: <span className="font-mono font-bold">{invoices.length}</span> | Com saldo não pago: <span className="font-mono font-bold">{allNonPaidInvoices.length}</span> | Órfãs: <span className="font-mono font-bold">{orphanInvoices.length}</span></div>
+              <div>Transações carregadas: <span className="font-mono font-bold">{transactions.length}</span> | Cartões: <span className="font-mono font-bold">{creditCards.length}</span></div>
+              <div>Eventos na projeção por período:</div>
+              {cashCoverageProjection.monthlyProjection.filter((m: any) => m.invoiceTotal > 0).map((m: any) => (
+                <div key={m.month} className="flex items-center gap-2 ml-2">
+                  <span className="font-mono text-[11px]">{m.month}:</span>
+                  <span className="font-mono font-bold text-fiducia-red text-[11px]">-R$ {m.invoiceTotal.toFixed(2)}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    ({m.invoiceEvents.length} evento{m.invoiceEvents.length !== 1 ? 's' : ''}
+                    — fonte{m.invoiceEvents.map((e: any) => ` ${e.source}`).join(', ')})
+                  </span>
+                </div>
+              ))}
+              {cashCoverageProjection.monthlyProjection.filter((m: any) => m.invoiceTotal > 0).length === 0 && (
+                <div className="ml-2 text-[11px] text-muted-foreground italic">Nenhum evento de fatura na projeção</div>
+              )}
             </div>
-            {allNonPaidInvoices.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Lista:</div>
-                {allNonPaidInvoices.map(inv => (
-                  <div key={inv.id} className={`flex items-center justify-between rounded-xl px-3 py-2 ${inv.hasTransactions ? 'bg-blue-100/50 dark:bg-blue-900/30' : 'bg-amber-100/50 dark:bg-amber-900/30'}`}>
-                    <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
-                      <span className="text-[12px] font-semibold text-foreground">{inv.cardName}</span>
-                      <span className="text-[11px] text-muted-foreground">{inv.period}</span>
-                      <span className="text-[11px] font-mono text-foreground">R$ {(inv.totalAmount || 0).toFixed(2)} [{inv.status}]</span>
-                      {!inv.hasTransactions && (
-                        <span className="text-[10px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded-full">Órfã</span>
-                      )}
-                    </div>
-                    <button onClick={() => fixOrphanInvoice(inv.id)}
-                      className={`text-[11px] font-bold px-3 py-1 rounded-lg transition-colors shrink-0 ml-2 ${inv.hasTransactions ? 'text-muted-foreground hover:bg-secondary' : 'text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/40'}`}>
-                      Zerar
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
           {/* Filtros */}
           <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
