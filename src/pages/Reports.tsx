@@ -268,7 +268,7 @@ export function Reports() {
       .filter(inv => inv.status !== 'paga' && inv.totalAmount > 0)
       .filter(inv => {
         const hasTx = transactions.some(t =>
-          (t.accountId === inv.cardId || t.destinationAccountId === inv.cardId) &&
+          (t.creditCardId === inv.cardId || t.accountId === inv.cardId || t.destinationAccountId === inv.cardId) &&
           t.invoicePeriod === inv.period
         );
         return !hasTx;
@@ -276,6 +276,19 @@ export function Reports() {
       .map(inv => ({
         ...inv,
         cardName: creditCards.find(c => c.id === inv.cardId)?.name || 'Desconhecido',
+      }));
+  }, [invoices, transactions, creditCards]);
+
+  const allNonPaidInvoices = useMemo(() => {
+    return invoices
+      .filter(inv => inv.status !== 'paga' && (inv.totalAmount || 0) > 0)
+      .map(inv => ({
+        ...inv,
+        cardName: creditCards.find(c => c.id === inv.cardId)?.name || 'Desconhecido',
+        hasTransactions: transactions.some(t =>
+          (t.creditCardId === inv.cardId || t.accountId === inv.cardId || t.destinationAccountId === inv.cardId) &&
+          t.invoicePeriod === inv.period
+        ),
       }));
   }, [invoices, transactions, creditCards]);
 
@@ -708,30 +721,35 @@ export function Reports() {
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'projection' && (
         <div className="space-y-6">
-          {orphanInvoices.length > 0 && (
-            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700 rounded-2xl p-4 shadow-sm">
+          {(orphanInvoices.length > 0 || allNonPaidInvoices.length > 0) && (
+            <div className={`rounded-2xl p-4 shadow-sm border ${orphanInvoices.length > 0 ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700' : 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700'}`}>
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-amber-600 dark:text-amber-400 text-lg font-bold">!</span>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${orphanInvoices.length > 0 ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-blue-100 dark:bg-blue-900/40'}`}>
+                  <span className={`text-lg font-bold ${orphanInvoices.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'}`}>!</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-bold text-amber-800 dark:text-amber-300 mb-1">
-                    Faturas órfãs detectadas ({orphanInvoices.length})
+                  <div className={`text-[13px] font-bold mb-1 ${orphanInvoices.length > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-blue-800 dark:text-blue-300'}`}>
+                    Faturas com saldo ({allNonPaidInvoices.length})
+                    {orphanInvoices.length > 0 && ` — ${orphanInvoices.length} órfã(s)`}
                   </div>
-                  <p className="text-[12px] text-amber-700 dark:text-amber-400 mb-3">
-                    Estas faturas possuem saldo no banco de dados mas não têm transações vinculadas.
-                    Clique em "Zerar" para corrigir.
+                  <p className={`text-[12px] mb-3 ${orphanInvoices.length > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-blue-700 dark:text-blue-400'}`}>
+                    {orphanInvoices.length > 0
+                      ? 'Faturas marcadas como "Órfã" não têm transações vinculadas. Clique "Zerar" para corrigir.'
+                      : 'Todas as faturas com saldo possuem transações vinculadas — nenhuma órfã detectada.'}
                   </p>
                   <div className="space-y-2">
-                    {orphanInvoices.map(inv => (
-                      <div key={inv.id} className="flex items-center justify-between bg-amber-100/50 dark:bg-amber-900/30 rounded-xl px-3 py-2">
-                        <div className="min-w-0 flex-1">
-                          <span className="text-[12px] font-semibold text-amber-800 dark:text-amber-300">{inv.cardName}</span>
-                          <span className="text-[11px] text-amber-600 dark:text-amber-500 ml-2">{inv.period}</span>
-                          <span className="text-[11px] font-mono text-amber-700 dark:text-amber-400 ml-2">R$ {(inv.totalAmount || 0).toFixed(2)}</span>
+                    {allNonPaidInvoices.map(inv => (
+                      <div key={inv.id} className={`flex items-center justify-between rounded-xl px-3 py-2 ${inv.hasTransactions ? 'bg-blue-100/50 dark:bg-blue-900/30' : 'bg-amber-100/50 dark:bg-amber-900/30'}`}>
+                        <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+                          <span className="text-[12px] font-semibold text-foreground">{inv.cardName}</span>
+                          <span className="text-[11px] text-muted-foreground">{inv.period}</span>
+                          <span className="text-[11px] font-mono text-foreground">R$ {(inv.totalAmount || 0).toFixed(2)}</span>
+                          {!inv.hasTransactions && (
+                            <span className="text-[10px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded-full">Órfã</span>
+                          )}
                         </div>
                         <button onClick={() => fixOrphanInvoice(inv.id)}
-                          className="text-[11px] font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/40 px-3 py-1 rounded-lg transition-colors shrink-0 ml-2">
+                          className={`text-[11px] font-bold px-3 py-1 rounded-lg transition-colors shrink-0 ml-2 ${inv.hasTransactions ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/40' : 'text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/40'}`}>
                           Zerar
                         </button>
                       </div>
