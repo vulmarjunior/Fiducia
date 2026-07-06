@@ -11,10 +11,12 @@ import {
 import {
   TrendingUp, TrendingDown, Target, Sparkles, Loader2, Brain,
   ArrowUpRight, ArrowDownRight, ChevronDown, ChevronRight,
-  CreditCard, BarChart2, Calendar,
+  CreditCard, BarChart2, Calendar, FileDown,
 } from 'lucide-react';
+import { generateCashFlowPDF, generateCategoryPDF, generateTrendPDF, generateProjectionPDF, generateInvoiceAnalysisPDF } from '../lib/pdfTemplates';
 import { toast } from 'sonner';
 import { isEffectivelyPaid } from '../lib/utils';
+import { fmtMonthYear } from '../lib/pdfFormatUtils';
 import { buildCashCoverageProjection } from '../lib/cashCoverage';
 import { buildInvoiceAnalysis } from '../lib/invoiceAnalysis';
 import { buildFinancialInsightContext, buildGroqFinancialAnalysisPrompt } from '../lib/financialInsight';
@@ -69,6 +71,74 @@ export function Reports() {
   // Aba 5 — IA
   const [aiInsight, setAiInsight] = useState('');
   const [isLoadingAi, setIsLoadingAi] = useState(false);
+
+  // PDF export
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleExportCashFlowPDF = async () => {
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      await generateCashFlowPDF({ cashFlowData, cashTotals, cashflowPeriod, showPending });
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Erro ao gerar PDF');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportCategoryPDF = async () => {
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      await generateCategoryPDF({ categoryData, catPeriod, catType });
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Erro ao gerar PDF');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportTrendPDF = async () => {
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      await generateTrendPDF({ trendData, budgetComparison, currentMonthStr });
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Erro ao gerar PDF');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportProjectionPDF = async () => {
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      await generateProjectionPDF({ filteredProjData, projKPIs, projPeriod, includeSavings, projCategory, categories, accounts, creditCards, projEndDate, projCustomEnd });
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Erro ao gerar PDF');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportInvoiceAnalysisPDF = async () => {
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      await generateInvoiceAnalysisPDF({ invoiceAnalysis, invPeriod, invSelectedCard, creditCards });
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Erro ao gerar PDF');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   // Aba 6 — Faturas de Cartão
   const [invPeriod, setInvPeriod] = useState<'3months' | '6months' | '12months' | 'custom'>('6months');
@@ -426,6 +496,10 @@ export function Reports() {
               className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border transition-all ${showPending ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400' : 'bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50'}`}>
               {showPending ? 'Incluindo Pendentes' : 'Só Realizados'}
             </button>
+            <Button variant="outline" size="sm" className="h-8 ml-auto gap-1.5" onClick={handleExportCashFlowPDF} disabled={isExportingPdf}>
+              <FileDown className="h-3.5 w-3.5" />
+              {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+            </Button>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -523,6 +597,10 @@ export function Reports() {
               <FBtn active={catType === 'expense'} onClick={() => setCatType('expense')}>Despesas</FBtn>
               <FBtn active={catType === 'income'} onClick={() => setCatType('income')}>Receitas</FBtn>
             </div>
+            <Button variant="outline" size="sm" className="h-8 ml-auto gap-1.5" onClick={handleExportCategoryPDF} disabled={isExportingPdf}>
+              <FileDown className="h-3.5 w-3.5" />
+              {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+            </Button>
           </div>
 
           <div className="grid md:grid-cols-[1fr_300px] gap-6 items-start">
@@ -605,6 +683,16 @@ export function Reports() {
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'trend' && (
         <div className="space-y-6">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <TrendingDown className="w-4 h-4 text-fiducia-blue" />
+              <h3 className="text-[15px] font-bold text-foreground">{fmtMonthYear(currentMonthStr)}</h3>
+            </div>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportTrendPDF} disabled={isExportingPdf}>
+              <FileDown className="h-3.5 w-3.5" />
+              {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+            </Button>
+          </div>
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="p-5 border-b border-border">
               <div className="flex items-center gap-2">
@@ -717,6 +805,12 @@ export function Reports() {
                 </button>
               </div>
             </div>
+            <div className="ml-auto">
+              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportProjectionPDF} disabled={isExportingPdf}>
+                <FileDown className="h-3.5 w-3.5" />
+                {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+              </Button>
+            </div>
           </div>
           <div className={`border rounded-2xl p-5 shadow-sm ${projKPIs.isAtRisk ? 'bg-fiducia-red/5 border-fiducia-red/20' : 'bg-fiducia-green/5 border-fiducia-green/20'}`}>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -749,9 +843,15 @@ export function Reports() {
                 <div>
                   <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Futuras</div>
                   <div className="text-[13px] font-bold font-mono text-fiducia-blue">-{fmt(projKPIs.futureCard)}</div>
-                </div>
               </div>
             </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportProjectionPDF} disabled={isExportingPdf}>
+                <FileDown className="h-3.5 w-3.5" />
+                {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+              </Button>
+            </div>
+          </div>
           </div>
 
 
@@ -1008,6 +1108,10 @@ export function Reports() {
                 className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border transition-all ${invIncludeCredits ? 'bg-fiducia-green/10 border-fiducia-green/30 text-fiducia-green dark:text-fiducia-green' : 'bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50'}`}>
                 {invIncludeCredits ? 'Incluindo Estornos' : 'S/ Estornos'}
               </button>
+              <Button variant="outline" size="sm" className="h-8 ml-auto gap-1.5" onClick={handleExportInvoiceAnalysisPDF} disabled={isExportingPdf}>
+                <FileDown className="h-3.5 w-3.5" />
+                {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+              </Button>
             </div>
           </div>
 

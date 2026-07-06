@@ -26,6 +26,7 @@ import { getCardBrandDetails } from '../utils/cardBrandUtils';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { extractTextFromPdf, parseInvoiceWithGroq, PdfTransaction } from '../services/pdfInvoiceService';
 import { PdfImportReviewDialog } from '../components/PdfImportReviewDialog';
+import { generateCreditCardInvoicePDF } from '../lib/pdfTemplates';
 
 export function CreditCards() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -62,6 +63,34 @@ export function CreditCards() {
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [pdfLoadingStep, setPdfLoadingStep] = useState<'extracting' | 'analyzing' | null>(null);
   const pdfInputRef = React.useRef<HTMLInputElement>(null);
+
+  // PDF Export
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleExportInvoicePDF = async () => {
+    if (isExportingPdf || !selectedCardForInvoice) return;
+    setIsExportingPdf(true);
+    try {
+      const currentPeriod = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
+      const periodTransactions = transactions.filter(t =>
+        (t.accountId === selectedCardForInvoice.id || t.destinationAccountId === selectedCardForInvoice.id) &&
+        t.invoicePeriod === currentPeriod
+      );
+      const invoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === currentPeriod);
+      await generateCreditCardInvoicePDF({
+        card: selectedCardForInvoice,
+        invoiceTxs: periodTransactions,
+        categories,
+        period: currentPeriod,
+        invoiceStatus: invoice?.status || 'aberta',
+      });
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Erro ao gerar fatura PDF');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -971,7 +1000,7 @@ export function CreditCards() {
                   className="hidden"
                   onChange={handlePdfUpload}
                 />
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => window.print()}>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleExportInvoicePDF} disabled={isExportingPdf}>
                   <Printer className="h-4 w-4" />
                 </Button>
                 <div className="flex items-center gap-3 bg-secondary/30 p-1.5 rounded-lg border">

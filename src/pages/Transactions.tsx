@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '../components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from '../components/ui/popover';
-import { Plus, Trash2, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Lock, FileUp, Check, X, AlertCircle, HelpCircle, Tag, Wallet, CheckCircle, AlignLeft, CreditCard, ChevronLeft, ChevronRight, Search, Repeat, MessageSquare, Paperclip, ThumbsUp, ThumbsDown, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Lock, FileUp, Check, X, AlertCircle, HelpCircle, Tag, Wallet, CheckCircle, AlignLeft, CreditCard, ChevronLeft, ChevronRight, Search, Repeat, MessageSquare, Paperclip, ThumbsUp, ThumbsDown, CheckCircle2, Sparkles, Loader2, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { parseOfx, OfxTransaction } from '../services/ofxService';
 import { parseCsvOrExcel } from '../services/importService';
@@ -23,6 +23,7 @@ import { getCategoryIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, resolveAccountName, isEffectivelyPaid, isPeriodClosed, formatCurrency, findSeriesTransactions, getSeriesKey } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
+import { generateAccountStatementPDF } from '../lib/pdfTemplates';
 
 const TransactionObservation = ({ observation }: { observation: string }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -138,6 +139,32 @@ export function Transactions() {
   const [importedTransactions, setImportedTransactions] = useState<(OfxTransaction & { selected: boolean; categoryId: string })[]>([]);
   const [importAccountId, setImportAccountId] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleExportStatementPDF = async () => {
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      const account = selectedAccountFilter !== 'all' ? accounts.find(a => a.id === selectedAccountFilter) : null;
+      await generateAccountStatementPDF({
+        account,
+        transactions,
+        categories,
+        accounts,
+        creditCards,
+        startDate,
+        endDate,
+        selectedAccountFilter,
+        filterType,
+        selectedMonth,
+      });
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Erro ao gerar extrato PDF');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -935,6 +962,9 @@ ${sample.map(t =>
               <FileUp className="mr-2 h-4 w-4" /> Importar Arquivo
             </Button>
           </div>
+          <Button variant="outline" className="rounded-xl shadow-sm" onClick={handleExportStatementPDF} disabled={isExportingPdf}>
+            <FileDown className="mr-2 h-4 w-4" /> {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+          </Button>
           <Tooltip>
             <TooltipTrigger render={(props) => (
               <Button 
