@@ -176,13 +176,13 @@ export function TransactionDialog() {
       destinationAccountId: tx.destinationAccountId || '',
       status: tx.status || 'pago',
       invoicePeriod: tx.invoicePeriod || '',
-      ccRecurrenceType: tx.ccRecurrenceType || (tx.parentId ? 'avulso' : 'avulso'),
+      ccRecurrenceType: tx.ccRecurrenceType || (tx.parentId ? (tx.installmentNumber ? 'parcelado' : 'avulso') : 'avulso'),
       installmentsCount: tx.totalInstallments?.toString() || '2',
       frequency: tx.frequency || 'mensal',
       billingDay: tx.billingDay || tx.date?.split('T')[0]?.split('-')[2] || new Date().getDate().toString(),
       tagIds: tx.tags || [],
       observation: tx.observation || '',
-      isRecurring: !!tx.parentId,
+      isRecurring: !!(tx.isRecurring || (tx.parentId && !tx.installmentNumber) || tx.ccRecurrenceType === 'fixo'),
       installments: tx.totalInstallments || 1,
       remainderPosition: 'first',
     });
@@ -429,8 +429,9 @@ export function TransactionDialog() {
         logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: ruleRef.id, description: `Fixo: ${formData.description}` }).catch(() => {});
         toast.success('Lançamento fixo configurado');
       } else {
+        const userIterations = formData.installments && formData.installments > 1 ? formData.installments : undefined;
         const iterations = !isCreditCard && formData.isRecurring
-          ? getRecurrenceParams(formData.frequency).iterations
+          ? (userIterations || getRecurrenceParams(formData.frequency).iterations)
           : 1;
 
         await runTransaction(db, async (transaction) => {
@@ -810,6 +811,117 @@ export function TransactionDialog() {
         resetForm();
         return;
       }
+
+      if (changedInstallmentCount && formData.type !== 'transferencia') {
+        const numInstallments = parseInt(formData.installmentsCount) || editingTx.totalInstallments || 2;
+        if (numInstallments < 2) { toast.error('Mínimo de 2 parcelas'); return; }
+
+        const existingSiblings = transactions.filter((t: any) =>
+          t.parentId === editingTx.parentId && t.installmentNumber && t.id !== editingId
+        ).sort((a, b) => a.installmentNumber - b.installmentNumber);
+
+        await runTransaction(db, async (transaction) => {
+          const txRef = doc(db, 'transactions', editingId);
+          const txSnap = await transaction.get(txRef);
+          if (!txSnap.exists()) throw new Error('Transaction not found');
+          const oldT = txSnap.data() as any;
+
+          let accountSnap: any = null;
+          let balanceDelta = 0;
+
+          if (formData.accountId) {
+            accountSnap = await transaction.get(doc(db, 'accounts', formData.accountId));
+            if (accountSnap?.exists()) {
+              const oldEffect = isEffectivelyPaid(oldT) ? getBalanceChange(oldT.type, oldT.amount) : 0;
+              const newEffect = isEffectivelyPaid({ status: formData.status }) ? getBalanceChange(formData.type, amount) : 0;
+              balanceDelta = newEffect - oldEffect;
+            }
+          }
+
+          transaction.update(txRef, {
+            totalInstallments: numInstallments,
+            description: formData.description.replace(/\s*\(\d+\/\d+\)\s*$/, '') + ` (1/${numInstallments})`,
+            amount,
+            categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
+            tags: formData.tagIds.length > 0 ? formData.tagIds : [],
+            observation: formData.observation || '',
+            updatedAt: new Date().toISOString(),
+          });
+
+          const cardFromTx = creditCards.find((c: any) => c.id === oldT.accountId);
+          const firstDate = parseLocalDate(oldT.date || formData.date);
+          let lastDate = firstDate;
+          for (const sib of existingSiblings) {
+            const sibDate = parseLocalDate(sib.date || '');
+            if (sibDate > lastDate) lastDate = new Date(sibDate);
+          }
+
+          if (numInstallments > oldT.totalInstallments) {
+            for (let i = oldT.totalInstallments + 1; i <= numInstallments; i++) {
+              lastDate.setMonth(lastDate.getMonth() + 1);
+              const dateStr = lastDate.toISOString();
+              const tData: any = {
+                userId: user.uid,
+                type: editingTx.type,
+                amount,
+                date: dateStr,
+                description: formData.description.replace(/\s*\(\d+\/\d+\)\s*$/, '') + ` (${i}/${numInstallments})`,
+                status: 'pendente',
+                parentId: editingTx.parentId,
+                installmentNumber: i,
+                totalInstallments: numInstallments,
+                originalPurchaseDate: editingTx.originalPurchaseDate || dateToLocalISOString(`${firstDate.getFullYear()}-${(firstDate.getMonth() + 1).toString().padStart(2, '0')}-${firstDate.getDate().toString().padStart(2, '0')}`),
+                postingDate: dateStr,
+                isSystemGeneratedDate: true,
+                reconciliationStatus: 'nao_conciliado',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+              if (cardFromTx) {
+                tData.creditCardId = editingTx.creditCardId || oldT.accountId;
+                tData.ccRecurrenceType = 'parcelado';
+                tData.invoicePeriod = calculateInvoicePeriod(dateStr, cardFromTx.closingDay, cardFromTx.dueDay);
+                tData.accountId = oldT.accountId;
+              } else {
+                tData.accountId = formData.accountId;
+                tData.categoryId = formData.type !== 'transferencia' ? formData.categoryId : null;
+              }
+              tData.tags = formData.tagIds.length > 0 ? formData.tagIds : [];
+              tData.observation = formData.observation || '';
+              transaction.set(doc(collection(db, 'transactions')), tData);
+            }
+            for (const sib of existingSiblings) {
+              transaction.update(doc(db, 'transactions', sib.id), {
+                totalInstallments: numInstallments,
+                description: sib.description.replace(/\s*\(\d+\/\d+\)\s*$/, '') + ` (${sib.installmentNumber}/${numInstallments})`,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          } else if (numInstallments < oldT.totalInstallments) {
+            for (const sib of existingSiblings) {
+              if (sib.installmentNumber > numInstallments) {
+                transaction.delete(doc(db, 'transactions', sib.id));
+              } else {
+                transaction.update(doc(db, 'transactions', sib.id), {
+                  totalInstallments: numInstallments,
+                  description: sib.description.replace(/\s*\(\d+\/\d+\)\s*$/, '') + ` (${sib.installmentNumber}/${numInstallments})`,
+                  updatedAt: new Date().toISOString(),
+                });
+              }
+            }
+          }
+
+          if (accountSnap?.exists() && balanceDelta !== 0) {
+            transaction.update(doc(db, 'accounts', formData.accountId), { balance: (accountSnap.data().balance || 0) + balanceDelta });
+          }
+        });
+
+        logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Parcelas alteradas para ${numInstallments}: ${formData.description}` }).catch(() => {});
+        toast.success(`Parcelas alteradas para ${numInstallments}`);
+        close();
+        resetForm();
+        return;
+      }
       const updateData: any = {
         type: formData.type,
         amount,
@@ -834,12 +946,21 @@ export function TransactionDialog() {
         updateData.invoicePeriod = formData.invoicePeriod || calculateInvoicePeriod(formData.date, card.closingDay, card.dueDay);
       }
 
-      // Series propagation: if series and only base fields changed, update all siblings
-      if (isSeries && baseFieldsChanged && !financialFieldsChanged) {
+      // Series propagation: if series and only base fields changed, propagate respecting scope
+      if (isSeries && baseFieldsChanged && !financialFieldsChanged && editScope !== 'only') {
         const seriesKey = editingTx.parentId || editingTx.installmentId;
-        const siblings = transactions.filter((t: any) =>
+        const editingDate = (formData.date || editingTx.date || '').split('T')[0];
+
+        let siblings = transactions.filter((t: any) =>
           (t.parentId === seriesKey || t.installmentId === seriesKey) && t.id !== editingTx.id
         );
+
+        if (editScope === 'future') {
+          siblings = siblings.filter((s: any) => {
+            const sDate = (s.date || '').split('T')[0];
+            return sDate >= editingDate;
+          });
+        }
 
         const batch = writeBatch(db);
         const txRef = doc(db, 'transactions', editingTx.id);
@@ -859,10 +980,10 @@ export function TransactionDialog() {
         }
         await batch.commit();
         logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: `Série atualizada: ${formData.description}` }).catch(() => {});
-        toast.success('Série atualizada');
+        toast.success(editScope === 'all' ? 'Série atualizada' : 'Lançamentos futuros atualizados');
       } else if (isSeries && financialFieldsChanged && editScope !== 'only') {
         const seriesKey = editingTx.parentId || editingTx.installmentId;
-        const editingDate = (editingTx.date || '').split('T')[0];
+        const editingDate = (formData.date || '').split('T')[0];
 
         const inScopeSiblings = transactions.filter((t: any) => {
           if (t.id === editingTx.id) return false;
@@ -952,15 +1073,18 @@ export function TransactionDialog() {
           logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: editingId, description: formData.description }).catch(() => {});
           toast.success('Lançamento atualizado (nenhum lançamento futuro na série)');
         } else {
+          const isParcelado = editingTx.installmentNumber != null && editingTx.totalInstallments != null;
           const siblingUpdate: any = {
-            amount,
-            accountId: formData.accountId,
             description: formData.description,
             categoryId: formData.type !== 'transferencia' ? formData.categoryId : null,
             tags: formData.tagIds.length > 0 ? formData.tagIds : [],
             observation: formData.observation || '',
             updatedAt: new Date().toISOString(),
           };
+          if (!isParcelado) {
+            siblingUpdate.amount = amount;
+            siblingUpdate.accountId = formData.accountId;
+          }
           if (isCreditCard && card) {
             siblingUpdate.creditCardId = formData.accountId;
           }
@@ -999,6 +1123,7 @@ export function TransactionDialog() {
             for (const sib of inScopeSiblings) {
               if (!isEffectivelyPaid(sib)) continue;
               if (creditCards.some((cc: any) => cc.id === sib.accountId)) continue;
+              if (editingTx.installmentNumber && editingTx.installmentNumber > 1) continue;
 
               if (sib.type === 'transferencia') {
                 if (sib.accountId) accountDeltas[sib.accountId] = (accountDeltas[sib.accountId] || 0) + sib.amount;

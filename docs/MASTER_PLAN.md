@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.3.1` |
+| **Versão atual** | `0.3.2` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-06-23 (análise inteligente com Groq — IA interpreta, sistema calcula) |
+| **Última alteração em código** | 2026-07-06 (correções CRUD de lançamentos recorrentes — 12 fixes) |
 | **Último deploy** | Não registrado formalmente |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -72,7 +72,7 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** v0.3.1 entregue com análise inteligente Groq: prompt estruturado, contexto de dados calculados, IA interpreta resultados dos motores internos.
+**Foco atual:** v0.3.2 entregue com 12 correções no CRUD de lançamentos recorrentes/parcelados: matching de série centralizado, QuickConfirm seguro, edição de parcelas funcional, RecurrenceRule cleanup, badges visuais.
 
 **Próximo passo sugerido:** Evoluir a cobertura com recorrências futuras ainda não materializadas, cenários conservador/realista/projetado e visualização diária detalhada.
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-07-06 | v0.3.2 — Correções CRUD de lançamentos recorrentes (12 fixes) | Transações / Cartões |
 | 2026-06-23 | v0.3.1 — Análise inteligente Groq — IA interpreta dados calculados | IA / Relatórios |
 | 2026-06-23 | v0.3.0 — Relatório de análise de faturas de cartão | Relatórios |
 | 2026-06-23 | v0.2.0 — Motor de cobertura de caixa + diagnóstico de obrigações | Relatórios / Dashboard |

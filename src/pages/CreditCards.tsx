@@ -12,7 +12,7 @@ import { Badge } from '../components/ui/badge';
 import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock, Layers, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
-import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed } from '../lib/utils';
+import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, findSeriesTransactions, getSeriesKey, isEffectivelyPaid } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
 import {
@@ -374,30 +374,8 @@ export function CreditCards() {
   const handleDeleteTx = async () => {
     if (!txToDelete) return;
     const t = txToDelete;
-    
-    let transactionsToDelete = [t];
-    if ((t.parentId || t.isRecurring || t.installmentId) && deleteScope !== 'only') {
-      transactionsToDelete = transactions.filter(tx => {
-        let isSameSeries = false;
-        
-        if (t.parentId) {
-          isSameSeries = tx.id === t.parentId || tx.parentId === t.parentId;
-        } else {
-          isSameSeries = tx.id === t.id || tx.parentId === t.id;
-        }
-        
-        if (!isSameSeries && t.installmentId && tx.installmentId === t.installmentId) {
-          isSameSeries = true;
-        }
 
-        if (!isSameSeries) return false;
-        
-        if (deleteScope === 'future') {
-          return new Date(tx.date).getTime() >= new Date(t.date).getTime();
-        }
-        return true;
-      });
-    }
+    const transactionsToDelete = findSeriesTransactions(t, transactions, deleteScope);
 
     for (const tx of transactionsToDelete) {
       if (isPeriodClosed(tx.date, tx.accountId, cards, invoices, closedPeriods)) {
@@ -406,65 +384,70 @@ export function CreditCards() {
       }
     }
 
-    const batch = writeBatch(db);
-
     try {
-      const accountBalanceChanges: Record<string, number> = {};
-      const affectedCardPeriods = new Set<string>();
+      const recurrenceRuleId = t.ccRecurrenceType === 'fixo' && t.parentId ? t.parentId : null;
 
-      for (const tx of transactionsToDelete) {
-        if (tx.type === 'transferencia') {
-          if (tx.accountId) {
-            accountBalanceChanges[tx.accountId] = (accountBalanceChanges[tx.accountId] || 0) + tx.amount;
-          }
-          if (tx.destinationAccountId) {
-            accountBalanceChanges[tx.destinationAccountId] = (accountBalanceChanges[tx.destinationAccountId] || 0) - tx.amount;
-          }
-        } else {
-          // For credit card expenses, they don't affect a normal account balance directly
-        }
+      await runTransaction(db, async (transaction) => {
+        const balanceSnapshots: Record<string, any> = {};
+        const accountBalanceChanges: Record<string, number> = {};
 
-        if (tx.invoicePeriod) {
-          if (cards.some(c => c.id === tx.accountId)) {
-            affectedCardPeriods.add(`${tx.accountId}|${tx.invoicePeriod}`);
-          }
-          if (cards.some(c => c.id === tx.destinationAccountId)) {
-            affectedCardPeriods.add(`${tx.destinationAccountId}|${tx.invoicePeriod}`);
+        for (const tx of transactionsToDelete) {
+          if (tx.type === 'transferencia' && isEffectivelyPaid(tx)) {
+            if (tx.accountId) accountBalanceChanges[tx.accountId] = (accountBalanceChanges[tx.accountId] || 0) + tx.amount;
+            if (tx.destinationAccountId) accountBalanceChanges[tx.destinationAccountId] = (accountBalanceChanges[tx.destinationAccountId] || 0) - tx.amount;
           }
         }
 
-        batch.delete(doc(db, 'transactions', tx.id));
-      }
-
-      for (const [accId, change] of Object.entries(accountBalanceChanges)) {
-        const acc = accounts.find(a => a.id === accId);
-        if (acc) {
-          const accRef = doc(db, 'accounts', accId);
-          batch.update(accRef, { balance: (acc.balance || 0) + change });
+        for (const accId of Object.keys(accountBalanceChanges)) {
+          if (accountBalanceChanges[accId] === 0) continue;
+          balanceSnapshots[accId] = await transaction.get(doc(db, 'accounts', accId));
         }
-      }
 
-      for (const key of affectedCardPeriods) {
-        const sep = key.indexOf('|');
-        const cardId = key.substring(0, sep);
-        const period = key.substring(sep + 1);
-        const deletedIds = new Set(transactionsToDelete.map(dt => dt.id));
-        const hasRemaining = transactions.some(t =>
-          !deletedIds.has(t.id) &&
-          (t.accountId === cardId || t.destinationAccountId === cardId) &&
-          t.invoicePeriod === period
-        );
-        if (!hasRemaining) {
-          const invoice = invoices.find(i =>
-            i.cardId === cardId && i.period === period && i.status !== 'paga'
+        for (const tx of transactionsToDelete) {
+          transaction.delete(doc(db, 'transactions', tx.id));
+        }
+
+        if (recurrenceRuleId && deleteScope === 'all') {
+          transaction.delete(doc(db, 'recurrenceRules', recurrenceRuleId));
+        }
+
+        const affectedCardPeriods = new Set<string>();
+        for (const tx of transactionsToDelete) {
+          if (tx.invoicePeriod) {
+            if (cards.some(c => c.id === tx.accountId)) affectedCardPeriods.add(`${tx.accountId}|${tx.invoicePeriod}`);
+            if (cards.some(c => c.id === tx.destinationAccountId)) affectedCardPeriods.add(`${tx.destinationAccountId}|${tx.invoicePeriod}`);
+          }
+        }
+
+        for (const key of affectedCardPeriods) {
+          const sep = key.indexOf('|');
+          const cardId = key.substring(0, sep);
+          const period = key.substring(sep + 1);
+          const deletedIds = new Set(transactionsToDelete.map(dt => dt.id));
+          const hasRemaining = transactions.some(tx =>
+            !deletedIds.has(tx.id) &&
+            (tx.accountId === cardId || tx.destinationAccountId === cardId) &&
+            tx.invoicePeriod === period
           );
-          if (invoice) {
-            batch.update(doc(db, 'invoices', invoice.id), { totalAmount: 0 });
+          if (!hasRemaining) {
+            const invoice = invoices.find(i =>
+              i.cardId === cardId && i.period === period && i.status !== 'paga'
+            );
+            if (invoice) {
+              transaction.update(doc(db, 'invoices', invoice.id), { totalAmount: 0 });
+            }
           }
         }
-      }
 
-      await batch.commit();
+        for (const [accId, change] of Object.entries(accountBalanceChanges)) {
+          if (change === 0) continue;
+          const snap = balanceSnapshots[accId];
+          if (snap?.exists()) {
+            transaction.update(doc(db, 'accounts', accId), { balance: (snap.data().balance || 0) + change });
+          }
+        }
+      });
+
       logActivity({ userId: user.uid, action: 'delete', entityType: 'transaction', entityId: t.id || t.parentId, description: `${transactionsToDelete.length} lançamento(s) excluído(s) da fatura: ${t.description}` }).catch(() => {});
       toast.success('Lançamento(s) excluído(s) com sucesso');
       setTxToDelete(null);
@@ -1290,6 +1273,11 @@ export function CreditCards() {
                                               Parcela {t.installmentNumber}/{t.totalInstallments}
                                             </span>
                                           )}
+                                          {t.ccRecurrenceType === 'fixo' && (
+                                            <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                              Fixo
+                                            </span>
+                                          )}
                                           {t.isSystemGeneratedDate && (
                                             <span className="text-[9px] text-muted-foreground/50" title="Data de lançamento gerada pelo sistema">(data estimada)</span>
                                           )}
@@ -1388,6 +1376,11 @@ export function CreditCards() {
                                         {t.installmentNumber && t.totalInstallments && (
                                           <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-bold">
                                             Parcela {t.installmentNumber}/{t.totalInstallments}
+                                          </span>
+                                        )}
+                                        {t.ccRecurrenceType === 'fixo' && (
+                                          <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                            Fixo
                                           </span>
                                         )}
                                         {t.isSystemGeneratedDate && (
@@ -1636,7 +1629,7 @@ export function CreditCards() {
               </p>
             </div>
             
-            {(txToDelete?.parentId || txToDelete?.isRecurring || txToDelete?.installmentId) && (
+            {(txToDelete?.parentId || txToDelete?.isRecurring || txToDelete?.installmentId || txToDelete?.ccRecurrenceType === 'fixo') && (
               <div className="space-y-2 py-4">
                 <div className="flex items-center space-x-2">
                   <input type="radio" id="only" name="deleteScope" value="only" checked={deleteScope === 'only'} onChange={(e) => setDeleteScope(e.target.value)} />

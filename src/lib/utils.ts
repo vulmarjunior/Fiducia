@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { buildCashCoverageProjection } from './cashCoverage';
 
-export const APP_VERSION = '0.3.1';
+export const APP_VERSION = '0.3.2';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -153,4 +153,55 @@ export function getTransactionEffect(
     if (tx.destinationAccountId === perspectiveAccountId) return tx.amount; // entrando
   }
   return 0;
+}
+
+export function isTransactionSeriesMember(t: any): boolean {
+  return !!(t.parentId || t.isRecurring || t.installmentId || t.ccRecurrenceType === 'fixo');
+}
+
+export function findSeriesTransactions(
+  t: any,
+  allTransactions: any[],
+  scope: 'only' | 'future' | 'all' | string
+): any[] {
+  if (scope === 'only' || !isTransactionSeriesMember(t)) {
+    return [t];
+  }
+
+  return allTransactions.filter(tx => {
+    let isSameSeries = false;
+
+    if (t.parentId) {
+      isSameSeries = tx.id === t.parentId || tx.parentId === t.parentId;
+    } else {
+      isSameSeries = tx.id === t.id || tx.parentId === t.id;
+    }
+
+    if (!isSameSeries && t.installmentId && tx.installmentId === t.installmentId) {
+      isSameSeries = true;
+    }
+
+    if (!isSameSeries && (t.isRecurring || t.ccRecurrenceType === 'fixo')) {
+      if (t.parentId) {
+        isSameSeries = tx.id === t.parentId || tx.parentId === t.parentId;
+      } else if (t.isRecurring && tx.isRecurring && t.frequency && tx.frequency === t.frequency) {
+        isSameSeries = tx.description === t.description;
+      } else if (t.ccRecurrenceType === 'fixo' && tx.ccRecurrenceType === 'fixo') {
+        isSameSeries = tx.description === t.description && tx.accountId === t.accountId;
+      }
+    }
+
+    if (!isSameSeries) return false;
+
+    if (scope === 'future') {
+      const tDate = (t.date || '').split('T')[0];
+      const txDate = (tx.date || '').split('T')[0];
+      return txDate >= tDate;
+    }
+    return true;
+  });
+}
+
+export function getSeriesKey(t: any): string | null {
+  return t.parentId || t.installmentId || null;
 }

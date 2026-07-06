@@ -20,7 +20,7 @@ import { callGroq } from '../services/groqService';
 import { logActivity } from '../services/activityLogService';
 import Select, { MultiValue } from 'react-select';
 import { getCategoryIcon } from '../lib/categoryIcons';
-import { calculateInvoicePeriod, resolveAccountName, isEffectivelyPaid, isPeriodClosed, formatCurrency } from '../lib/utils';
+import { calculateInvoicePeriod, resolveAccountName, isEffectivelyPaid, isPeriodClosed, formatCurrency, findSeriesTransactions, getSeriesKey } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 
@@ -401,33 +401,8 @@ export function Transactions() {
   const handleDelete = async () => {
     if (!deleteConfirmTx) return;
     const t = deleteConfirmTx;
-    
-    let transactionsToDelete = [t];
-    if ((t.parentId || t.isRecurring || t.installmentId) && deleteScope !== 'only') {
-      transactionsToDelete = transactions.filter(tx => {
-        let isSameSeries = false;
-        
-        if (t.parentId) {
-          // t is a child. Series includes the parent and all children of the same parent.
-          isSameSeries = tx.id === t.parentId || tx.parentId === t.parentId;
-        } else {
-          // t might be the parent itself. Series includes t and all its children.
-          isSameSeries = tx.id === t.id || tx.parentId === t.id;
-        }
-        
-        // Fallback for older data using installmentId
-        if (!isSameSeries && t.installmentId && tx.installmentId === t.installmentId) {
-          isSameSeries = true;
-        }
 
-        if (!isSameSeries) return false;
-        
-        if (deleteScope === 'future') {
-          return new Date(tx.date).getTime() >= new Date(t.date).getTime();
-        }
-        return true;
-      });
-    }
+    const transactionsToDelete = findSeriesTransactions(t, transactions, deleteScope);
 
     // Check for closed periods
     for (const tx of transactionsToDelete) {
@@ -446,7 +421,7 @@ export function Transactions() {
     const standaloneTxs: any[] = [];
 
     for (const tx of transactionsToDelete) {
-      const seriesKey = tx.parentId || tx.installmentId || null;
+      const seriesKey = getSeriesKey(tx);
       if (seriesKey) {
         if (!seriesGroups.has(seriesKey)) seriesGroups.set(seriesKey, []);
         seriesGroups.get(seriesKey)!.push(tx);
@@ -534,6 +509,10 @@ export function Transactions() {
   const handleQuickConfirm = async (t: any) => {
     if (isPeriodClosed(t.date, t.accountId, creditCards, invoices, closedPeriods, t.invoicePeriod)) {
       toast.error('Não é possível confirmar um lançamento de um mês fechado.');
+      return;
+    }
+    if (t.parentId && t.installmentNumber && t.installmentNumber > 1) {
+      toast.error('Apenas a primeira parcela da série afeta o saldo. Confirme a parcela 1 primeiro.');
       return;
     }
     try {
@@ -1624,7 +1603,7 @@ ${sample.map(t =>
             Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.
           </div>
 
-          {(deleteConfirmTx?.parentId || deleteConfirmTx?.isRecurring || deleteConfirmTx?.installmentId) && (
+          {(deleteConfirmTx?.parentId || deleteConfirmTx?.isRecurring || deleteConfirmTx?.installmentId || deleteConfirmTx?.ccRecurrenceType === 'fixo') && (
             <div className="space-y-2 py-2">
               <div className="flex items-center space-x-2">
                 <input type="radio" id="only" name="deleteScope" value="only" checked={deleteScope === 'only'} onChange={(e) => setDeleteScope(e.target.value)} />

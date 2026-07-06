@@ -5,6 +5,29 @@
 
 ---
 
+## [0.3.2] — 2026-07-06 — Correções CRUD de Lançamentos Recorrentes
+
+**Resultado:** Série de 12 correções no ciclo completo de vida de lançamentos recorrentes e parcelados. Exclusão de séries agora funciona corretamente em todos os escopos (apenas este / este e futuros / todos). Edição de parcelas permite alterar o número de parcelas. QuickConfirm bloqueia débito duplicado para parcelas 2+. Campos de repetição agora são respeitados na criação de recorrentes bancários.
+
+**Alterações técnicas:**
+- `src/lib/utils.ts` — Novas funções `findSeriesTransactions()`, `getSeriesKey()`, `isTransactionSeriesMember()` — matching de série centralizado com fallback para `isRecurring` sem `parentId` e `ccRecurrenceType === 'fixo'`
+- `src/pages/Transactions.tsx` — `handleDelete` refatorado para usar `findSeriesTransactions`; `handleQuickConfirm` com guarda para parcelas >1 bloqueando débito duplicado; condição do diálogo de exclusão cobre `ccRecurrenceType`
+- `src/pages/CreditCards.tsx` — `handleDeleteTx` convertido de `writeBatch` para `runTransaction` (atômico); exclusão de `RecurrenceRule` ao deletar série "fixo" completa (scope='all'); badge roxo "Fixo" exibido para `ccRecurrenceType === 'fixo'` em ambas as visualizações (organizada/cronológica)
+- `src/components/TransactionDialog.tsx` — 6 correções: `changedInstallmentCount` implementado (alterar nº de parcelas na edição); `populateEdit` distingue `isRecurring` de parcelado via `ccRecurrenceType`; `editScope` respeitado em campos base; `editScope='future'` usa `formData.date` como corte; `siblingUpdate` não propaga `amount` em parcelado + guarda para parcelas >1 no balanço; CREATE de recorrentes agora respeita `formData.installments` do campo "Repetições"
+- `package.json`, `src/lib/utils.ts` — Versão `0.3.2`
+
+**Correções e causa-raiz:**
+- **DELETE de série só deletava 1 transação**: Condição do diálogo usava disjunção OR (`parentId || isRecurring || installmentId`), mas o matching de série dependia exclusivamente de `parentId`. Se `isRecurring=true` sem `parentId` (dados legados), o diálogo mostrava as opções mas o filtro não encontrava irmãos. Solução: `findSeriesTransactions` com fallback por `description` + `frequency`.
+- **QuickConfirm dupla dedução**: Confirmar parcela 2+ debitava saldo novamente, mas CREATE só debitou parcela 1. Solução: guarda `if (parentId && installmentNumber > 1) return`.
+- **CreditCards usava writeBatch não-atômico**: Alterações de saldo usavam `accounts.find()` em memória em vez de leitura fresca do Firestore. Solução: conversão para `runTransaction` com leitura atômica do saldo.
+
+**Validações:**
+- `npm run lint` — Sem erros
+- `npm run test` — 31/34 passando (3 falhas pré-existentes em `financialInsight.test.ts`, não relacionadas às alterações)
+- `npm run build` — Build OK
+
+---
+
 ## [0.3.1] — 2026-06-23 — Análise Inteligente com Groq
 
 **Resultado:** A aba "Análise IA" deixa de gerar dicas genéricas e passa a interpretar dados calculados pelos motores internos do Fiducia: cobertura de caixa, faturas, categorias, orçamentos e datas críticas.

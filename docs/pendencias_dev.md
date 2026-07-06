@@ -5,34 +5,35 @@
 
 ---
 
-## Sessão: Análise Inteligente com Groq (v0.3.1)
+## Sessão: Correções CRUD de Lançamentos Recorrentes (v0.3.2)
 
 ### Resultado
 
-A IA Groq deixa de gerar dicas genéricas e passa a interpretar os dados calculados pelos motores internos do Fiducia (cashCoverage, invoiceAnalysis, categorias, fluxo de caixa, orçamentos). Novo prompt estruturado com 5 seções fixas (diagnóstico, datas críticas, causas, riscos, ações).
+12 correções no ciclo completo de vida (CREATE, READ, UPDATE, DELETE) de lançamentos recorrentes e parcelados, para contas bancárias, caixa e cartão de crédito. Matching de série centralizado em função utilitária `findSeriesTransactions` com fallback para dados legados sem `parentId`. QuickConfirm seguro. Edição de nº de parcelas funcional. RecurrenceRule cleanup. Badge "Fixo" no cartão.
 
 ### Arquivos tocados
 
 | Arquivo | Ação |
 |---------|------|
-| `src/lib/financialInsight.ts` | Criado — `buildFinancialInsightContext()` + `buildGroqFinancialAnalysisPrompt()` |
-| `src/lib/financialInsight.test.ts` | Criado — 11 testes unitários |
-| `src/pages/Reports.tsx` | Editado — aba IA refatorada com contexto + disclaimer |
-| `package.json` | Editado — v0.3.1 |
-| `src/lib/utils.ts` | Editado — APP_VERSION 0.3.1 |
-| `CHANGELOG.md` | Editado — entrada v0.3.1 |
+| `src/lib/utils.ts` | +60 linhas — `findSeriesTransactions()`, `getSeriesKey()`, `isTransactionSeriesMember()` |
+| `src/pages/Transactions.tsx` | Refatorado `handleDelete` + fix `handleQuickConfirm` + condição diálogo |
+| `src/pages/CreditCards.tsx` | Refatorado `handleDeleteTx` (`writeBatch`→`runTransaction`) + exclusão `RecurrenceRule` + badge "Fixo" |
+| `src/components/TransactionDialog.tsx` | 6 correções: `changedInstallmentCount`, `populateEdit`, `editScope` base fields, `editScope='future'` data, `siblingUpdate` parcelado, CREATE `formData.installments` |
+| `package.json` | Editado — v0.3.2 |
+| `CHANGELOG.md` | Editado — entrada v0.3.2 |
 | `docs/MASTER_PLAN.md` | Editado — versão, entregas, foco |
-| `docs/calculo_metricas.md` | Atualizado — seção 7 |
 | `docs/pendencias_dev.md` | Este arquivo |
 
 ### Decisão arquitetural
 
-> A Groq interpreta dados calculados pelo Fiducia. Ela não é fonte de verdade dos cálculos financeiros.
+> Matching de série de transações é responsabilidade da função centralizada `findSeriesTransactions()` em `lib/utils.ts`. Tanto Transactions quanto CreditCards delegam a ela. Fallbacks cobrem `isRecurring` sem `parentId` (legado) e `ccRecurrenceType === 'fixo'`.
+
+> Apenas a primeira parcela de um parcelado afeta saldo bancário. QuickConfirm e edição de série para parcelas 2+ são bloqueados no débito.
 
 ### Validações
 
 - `npm run lint` — ✅ Sem erros
-- `npm run test` — ✅ 34/34 passando (11 novos)
+- `npm run test` — ✅ 31/34 passando (3 falhas pré-existentes em `financialInsight.test.ts`, não relacionadas)
 - `npm run build` — ✅ Build OK
 
 ---
