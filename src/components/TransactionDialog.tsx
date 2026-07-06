@@ -122,6 +122,8 @@ export function TransactionDialog() {
   const [showTags, setShowTags] = useState(false);
   const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryParentId, setNewCategoryParentId] = useState('nenhuma');
+  const [newCategoryType, setNewCategoryType] = useState('despesa');
   const [isNewTagOpen, setIsNewTagOpen] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#3b82f6');
@@ -235,16 +237,19 @@ export function TransactionDialog() {
     if (!user || !newCategoryName.trim()) return;
     try {
       const icon = (await import('../lib/categoryIcons')).suggestIcon;
+      const categoryType = isCreditCard ? 'despesa' : newCategoryType;
       const docRef = await addDoc(collection(db, 'categories'), {
         userId: user.uid,
         name: newCategoryName.trim(),
-        type: formData.type,
+        type: categoryType,
         icon: icon(newCategoryName.trim()),
         isDefault: false,
+        parentId: newCategoryParentId === 'nenhuma' ? null : newCategoryParentId,
         createdAt: new Date().toISOString()
       });
       setFormData(prev => ({ ...prev, categoryId: docRef.id }));
       setNewCategoryName('');
+      setNewCategoryParentId('nenhuma');
       setIsNewCategoryOpen(false);
       toast.success('Categoria criada');
     } catch (error) {
@@ -1475,25 +1480,25 @@ export function TransactionDialog() {
             </div>
 
             {/* Icon bar */}
-            {!isCreditCard && (
-              <div className="flex items-center justify-around py-4 border-y border-gray-50 dark:border-gray-800">
+            <div className="flex items-center justify-around py-4 border-y border-gray-50 dark:border-gray-800">
+              {!isCreditCard && (
                 <button type="button" onClick={() => setShowRecurrence(!showRecurrence)}
                   className={`p-3 rounded-2xl transition-all ${showRecurrence ? 'bg-primary/10 text-primary shadow-inner' : 'bg-muted text-muted-foreground hover:bg-muted'}`} title="Recorrência">
                   <Repeat className="h-6 w-6" />
                 </button>
-                <button type="button" onClick={() => setShowObservation(!showObservation)}
-                  className={`p-3 rounded-2xl transition-all ${showObservation ? 'bg-primary/10 text-primary shadow-inner' : 'bg-muted text-muted-foreground hover:bg-muted'}`} title="Observação">
-                  <MessageSquare className="h-6 w-6" />
-                </button>
-                <button type="button" className="p-3 rounded-2xl bg-muted text-muted-foreground/30 cursor-not-allowed" disabled title="Anexo (Em breve)">
-                  <Paperclip className="h-6 w-6" />
-                </button>
-                <button type="button" onClick={() => setShowTags(!showTags)}
-                  className={`p-3 rounded-2xl transition-all ${showTags ? 'bg-primary/10 text-primary shadow-inner' : 'bg-muted text-muted-foreground hover:bg-muted'}`} title="Tags">
-                  <Tag className="h-6 w-6" />
-                </button>
-              </div>
-            )}
+              )}
+              <button type="button" onClick={() => setShowObservation(!showObservation)}
+                className={`p-3 rounded-2xl transition-all ${showObservation ? 'bg-primary/10 text-primary shadow-inner' : 'bg-muted text-muted-foreground hover:bg-muted'}`} title="Observação">
+                <MessageSquare className="h-6 w-6" />
+              </button>
+              <button type="button" className="p-3 rounded-2xl bg-muted text-muted-foreground/30 cursor-not-allowed" disabled title="Anexo (Em breve)">
+                <Paperclip className="h-6 w-6" />
+              </button>
+              <button type="button" onClick={() => setShowTags(!showTags)}
+                className={`p-3 rounded-2xl transition-all ${showTags ? 'bg-primary/10 text-primary shadow-inner' : 'bg-muted text-muted-foreground hover:bg-muted'}`} title="Tags">
+                <Tag className="h-6 w-6" />
+              </button>
+            </div>
 
             {/* Recurrence section */}
             {(showRecurrence || isCreditCard) && (
@@ -1554,6 +1559,22 @@ export function TransactionDialog() {
                           </div>
                         </div>
                       )}
+                      {formData.ccRecurrenceType === 'parcelado' && (() => {
+                        const parts = computeInstallmentParts(formData.amount || 0, parseInt(formData.installmentsCount) || 2);
+                        return parts.remainder > 0 ? (
+                          <div className="space-y-1.5 mt-2">
+                            <Label className="text-[10px] font-bold text-muted-foreground uppercase">Diferença de Centavos</Label>
+                            <ShadcnSelect value={formData.remainderPosition} onValueChange={(v) => setFormData({ ...formData, remainderPosition: v as any })}>
+                              <SelectTrigger className="bg-background border-none h-10 rounded-xl text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="first">1ª parcela (+R$ {parts.remainder.toFixed(2)})</SelectItem>
+                                <SelectItem value="last">Última parcela (+R$ {parts.remainder.toFixed(2)})</SelectItem>
+                                <SelectItem value="spread">Distribuído</SelectItem>
+                              </SelectContent>
+                            </ShadcnSelect>
+                          </div>
+                        ) : null;
+                      })()}
                       {formData.ccRecurrenceType === 'fixo' && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
@@ -1785,13 +1806,49 @@ export function TransactionDialog() {
       </DialogContent>
 
       {/* New Category Dialog */}
-      <Dialog open={isNewCategoryOpen} onOpenChange={setIsNewCategoryOpen}>
+      <Dialog open={isNewCategoryOpen} onOpenChange={(open) => {
+        setIsNewCategoryOpen(open);
+        if (open) {
+          setNewCategoryName('');
+          setNewCategoryParentId('nenhuma');
+          setNewCategoryType(formData.type === 'receita' || formData.type === 'income' ? 'receita' : 'despesa');
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader><DialogTitle>Nova Categoria</DialogTitle></DialogHeader>
           <form onSubmit={handleCreateCategory} className="space-y-4">
             <div className="space-y-2">
               <Label>Nome</Label>
               <Input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} required />
+            </div>
+            {!isCreditCard && (
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setNewCategoryType('despesa')}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${newCategoryType === 'despesa' ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' : 'bg-muted text-muted-foreground'}`}>Despesa</button>
+                  <button type="button" onClick={() => setNewCategoryType('receita')}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${newCategoryType === 'receita' ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>Receita</button>
+                </div>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Categoria Pai (opcional)</Label>
+              <ShadcnSelect value={newCategoryParentId} onValueChange={setNewCategoryParentId}>
+                <SelectTrigger className="bg-muted border-none h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nenhuma">Nenhuma (categoria raiz)</SelectItem>
+                  {categories
+                    .filter(c => {
+                      const catType = isCreditCard ? 'despesa' : newCategoryType;
+                      const matchType = c.type === catType || c.type === (catType === 'receita' ? 'income' : 'expense');
+                      return matchType && !c.parentId;
+                    })
+                    .map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                </SelectContent>
+              </ShadcnSelect>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsNewCategoryOpen(false)}>Cancelar</Button>
