@@ -1,4 +1,4 @@
-﻿# Plano de Implementacao - Central de Importacao Assistida do Fiducia
+# Plano de Implementacao - Central de Importacao Assistida do Fiducia
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 

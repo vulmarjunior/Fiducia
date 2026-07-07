@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { TransactionDialogProvider } from '../contexts/TransactionDialogContext';
 import { TransactionDialog } from './TransactionDialog';
-import { LayoutDashboard, Receipt, CreditCard, Wallet, LogOut, Menu, Tags, PieChart, Target, FileText, Download, Tag, ListChecks, History, Settings, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Receipt, CreditCard, Wallet, LogOut, Menu, Tags, PieChart, Target, FileText, Download, Tag, ListChecks, History, Settings, Sun, Moon, Upload } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
 import { useState, useEffect } from 'react';
@@ -59,6 +59,7 @@ export function Layout() {
   const mainNavItems: { name: string; path: string; icon: any; badge?: string }[] = [
     { name: 'Visão Geral', path: '/', icon: LayoutDashboard },
     { name: 'Lançamentos', path: '/transactions', icon: Receipt },
+    { name: 'Importar', path: '/importar', icon: Upload },
     { name: 'Conciliação', path: '/reconciliation', icon: ListChecks },
     { name: 'Auditoria', path: '/audit', icon: FileText },
     { name: 'Contas', path: '/accounts', icon: Wallet },

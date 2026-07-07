@@ -16,6 +16,7 @@ import { Audit } from './pages/Audit';
 import { Reconciliation } from './pages/Reconciliation';
 import { ActivityLog } from './pages/ActivityLog';
 import { SettingsPage } from './pages/Settings';
+import { ImportCenter } from './pages/ImportCenter';
 import { Toaster } from './components/ui/sonner';
 import { TooltipProvider } from './components/ui/tooltip';
 
@@ -60,6 +61,9 @@ export default function App() {
               <Route path="accounts" element={<Accounts />} />
               <Route path="cards" element={<CreditCards />} />
               <Route path="transactions" element={<Transactions />} />
+              <Route path="importar" element={<ImportCenter />} />
+              <Route path="importar/compartilhar" element={<ImportCenter />} />
+              <Route path="importar/:id" element={<ImportCenter />} />
               <Route path="reconciliation" element={<Reconciliation />} />
               <Route path="audit" element={<Audit />} />
               <Route path="categories" element={<Categories />} />

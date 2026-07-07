@@ -72,9 +72,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** v0.5.1 entregue com ajustes responsivos nos modais de fatura, conferência/importação de fatura e lançamento.
+**Foco atual:** Central de Importacao Assistida com Fases 1 e 2 implementadas em codigo, aguardando build/test completo fora do bloqueio `spawn EPERM`.
 
-**Próximo passo sugerido:** Testar em celular real os fluxos de Cartões → Fatura → Conferir Fatura/Importar PDF e o modal de Novo Lançamento, validando com dados reais.
+**Proximo passo sugerido:** Validar manualmente `/importar` com dados reais, rodar `npm run build`/`npm run test` completo fora do bloqueio atual e testar Web Share Target em Android. Fase 3 fica para implementacao futura.
 
 ---
 
@@ -124,6 +124,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 8 | Paradigmas de orçamento (impacto fracionado vs integral) | ⚠️ Pendente | Especificado, não implementado |
 | 9 | Testes automatizados (integração + unitários) | 🔄 Parcial | Unitários para cartão e cobertura; integração pendente |
 | 10 | Gestão de versão / releases | ✅ Concluído | v0.1.0 definida; exibida no Login e Dashboard |
+| 11 | Central de Importacao Assistida - Fase 3 | Futuro | E-mail, app companion Android, Open Finance, perfis avancados por banco e aprendizado local; exige decisao de privacidade/consentimento |
 
 ---
 
@@ -190,3 +191,4 @@ Próximos itens (MASTER_PLAN §6):
 - Pagamento parcial de fatura
 - Paradigmas de orçamento
 - Testes de integração
+- Central de Importacao Assistida - Fase 3 futura (e-mail, app companion Android, Open Finance, perfis avancados e aprendizado local)

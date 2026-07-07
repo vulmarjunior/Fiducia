@@ -22,6 +22,15 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           start_url: '/',
           id: '/',
+          share_target: {
+            action: '/importar/compartilhar',
+            method: 'GET',
+            params: {
+              title: 'title',
+              text: 'text',
+              url: 'url',
+            },
+          },
           icons: [
             {
               src: 'icon.svg',

@@ -26,6 +26,7 @@ export interface CreditCard {
   id?: string;
   userId: string;
   name: string;
+  lastFourDigits?: string;
   limit: number;
   closingDay: number;
   dueDay: number;
@@ -255,4 +256,96 @@ export interface Goal {
   currentAmount: number;
   deadline: string;
   createdAt: string;
+}
+
+export type ImportCandidateSource =
+  | 'pasted_text'
+  | 'shared_text'
+  | 'file_bank_statement'
+  | 'file_card_invoice'
+  | 'email'
+  | 'open_finance'
+  | 'companion_app';
+
+export type ImportCandidateStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'ignored'
+  | 'duplicate'
+  | 'error';
+
+export type ParsedTransactionType =
+  | 'expense'
+  | 'income'
+  | 'transfer'
+  | 'refund'
+  | 'card_expense'
+  | 'unknown';
+
+export interface ParsedImportResult {
+  type: ParsedTransactionType;
+  amount?: number;
+  date?: string;
+  description?: string;
+  merchant?: string;
+  accountHint?: string;
+  bankHint?: string;
+  cardLastDigits?: string;
+  categoryHint?: string;
+  installments?: {
+    current?: number;
+    total?: number;
+  };
+  confidence: number;
+  reasons: string[];
+}
+
+export interface ImportCandidateSuggestions {
+  accountId?: string;
+  creditCardId?: string;
+  categoryId?: string;
+  tagIds?: string[];
+  confidence: number;
+  reasons: string[];
+}
+
+export interface ImportCandidateDuplicateCheck {
+  isPossibleDuplicate: boolean;
+  matchedTransactionIds: string[];
+  reason?: string;
+}
+
+export interface ImportCandidate {
+  id?: string;
+  userId: string;
+  source: ImportCandidateSource;
+  status: ImportCandidateStatus;
+  rawContent: string;
+  rawTitle?: string;
+  rawUrl?: string;
+  parsed: ParsedImportResult;
+  suggestions: ImportCandidateSuggestions;
+  duplicateCheck?: ImportCandidateDuplicateCheck;
+  confirmedTransactionId?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+  confirmedAt?: string;
+  ignoredAt?: string;
+}
+
+export interface ConfirmImportCandidateInput {
+  type: 'receita' | 'despesa' | 'transferencia' | 'income' | 'expense' | 'transfer';
+  amount: number;
+  date: string;
+  description: string;
+  status: 'pago' | 'pendente' | 'realizado' | 'paid' | 'pending';
+  accountId?: string;
+  destinationAccountId?: string;
+  creditCardId?: string;
+  categoryId?: string;
+  tags?: string[];
+  observation?: string;
+  installmentNumber?: number;
+  totalInstallments?: number;
 }

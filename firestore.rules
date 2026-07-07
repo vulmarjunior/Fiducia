@@ -208,11 +208,48 @@ service cloud.firestore {
              data.accountId is string &&
              data.period is string &&
              isValidDate(data.reconciledAt) &&
-             data.type in ['account', 'credit_card'] &&
+             data.type in ['account', 'credit_card', 'credit_card_invoice'] &&
              (!('totalReconciled' in data) || data.totalReconciled is number) &&
              (!('totalUnreconciled' in data) || data.totalUnreconciled is number);
     }
 
+
+    function isValidImportCandidate(data) {
+      return hasRequiredFields(['userId', 'source', 'status', 'rawContent', 'parsed', 'suggestions', 'createdAt', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             data.source in ['pasted_text', 'shared_text', 'file_bank_statement', 'file_card_invoice', 'email', 'open_finance', 'companion_app'] &&
+             data.status in ['pending', 'confirmed', 'ignored', 'duplicate', 'error'] &&
+             data.rawContent is string && data.rawContent.size() > 0 && data.rawContent.size() <= 10000 &&
+             (!('rawTitle' in data) || data.rawTitle is string) &&
+             (!('rawUrl' in data) || data.rawUrl is string) &&
+             data.parsed is map &&
+             data.parsed.type in ['expense', 'income', 'transfer', 'refund', 'card_expense', 'unknown'] &&
+             data.parsed.confidence is number && data.parsed.confidence >= 0 && data.parsed.confidence <= 1 &&
+             data.parsed.reasons is list && data.parsed.reasons.size() <= 20 &&
+             (!('amount' in data.parsed) || data.parsed.amount is number) &&
+             (!('date' in data.parsed) || data.parsed.date is string) &&
+             (!('description' in data.parsed) || data.parsed.description is string) &&
+             (!('merchant' in data.parsed) || data.parsed.merchant is string) &&
+             (!('accountHint' in data.parsed) || data.parsed.accountHint is string) &&
+             (!('bankHint' in data.parsed) || data.parsed.bankHint is string) &&
+             (!('cardLastDigits' in data.parsed) || data.parsed.cardLastDigits.matches('^\\d{4}$')) &&
+             (!('categoryHint' in data.parsed) || data.parsed.categoryHint is string) &&
+             (!('installments' in data.parsed) || data.parsed.installments is map) &&
+             data.suggestions is map &&
+             data.suggestions.confidence is number && data.suggestions.confidence >= 0 && data.suggestions.confidence <= 1 &&
+             data.suggestions.reasons is list && data.suggestions.reasons.size() <= 20 &&
+             (!('accountId' in data.suggestions) || data.suggestions.accountId is string) &&
+             (!('creditCardId' in data.suggestions) || data.suggestions.creditCardId is string) &&
+             (!('categoryId' in data.suggestions) || data.suggestions.categoryId is string) &&
+             (!('tagIds' in data.suggestions) || data.suggestions.tagIds is list) &&
+             (!('duplicateCheck' in data) || data.duplicateCheck is map) &&
+             (!('confirmedTransactionId' in data) || data.confirmedTransactionId is string) &&
+             (!('errorMessage' in data) || data.errorMessage is string) &&
+             isValidDate(data.createdAt) &&
+             isValidDate(data.updatedAt) &&
+             (!('confirmedAt' in data) || isValidDate(data.confirmedAt)) &&
+             (!('ignoredAt' in data) || isValidDate(data.ignoredAt));
+    }
     function isValidActivityLog(data) {
       return hasRequiredFields(['userId', 'action', 'entityType', 'entityId', 'description', 'createdAt']) &&
              data.userId == request.auth.uid &&
@@ -317,6 +354,13 @@ service cloud.firestore {
       allow delete: if isDocOwner();
     }
 
+
+    match /importCandidates/{candidateId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidImportCandidate(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidImportCandidate(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
     match /activityLogs/{logId} {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidActivityLog(request.resource.data) && uidUnchanged();
