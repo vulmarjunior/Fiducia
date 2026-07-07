@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock, Layers, Clock } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock, Layers, Clock, FileSearch } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, findSeriesTransactions, getSeriesKey, isEffectivelyPaid } from '../lib/utils';
@@ -26,6 +26,7 @@ import { getCardBrandDetails } from '../utils/cardBrandUtils';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { extractTextFromPdf, parseInvoiceWithGroq, PdfTransaction } from '../services/pdfInvoiceService';
 import { PdfImportReviewDialog } from '../components/PdfImportReviewDialog';
+import { InvoiceReconciliationDialog } from '../components/InvoiceReconciliationDialog';
 import { generateCreditCardInvoicePDF } from '../lib/pdfTemplates';
 
 export function CreditCards() {
@@ -63,6 +64,7 @@ export function CreditCards() {
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [pdfLoadingStep, setPdfLoadingStep] = useState<'extracting' | 'analyzing' | null>(null);
   const pdfInputRef = React.useRef<HTMLInputElement>(null);
+  const [isInvoiceReconciliationOpen, setIsInvoiceReconciliationOpen] = useState(false);
 
   // PDF Export
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -986,6 +988,15 @@ export function CreditCards() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                  onClick={() => setIsInvoiceReconciliationOpen(true)}
+                >
+                  <FileSearch className="h-4 w-4" />
+                  <span className="hidden sm:inline">Conferir Fatura</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="h-8 gap-2 border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-950/40"
                   onClick={() => pdfInputRef.current?.click()}
                   disabled={isPdfLoading}
@@ -1685,6 +1696,21 @@ export function CreditCards() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selectedCardForInvoice && user && (
+        <InvoiceReconciliationDialog
+          open={isInvoiceReconciliationOpen}
+          onOpenChange={setIsInvoiceReconciliationOpen}
+          userId={user.uid}
+          card={selectedCardForInvoice}
+          invoicePeriod={`${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`}
+          categories={categories}
+          systemTransactions={transactions.filter(t =>
+            (t.accountId === selectedCardForInvoice.id || t.destinationAccountId === selectedCardForInvoice.id) &&
+            t.invoicePeriod === `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`
+          )}
+        />
+      )}
 
       <PdfImportReviewDialog
         open={isPdfReviewOpen}

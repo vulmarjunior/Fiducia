@@ -296,13 +296,22 @@ O sistema deve manter dois fluxos analíticos separados, alimentados pela mesma 
 
 Esses dois fluxos nunca devem ser misturados em um mesmo gráfico sem sinalização clara ao usuário.
 
-### 8.6 Importação de Fatura via PDF
+### 8.6 Importação e Conferência de Fatura
 
-O sistema oferece uma rotina inteligente de leitura de faturas em formato PDF.
-1. O PDF é processado localmente e o texto extraído é submetido à IA (Groq).
-2. A IA identifica e estrutura os Fatos Geradores, categorizando-os automaticamente com base na lista de categorias do usuário.
-3. Se detectadas compras parceladas (ex: `2/6`), o sistema propõe a expansão da série, que gerará todas as parcelas futuras necessárias e as vinculará usando a entidade `parentId`.
-4. Os lançamentos importados respeitam o cálculo de `invoicePeriod` automaticamente, deduzindo a data da transação em relação às datas de fechamento e vencimento do cartão.
+O sistema oferece dois caminhos para lidar com faturas externas:
+
+1. **Importação rápida via PDF**: fluxo legado para transformar uma fatura PDF em lançamentos novos, com revisão de categoria e expansão opcional de parcelas.
+2. **Conferência inteligente de fatura**: fluxo recomendado para fatura fechada, disponível em Cartões como **Conferir Fatura**, aceitando PDF, CSV, XLS e XLSX.
+
+No fluxo de conferência:
+1. O arquivo é transformado em linhas auditáveis de fatura antes de qualquer gravação.
+2. A IA (Groq) pode auxiliar na extração estruturada e no match semântico, mas não é fonte de verdade financeira.
+3. O motor local compara linhas importadas contra lançamentos já existentes do cartão/período, calculando totais e classificando divergências.
+4. O usuário decide a ação por linha: confirmar match, criar faltante, corrigir existente, ignorar ou revisar manualmente.
+5. Parcelas futuras só são criadas quando o usuário confirma explicitamente a expansão da série.
+6. Ao aplicar, o sistema registra histórico em `reconciliationHistory` com `type: 'credit_card_invoice'`.
+
+Regra duradoura: fatura fechada deve ser tratada primeiro como documento de conferência. Criar lançamentos diretamente é aceitável apenas como atalho quando o usuário sabe que aqueles lançamentos ainda não existem no Fiducia.
 
 ---
 

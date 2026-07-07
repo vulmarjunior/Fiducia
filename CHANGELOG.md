@@ -5,6 +5,34 @@
 
 ---
 
+## [0.5.0] — 2026-07-07 — Conferência Inteligente de Fatura de Cartão
+
+**Resultado:** Tela de Cartões ganhou o fluxo **Conferir Fatura**, que importa faturas PDF/CSV/XLS/XLSX, transforma o arquivo em linhas auditáveis, compara com lançamentos já existentes no Fiducia, usa Groq para sugerir matches semânticos, separa divergências por grupos e permite confirmar, criar, corrigir ou ignorar lançamentos antes de gravar.
+
+**Alterações técnicas:**
+- `src/components/InvoiceReconciliationDialog.tsx` — Novo diálogo de conferência com upload, estados de extração/matching/revisão/aplicação, KPIs de totais, grupos OK/Revisar/Faltantes/Diferentes/Créditos/Sobrando e ações por linha/em lote.
+- `src/lib/invoiceReconciliation.ts` — Novo motor determinístico com normalização de descrições, scoring de candidatos, merge com sugestões da IA, cálculo de totais e detecção de lançamentos sobrando.
+- `src/lib/invoiceReconciliation.test.ts` — 6 testes cobrindo normalização, match exato, divergência de valor, faltantes, sobras e créditos abatendo total.
+- `src/services/invoiceImportService.ts` — Novo importador unificado para PDF/CSV/XLS/XLSX; PDF usa extração de texto + Groq, CSV/XLS usam parser estruturado.
+- `src/services/invoiceAiService.ts` — Prompts dedicados para extração estruturada e match semântico da fatura via Groq.
+- `src/services/invoiceReconciliationApplyService.ts` — Aplicação das decisões: confirmar matches, criar faltantes, corrigir divergentes, expandir parcelas futuras sob confirmação e registrar histórico em `reconciliationHistory`.
+- `src/pages/CreditCards.tsx` — Botão **Conferir Fatura** no modal da fatura, mantendo o importador PDF legado como caminho rápido.
+- `src/types/index.ts` — Tipos de importação/conciliação de fatura e histórico `credit_card_invoice`.
+- `package.json`, `package-lock.json`, `src/lib/utils.ts` — Versão `0.5.0`.
+
+**Correções e causa-raiz:**
+- O fluxo antigo de importação PDF criava lançamentos diretamente, sem comparar antes com o que já existia. A nova conferência cria uma etapa intermediária auditável, reduzindo risco de duplicidade e permitindo corrigir diferenças de valor/data/categoria/descrição.
+
+**Validações:**
+- `npm run lint` — Sem erros
+- `npm run test` — 37/40 passando (3 falhas pré-existentes em `financialInsight.test.ts`)
+- `npm run build` — Build OK
+
+**Limitações ou escopo não entregue:**
+- Sem OCR para PDF escaneado.
+- Sem aprendizado persistente por estabelecimento.
+- Sem pagamento parcial de fatura ou estorno avançado total/parcial.
+- A IA sugere; ações financeiras continuam exigindo confirmação do usuário.
 ## [0.4.1] — 2026-07-07 — Ordenação Alternável + Busca Aprimorada em Lançamentos
 
 **Resultado:** Tela de lançamentos agora permite alternar a ordem cronológica (mais recentes primeiro ou mais antigos primeiro). Barra de busca aceita valores monetários no formato brasileiro (vírgula decimal, ponto de milhar).

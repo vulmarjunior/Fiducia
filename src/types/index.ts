@@ -140,12 +140,94 @@ export interface Invoice {
 export interface ReconciliationHistory {
   id?: string;
   userId: string;
-  accountId: string;
+  accountId?: string;
+  cardId?: string;
   period: string;
+  invoicePeriod?: string;
   reconciledAt: string;
-  totalReconciled: number;
-  totalUnreconciled: number;
-  type: 'account' | 'credit_card';
+  totalReconciled?: number;
+  totalUnreconciled?: number;
+  type: 'account' | 'credit_card' | 'credit_card_invoice';
+  source?: InvoiceImportSource;
+  totals?: {
+    importedLinesTotal: number;
+    systemPeriodTotal: number;
+    matchedTotal: number;
+    invoiceDeclaredTotal?: number;
+    difference: number;
+  };
+  counts?: {
+    imported: number;
+    created: number;
+    updated: number;
+    reconciled: number;
+    ignored: number;
+    manualReview: number;
+  };
+  createdAt?: string;
+}
+
+export type InvoiceImportSource = 'pdf' | 'csv' | 'xlsx';
+
+export type InvoiceLineKind =
+  | 'purchase'
+  | 'installment'
+  | 'credit'
+  | 'refund'
+  | 'fee'
+  | 'payment'
+  | 'unknown';
+
+export type InvoiceLineAction =
+  | 'confirm_match'
+  | 'create_transaction'
+  | 'update_transaction'
+  | 'ignore'
+  | 'manual_review';
+
+export interface ImportedInvoiceLine {
+  id: string;
+  source: InvoiceImportSource;
+  rawText?: string;
+  date: string;
+  description: string;
+  normalizedDescription?: string;
+  amount: number;
+  type: 'despesa' | 'receita';
+  kind: InvoiceLineKind;
+  installmentNumber?: number;
+  totalInstallments?: number;
+  suggestedCategoryId?: string;
+  confidence: number;
+}
+
+export interface InvoiceLineMatch {
+  importedLineId: string;
+  systemTransactionId?: string;
+  confidence: number;
+  reason: string;
+  differences: {
+    amount?: { imported: number; system: number };
+    date?: { imported: string; system: string };
+    description?: { imported: string; system: string };
+    categoryId?: { imported?: string; system?: string };
+  };
+  suggestedAction: InvoiceLineAction;
+}
+
+export interface InvoiceReconciliationDraft {
+  cardId: string;
+  invoicePeriod: string;
+  source: InvoiceImportSource;
+  importedLines: ImportedInvoiceLine[];
+  matches: InvoiceLineMatch[];
+  totals: {
+    importedLinesTotal: number;
+    systemPeriodTotal: number;
+    matchedTotal: number;
+    invoiceDeclaredTotal?: number;
+    difference: number;
+  };
 }
 
 export interface ClosedPeriod {
