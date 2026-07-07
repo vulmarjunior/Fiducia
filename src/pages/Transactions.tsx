@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '../components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from '../components/ui/popover';
-import { Plus, Trash2, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Lock, FileUp, Check, X, AlertCircle, HelpCircle, Tag, Wallet, CheckCircle, AlignLeft, CreditCard, ChevronLeft, ChevronRight, Search, Repeat, MessageSquare, Paperclip, ThumbsUp, ThumbsDown, CheckCircle2, Sparkles, Loader2, FileDown } from 'lucide-react';
+import { Plus, Trash2, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Lock, FileUp, Check, X, AlertCircle, HelpCircle, Tag, Wallet, CheckCircle, AlignLeft, CreditCard, ChevronLeft, ChevronRight, Search, Repeat, MessageSquare, Paperclip, ThumbsUp, ThumbsDown, CheckCircle2, Sparkles, Loader2, FileDown, ArrowUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { parseOfx, OfxTransaction } from '../services/ofxService';
 import { parseCsvOrExcel } from '../services/importService';
@@ -126,6 +126,7 @@ export function Transactions() {
   const [aiSearchMode, setAiSearchMode] = useState(false);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [aiSearchResultIds, setAiSearchResultIds] = useState<Set<string> | null>(null);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   const [deleteConfirmTx, setDeleteConfirmTx] = useState<any | null>(null);
   const [deleteScope, setDeleteScope] = useState('only');
@@ -727,7 +728,7 @@ export function Transactions() {
     setIsAiSearching(true);
     try {
       const sample = transactions
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .sort((a, b) => (new Date(b.date).getTime() - new Date(a.date).getTime()) * (sortOrder === 'asc' ? -1 : 1))
         .slice(0, 200);
 
       const prompt = `Você é um assistente de busca financeira. O usuário quer encontrar transações com esta descrição natural:
@@ -779,6 +780,20 @@ ${sample.map(t =>
     }, () => setSelectedAccountBalance(0));
     return () => unsub();
   }, [selectedAccountFilter, user]);
+
+  const amountMatchesSearch = (amount: number, term: string): boolean => {
+    const representations = [
+      amount.toString(),
+      amount.toFixed(2),
+      new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount),
+      new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false }).format(amount),
+    ];
+    if (representations.some(r => r.includes(term))) return true;
+    const normalizedTerm = term.replace(/\./g, '').replace(',', '.');
+    const parsedAmount = parseFloat(normalizedTerm);
+    if (!isNaN(parsedAmount) && Math.abs(amount - parsedAmount) < 0.001) return true;
+    return false;
+  };
 
   const processedTransactions = React.useMemo(() => {
     let result = [...transactions];
@@ -859,16 +874,17 @@ ${sample.map(t =>
         const term = searchTerm.toLowerCase();
         matchesSearch = 
           (t.description && t.description.toLowerCase().includes(term)) ||
-          (t.amount && t.amount.toString().includes(term));
+          (t.amount != null && amountMatchesSearch(t.amount, term));
       }
       
       return !t.creditCardId && matchesTags && matchesAccount && matchesDate && matchesSearch;
     }).sort((a, b) => {
-      const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+      const mult = sortOrder === 'asc' ? -1 : 1;
+      const dateDiff = (new Date(b.date).getTime() - new Date(a.date).getTime()) * mult;
       if (dateDiff !== 0) return dateDiff;
-      return new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime();
+      return (new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime()) * mult;
     });
-  }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, selectedAccountBalance, accounts, creditCards, aiSearchResultIds]);
+  }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, selectedAccountBalance, accounts, creditCards, aiSearchResultIds, sortOrder]);
 
 
   const summary = React.useMemo(() => {
@@ -1131,6 +1147,18 @@ ${sample.map(t =>
                   title={aiSearchMode ? 'Modo texto' : 'Busca inteligente'}
                 >
                   {aiSearchMode ? <Search className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                  className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border transition-colors ${
+                    sortOrder !== 'desc'
+                      ? 'bg-blue-50 border-blue-300 text-blue-600 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-400'
+                      : 'bg-background border-secondary/30 text-muted-foreground hover:bg-accent'
+                  }`}
+                  title={sortOrder === 'desc' ? 'Mais recentes primeiro' : 'Mais antigos primeiro'}
+                >
+                  <ArrowUpDown className="h-4 w-4" />
                 </button>
                 <div className="w-full md:w-[150px]">
                   <Select
@@ -1475,7 +1503,7 @@ ${sample.map(t =>
               </tr>
             </thead>
             <tbody className="divide-y divide-secondary/20">
-              {Object.keys(groupedTransactions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map(date => (
+              {Object.keys(groupedTransactions).sort((a, b) => (new Date(b).getTime() - new Date(a).getTime()) * (sortOrder === 'asc' ? -1 : 1)).map(date => (
                 <React.Fragment key={date}>
                   <tr className="bg-secondary/10">
                     <td colSpan={selectedAccountFilter === 'all' ? 5 : 5} className="px-6 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">

@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.4.0` |
+| **Versão atual** | `0.4.1` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-07-06 (evolução da previsão de caixa: recurrências, cenários, visão diária e correções documentais) |
+| **Última alteração em código** | 2026-07-07 (ordenação alternável e busca aprimorada na tela de lançamentos) |
 | **Último deploy** | Não registrado formalmente |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -72,9 +72,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** v0.3.3 entregue com exportação PDF estruturada (jsPDF + autotable) para 7 tipos de documentos (5 relatórios + extrato + fatura), substituindo `window.print()`. Modal de cartão corrigido: Observação, Tags e remainderPosition agora acessíveis; diálogo "Nova Categoria" com seletor de categoria pai.
+**Foco atual:** v0.4.1 entregue com ordenação alternável (toggle asc/desc) e busca aprimorada (formato monetário brasileiro) na tela de lançamentos.
 
-**Próximo passo sugerido:** Evoluir a cobertura com recorrências futuras ainda não materializadas, cenários conservador/realista/projetado e visualização diária detalhada.
+**Próximo passo sugerido:** Itens do backlog (MASTER_PLAN §6): correção de categorias por string legível, alerta de limite disponível, estorno total/parcial, pagamento parcial de fatura, paradigmas de orçamento, testes de integração.
 
 ---
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-07-07 | v0.4.1 — Ordenação alternável + busca aprimorada (formato BR) | Transações |
 | 2026-07-06 | v0.3.3 — Exportação PDF estruturada + correções no modal de cartão | Relatórios / Transações / Cartões |
 | 2026-07-06 | v0.3.2 — Correções CRUD de lançamentos recorrentes (12 fixes) | Transações / Cartões |
 | 2026-06-23 | v0.3.1 — Análise inteligente Groq — IA interpreta dados calculados | IA / Relatórios |

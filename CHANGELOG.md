@@ -5,6 +5,21 @@
 
 ---
 
+## [0.4.1] — 2026-07-07 — Ordenação Alternável + Busca Aprimorada em Lançamentos
+
+**Resultado:** Tela de lançamentos agora permite alternar a ordem cronológica (mais recentes primeiro ou mais antigos primeiro). Barra de busca aceita valores monetários no formato brasileiro (vírgula decimal, ponto de milhar).
+
+**Alterações técnicas:**
+- `src/pages/Transactions.tsx` — **+25 linhas.** Estado `sortOrder` (`'desc'` | `'asc'`) com toggle via botão `ArrowUpDown` na barra de filtros; 3 pontos de sort (AI search, processedTransactions, groupKeys) respeitam a direção; função `amountMatchesSearch()` com 4 representações textuais (toString, toFixed(2), Intl.NumberFormat pt-BR com e sem agrupamento) + parse reverso do termo para comparação numérica com tolerância; coluna de ordenação (`sortOrder`) adicionada às dependências do `processedTransactions` memo
+
+**Correções e causa-raiz:**
+- **Busca por "15,00" ou "3.416" falhava**: `amount.toString()` nunca produz vírgula nem separador de milhar. Solução: gerar múltiplas representações textuais do valor e também tentar interpretar o termo como número (removendo pontos de milhar, convertendo vírgula para ponto decimal).
+
+**Validações:**
+- `npm run lint` — Sem erros
+- `npm run test` — 31/34 passando (3 falhas pré-existentes em `financialInsight.test.ts`)
+- `npm run build` — Build OK
+
 ## [0.4.0] — 2026-07-06 — Evolução da Previsão de Caixa + Correções Documentais
 
 **Resultado:** Motor de projeção de caixa estendido com regras de recorrência (`recurrenceRules`), três cenários de projeção (conservador/realista/projetado), métrica de dias em risco (`daysAtRisk`), visão diária expandível e seção de dias críticos. Documentação corrigida (Gemini→Groq, status de docs desatualizados).
