@@ -19,7 +19,7 @@ export function Login() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 py-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-[#0a101c] dark:via-[#0c1524] dark:to-[#0e1a2e] py-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background decorative blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
         <div className="absolute -top-40 -right-40 w-[30rem] h-[30rem] bg-gradient-to-br from-blue-100/60 to-emerald-100/60 dark:from-blue-900/15 dark:to-emerald-900/15 rounded-full blur-3xl" />

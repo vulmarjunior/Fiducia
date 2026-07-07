@@ -430,9 +430,9 @@ Regras OBRIGATÓRIAS:
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 via-cyan-400 to-blue-500 flex items-center justify-center shrink-0 mt-0.5">
               {isLoadingAi ? (
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <Loader2 className="w-4 h-4 animate-spin text-white dark:text-[#0a101c]" />
               ) : (
-                <Sparkles className="w-4 h-4 text-white" />
+                <Sparkles className="w-4 h-4 text-white dark:text-[#0a101c]" />
               )}
             </div>
             <div className="min-w-0 flex-1">

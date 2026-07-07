@@ -583,7 +583,7 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
                       {(tx.status === 'matched' || tx.status === 'added') && (
                         <div className="flex items-center text-green-600 dark:text-green-400 font-medium gap-1">
                           <CheckCircle2 className="h-4 w-4" /> Conciliado
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 ml-2 text-muted-foreground hover:text-red-500" onClick={(e) => { e.stopPropagation(); unmatchImported(tx.id); }}>
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 ml-2 text-muted-foreground hover:text-red-500 dark:hover:text-red-400" onClick={(e) => { e.stopPropagation(); unmatchImported(tx.id); }}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
@@ -592,7 +592,7 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
                       {tx.status === 'ignored' && (
                         <div className="flex items-center text-muted-foreground font-medium gap-1">
                           <AlertCircle className="h-4 w-4" /> Ignorado
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 ml-2 text-muted-foreground hover:text-blue-500" onClick={(e) => { e.stopPropagation(); unmatchImported(tx.id); }}>
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 ml-2 text-muted-foreground hover:text-blue-500 dark:hover:text-blue-400" onClick={(e) => { e.stopPropagation(); unmatchImported(tx.id); }}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
@@ -681,7 +681,7 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
           <div className="bg-gradient-to-br from-fiducia-blue/5 via-transparent to-emerald-500/5 border border-border/60 rounded-2xl p-5 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 via-cyan-400 to-blue-500 flex items-center justify-center shrink-0">
-                <FileText className="w-4 h-4 text-white" />
+                <FileText className="w-4 h-4 text-white dark:text-[#0a101c]" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">

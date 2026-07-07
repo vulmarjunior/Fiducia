@@ -5,9 +5,78 @@
 
 ---
 
-## [0.3.2] — 2026-07-06 — Correções CRUD de Lançamentos Recorrentes
+## [0.3.4] — 2026-07-06 — Reformulação Completa do Dark Mode
 
-**Resultado:** Série de 12 correções no ciclo completo de vida de lançamentos recorrentes e parcelados. Exclusão de séries agora funciona corretamente em todos os escopos (apenas este / este e futuros / todos). Edição de parcelas permite alterar o número de parcelas. QuickConfirm bloqueia débito duplicado para parcelas 2+. Campos de repetição agora são respeitados na criação de recorrentes bancários.
+**Resultado:** Sistema agora possui dark mode unificado com paleta navy profundo (inspirada no degrade emerald/cyan/blue da logo). Bordas visíveis, contraste WCAG AA garantido em todos os textos, todas as telas corrigidas.
+
+**Alterações técnicas:**
+- `src/index.css` — Bloco `.dark` inteiramente refatorado: paleta navy profundo (`#0a101c` / `#131c2e` / `#1c2944`), `--border-color` ≠ `--surface2` (bordas agora visíveis), textos com contraste mínimo 4.5:1 sobre superfícies, ring/sidebar-primary usam `--fiducia-blue`
+- `src/pages/CreditCards.tsx` — 18 correções: `bg-white` → `bg-card`/`bg-background` em formulários, cards de fatura, tabelas, toggles e ícones; `text-white` → `dark:text-background` em botões; `hover:bg-white` → `hover:bg-card dark:hover:bg-surface2`
+- `src/pages/Reconciliation.tsx` — 3 correções: `hover:text-red-500`/`hover:text-blue-500` ganharam `dark:hover:text-red-400`/`dark:hover:text-blue-400`; ícone do gradiente AI ganhou `dark:text-[#0a101c]`
+- `src/pages/Reports.tsx` — 5 correções: badges `text-white` → `dark:text-background` (3×); ícone AI `dark:text-[#0a101c]`; botão "Gerar Análise" `dark:text-background`
+- `src/pages/Audit.tsx` — 2 correções: inputs `bg-white` → `bg-background dark:bg-input/30 text-foreground`
+- `src/pages/Categories.tsx` — Seletor de ícone ativo: `dark:bg-fiducia-blue/20 dark:text-fiducia-blue`
+- `src/pages/Accounts.tsx` — 2 botões `text-white` → `dark:text-background`
+- `src/pages/Dashboard.tsx` — 2 ícones no gradiente AI: `dark:text-[#0a101c]`
+- `src/pages/Login.tsx` — Gradiente de fundo `dark:from-gray-950` → `dark:from-[#0a101c] dark:via-[#0c1524] dark:to-[#0e1a2e]`
+- `src/components/TransactionDialog.tsx` — **Atenção especial aos modais:** status toggles (pago/pendente) com `dark:bg-*-500/20 dark:text-*-400`; botões de submit com `text-white dark:text-background` e versões mais claras em dark (`dark:bg-red-500`/`dark:bg-green-500`/`dark:bg-blue-500`); borda `border-gray-50` → `border-border`
+- `src/components/ConfirmDialog.tsx` — Botão destrutivo `dark:bg-red-600 dark:hover:bg-red-500`; botão não-destrutivo `dark:text-primary-foreground` (corrige texto branco sobre fundo claro)
+- `src/components/PdfImportReviewDialog.tsx` — Ícone gradiente `dark:from-violet-400 dark:to-indigo-500 dark:text-violet-950`; botão importar `dark:text-background`
+- `src/components/Layout.tsx` — 2 badges com `dark:bg-background/30 dark:text-foreground` em links ativos
+- `src/components/ui/sonner.tsx` — `theme="light"` → `theme="system"` (notificações agora respeitam o tema)
+- `package.json`, `src/lib/utils.ts` — Versão `0.3.4`
+
+**Nova paleta dark mode:**
+
+| Variável | Antes | Depois |
+|----------|-------|--------|
+| `--bg` | `#0f172a` (slate-900) | `#0a101c` (navy profundo) |
+| `--surface` | `#1e293b` (slate-800) | `#131c2e` |
+| `--surface2` | `#334155` (slate-700) | `#1c2944` |
+| `--border-color` | `#334155` (= surface2) | `#2d3d5c` (visível) |
+| `--text-primary` | `#f8fafc` | `#ecf0f5` |
+| `--text-secondary` | `#cbd5e1` | `#9badc1` |
+| `--text-muted` | `#cbd5e1` | `#6e829b` |
+| `--ring` | `--text-primary` | `--fiducia-blue` |
+| `--sidebar-primary` | `--text-primary` | `--fiducia-blue` |
+
+**Arquivos modificados:** 14 arquivos, ~65 pontos de correção.
+
+## [0.3.3] — 2026-07-06 — Exportação de PDF Estruturada + Correções no Modal de Cartão
+
+**Resultado:** Sistema agora gera PDFs estruturados para relatórios (5 abas), extratos de conta e faturas de cartão de crédito, substituindo o `window.print()` anterior. Modal de cartão de crédito corrigido: campos Observação e Tags agora acessíveis, seletor de Diferença de Centavos adicionado ao parcelamento de cartão, e diálogo "Nova Categoria" permite selecionar categoria pai.
+
+**Alterações técnicas:**
+- `package.json` — Adicionados `jspdf` e `jspdf-autotable` (lazy-loaded via `import()`)
+- `src/lib/pdfFormatUtils.ts` — **Novo.** Formatadores pt-BR (`fmtMoneyPDF`, `fmtDatePDF`, `fmtMonthYear`), gerador de nome de arquivo padronizado, constantes de margem
+- `src/services/pdfExportService.ts` — **Novo.** Serviço base: `createPdf()` (jsPDF A4), `addTable()` (autotable com quebra de página), `savePdf()`, lazy-loading das bibliotecas
+- `src/lib/pdfTemplates.ts` — **Novo.** 7 templates: fluxo de caixa, categorias, tendência/orçamento, projeção futura, análise de faturas, extrato de conta, fatura de cartão
+- `src/pages/Reports.tsx` — 5 botões "Exportar PDF" (um por aba de dados); import `FileDown` + handlers lazy
+- `src/pages/Transactions.tsx` — Botão "Exportar PDF" (extrato) respeitando filtros ativos (conta, período, categoria)
+- `src/pages/CreditCards.tsx` — `window.print()` substituído por `generateCreditCardInvoicePDF()` com cabeçalho, grupos visuais e status da fatura
+- `src/components/TransactionDialog.tsx` — 3 correções: barra de ícones não esconde Observação/Tags para cartão (`!isCreditCard` removido); `remainderPosition` no parcelamento de cartão; diálogo "Nova Categoria" com seletor de Categoria Pai + Tipo
+- `package.json`, `src/lib/utils.ts` — Versão `0.3.3`
+
+**Documentos contemplados na exportação PDF:**
+| Documento | Cabeçalho | KPIs | Tabela | Totais | Paginação | Rodapé | Grupos Visuais |
+|-----------|-----------|------|--------|--------|-----------|--------|----------------|
+| Relatório Fluxo de Caixa | Sim | Sim | Sim | Sim | Sim | Sim | — |
+| Relatório Categorias | Sim | Sim | Sim | — | Sim | Sim | — |
+| Relatório Tendência/Orçamento | Sim | Sim | Sim | — | Sim | Sim | — |
+| Relatório Projeção Futura | Sim | Sim | Sim | — | Sim | Sim | — |
+| Relatório Faturas de Cartão | Sim | Sim | Sim | — | Sim | Sim | — |
+| Extrato de Conta | Sim | Sim | Sim | Sim | Sim | Sim | — |
+| Fatura de Cartão | Sim | Sim | Sim | Sim | Sim | Sim | Sim |
+
+**Correções e causa-raiz:**
+- **Sem Observação/Tags no cartão**: Barra de ícones condicionada a `!isCreditCard` ocultava todos os toggles. Solução: mover condição para cada botão individualmente; Recorrência permanece oculta no cartão (já expandida por padrão), Observação e Tags visíveis em ambos.
+- **Sem `remainderPosition` no parcelado de cartão**: O bloco de "Diferença de Centavos" só existia no modal bancário. Solução: replicar o seletor no bloco `isCreditCard` do parcelamento.
+- **Sem Categoria Pai na criação rápida**: Diálogo "Nova Categoria" do modal de lançamento tinha apenas campo Nome. Solução: adicionar `<Select>` de parentId com filtro por tipo + seletor de tipo (Despesa/Receita) no modal bancário.
+
+**Validações:**
+- `npm run lint` — Sem erros
+- `npm run test` — 31/34 passando (3 falhas pré-existentes em `financialInsight.test.ts`)
+- `npm run build` — Build OK (jsPDF + autotable code-split: ~420KB lazy-loaded, não afeta bundle inicial)
 
 **Alterações técnicas:**
 - `src/lib/utils.ts` — Novas funções `findSeriesTransactions()`, `getSeriesKey()`, `isTransactionSeriesMember()` — matching de série centralizado com fallback para `isRecurring` sem `parentId` e `ccRecurrenceType === 'fixo'`

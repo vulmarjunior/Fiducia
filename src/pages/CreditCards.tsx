@@ -782,7 +782,7 @@ export function CreditCards() {
                   value={formData.name} 
                   onChange={(e) => setFormData({...formData, name: e.target.value})} 
                   placeholder="Ex: Nubank, Inter..."
-                  className="bg-white shadow-sm border-secondary/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all h-11"
+                  className="shadow-sm border-secondary/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all h-11"
                   required 
                 />
               </div>
@@ -803,7 +803,7 @@ export function CreditCards() {
                     max="31" 
                     value={formData.closingDay} 
                     onChange={(e) => setFormData({...formData, closingDay: e.target.value})} 
-                    className="bg-white shadow-sm border-secondary/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all h-11"
+                    className="shadow-sm border-secondary/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all h-11"
                     required 
                   />
                 </div>
@@ -816,12 +816,12 @@ export function CreditCards() {
                     max="31" 
                     value={formData.dueDay} 
                     onChange={(e) => setFormData({...formData, dueDay: e.target.value})} 
-                    className="bg-white shadow-sm border-secondary/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all h-11"
+                    className="shadow-sm border-secondary/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all h-11"
                     required 
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full h-12 mt-4 bg-fiducia-blue hover:bg-fiducia-blue/90 text-white font-bold uppercase tracking-widest shadow-lg transition-all active:scale-[0.98]">
+              <Button type="submit" className="w-full h-12 mt-4 bg-fiducia-blue hover:bg-fiducia-blue/90 text-white dark:text-background font-bold uppercase tracking-widest shadow-lg transition-all active:scale-[0.98]">
                 {editingId ? 'Atualizar Cartão' : 'Salvar Cartão'}
               </Button>
             </form>
@@ -1007,7 +1007,7 @@ export function CreditCards() {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8 hover:bg-white hover:shadow-sm"
+                  className="h-8 w-8 hover:bg-card dark:hover:bg-surface2 hover:shadow-sm"
                   onClick={() => {
                     const newDate = new Date(selectedInvoiceMonth);
                     newDate.setDate(1);
@@ -1023,7 +1023,7 @@ export function CreditCards() {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8 hover:bg-white hover:shadow-sm"
+                  className="h-8 w-8 hover:bg-card dark:hover:bg-surface2 hover:shadow-sm"
                   onClick={() => {
                     const newDate = new Date(selectedInvoiceMonth);
                     newDate.setDate(1);
@@ -1119,25 +1119,25 @@ export function CreditCards() {
               return (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <div className="bg-white border p-4 rounded-xl shadow-sm">
+                    <div className="bg-card border p-4 rounded-xl shadow-sm">
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Saldo Anterior</p>
                       <p className={`text-lg font-black ${previousBalance > 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
                         R$ {Math.max(0, previousBalance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
-                    <div className="bg-white border p-4 rounded-xl shadow-sm">
+                    <div className="bg-card border p-4 rounded-xl shadow-sm">
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Compras</p>
                       <p className="text-lg font-black text-fiducia-red">
                         R$ {periodExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
-                    <div className="bg-white border p-4 rounded-xl shadow-sm">
+                    <div className="bg-card border p-4 rounded-xl shadow-sm">
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Pagamentos</p>
                       <p className="text-lg font-black text-fiducia-green">
                         R$ {periodPayments.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
-                    <div className="bg-white border p-4 rounded-xl shadow-sm">
+                    <div className="bg-card border p-4 rounded-xl shadow-sm">
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Créditos</p>
                       <p className="text-lg font-black text-fiducia-blue">
                         R$ {periodIncomes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1179,7 +1179,7 @@ export function CreditCards() {
                         <Button
                           variant={invoiceViewMode === 'organized' ? 'default' : 'ghost'}
                           size="sm"
-                          className={`h-7 text-[10px] font-bold gap-1 px-2 ${invoiceViewMode === 'organized' ? 'bg-white shadow-sm text-foreground hover:bg-white' : 'text-muted-foreground'}`}
+                          className={`h-7 text-[10px] font-bold gap-1 px-2 ${invoiceViewMode === 'organized' ? 'bg-card shadow-sm text-foreground hover:bg-card' : 'text-muted-foreground'}`}
                           onClick={() => setInvoiceViewMode('organized')}
                         >
                           <Layers className="w-3 h-3" /> Organizado
@@ -1187,7 +1187,7 @@ export function CreditCards() {
                         <Button
                           variant={invoiceViewMode === 'chronological' ? 'default' : 'ghost'}
                           size="sm"
-                          className={`h-7 text-[10px] font-bold gap-1 px-2 ${invoiceViewMode === 'chronological' ? 'bg-white shadow-sm text-foreground hover:bg-white' : 'text-muted-foreground'}`}
+                          className={`h-7 text-[10px] font-bold gap-1 px-2 ${invoiceViewMode === 'chronological' ? 'bg-card shadow-sm text-foreground hover:bg-card' : 'text-muted-foreground'}`}
                           onClick={() => setInvoiceViewMode('chronological')}
                         >
                           <Clock className="w-3 h-3" /> Cronológico
@@ -1259,7 +1259,7 @@ export function CreditCards() {
                       }, 0);
 
                       return (
-                        <div key={g.key} className={`border rounded-xl overflow-hidden shadow-sm bg-white ${g.borderClass}`}>
+                        <div key={g.key} className={`border rounded-xl overflow-hidden shadow-sm bg-card ${g.borderClass}`}>
                           <div className={`${g.bgClass} px-4 py-2.5 border-b flex justify-between items-center`}>
                             <h5 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{g.icon} {g.label}</h5>
                             <span className={`text-xs font-mono font-bold ${subtotal > 0 ? 'text-fiducia-red' : subtotal < 0 ? 'text-fiducia-green' : 'text-muted-foreground'}`}>
@@ -1357,7 +1357,7 @@ export function CreditCards() {
                       );
                     });
                   })() : (
-                    <div className="border rounded-xl overflow-x-auto shadow-sm bg-white">
+                    <div className="border rounded-xl overflow-x-auto shadow-sm bg-card">
                       <table className="w-full text-sm">
                         <thead className="bg-secondary/30 border-b">
                           <tr>
@@ -1545,7 +1545,7 @@ export function CreditCards() {
 
                   <div className="bg-secondary/20 p-4 rounded-xl border border-dashed flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-lg shadow-sm border">
+                      <div className="bg-background p-2 rounded-lg shadow-sm border">
                         <Calendar className="w-5 h-5 text-fiducia-blue" />
                       </div>
                       <div>
@@ -1554,8 +1554,8 @@ export function CreditCards() {
                       </div>
                     </div>
                     {totalInvoice > 0 && (
-                      <Button 
-                        className="bg-fiducia-green hover:bg-fiducia-green/90 text-white font-bold text-xs uppercase tracking-widest h-10 px-6 shadow-md"
+                        <Button 
+                          className="bg-fiducia-green hover:bg-fiducia-green/90 text-white dark:text-background font-bold text-xs uppercase tracking-widest h-10 px-6 shadow-md"
                         onClick={() => {
                           setPaymentData({
                             accountId: '',
@@ -1588,7 +1588,7 @@ export function CreditCards() {
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conta de Origem</Label>
               <select 
-                className="flex h-11 w-full rounded-md border border-secondary/30 bg-white px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50"
+                className="flex h-11 w-full rounded-md border border-input bg-background dark:bg-input/30 px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50 text-foreground"
                 value={paymentData.accountId}
                 onChange={(e) => setPaymentData({...paymentData, accountId: e.target.value})}
                 required
@@ -1618,7 +1618,7 @@ export function CreditCards() {
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setIsPayInvoiceDialogOpen(false)}>Cancelar</Button>
-            <Button className="bg-fiducia-green hover:bg-fiducia-green/90 text-white font-bold" onClick={handlePayInvoice}>Confirmar Pagamento</Button>
+            <Button className="bg-fiducia-green hover:bg-fiducia-green/90 text-white dark:text-background font-bold" onClick={handlePayInvoice}>Confirmar Pagamento</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -138,8 +138,8 @@ export function PdfImportReviewDialog({
       <DialogContent className="sm:max-w-[820px] max-h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
         <DialogHeader className="p-6 pb-4 border-b shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-lg">
-              <FileText className="w-4 h-4 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 dark:from-violet-400 dark:to-indigo-500 flex items-center justify-center shrink-0 shadow-lg">
+              <FileText className="w-4 h-4 text-white dark:text-violet-950" />
             </div>
             <div>
               <DialogTitle className="text-lg font-bold">Importar Fatura PDF</DialogTitle>
@@ -154,8 +154,8 @@ export function PdfImportReviewDialog({
           {/* Loading */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-violet-600 animate-spin" />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-600/20 dark:from-violet-400/20 dark:to-indigo-400/20 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-violet-600 dark:text-violet-400 animate-spin" />
               </div>
               <div className="text-center">
                 <p className="font-semibold text-foreground">
@@ -377,7 +377,7 @@ export function PdfImportReviewDialog({
                 <Button
                   onClick={handleConfirm}
                   disabled={selectedIds.size === 0 || isConfirming}
-                  className="bg-violet-600 hover:bg-violet-700 text-white gap-2"
+                  className="bg-violet-600 hover:bg-violet-700 text-white dark:text-background gap-2"
                 >
                   {isConfirming ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Importando...</>

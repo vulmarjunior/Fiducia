@@ -472,8 +472,8 @@ export function Reports() {
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold whitespace-nowrap transition-all ${isActive ? 'bg-background shadow-sm text-foreground border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}>
               <Icon className="w-4 h-4" />
               {tab.label}
-              {tab.id === 'projection' && <span className="text-[9px] font-bold bg-fiducia-blue text-white px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
-              {tab.id === 'invoices' && <span className="text-[9px] font-bold bg-fiducia-amber text-white px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
+              {tab.id === 'projection' && <span className="text-[9px] font-bold bg-fiducia-blue text-white dark:text-background px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
+              {tab.id === 'invoices' && <span className="text-[9px] font-bold bg-fiducia-amber text-white dark:text-background px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
             </button>
           );
         })}
@@ -1016,7 +1016,7 @@ export function Reports() {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-[13px] font-semibold text-foreground truncate">{t.description || 'Sem descrição'}</span>
-                                    {isPast && <span className="text-[9px] font-bold bg-fiducia-red text-white px-1.5 py-0.5 rounded-full shrink-0">Atrasada</span>}
+                                    {isPast && <span className="text-[9px] font-bold bg-fiducia-red text-white dark:text-background px-1.5 py-0.5 rounded-full shrink-0">Atrasada</span>}
                                   </div>
                                   <div className="text-[11px] text-muted-foreground">{[cat?.name, acc?.name].filter(Boolean).join(' · ')}</div>
                                 </div>
@@ -1327,7 +1327,7 @@ export function Reports() {
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 via-cyan-400 to-blue-500 flex items-center justify-center shadow-lg">
-                  <Brain className="w-5 h-5 text-white" />
+                  <Brain className="w-5 h-5 text-white dark:text-[#0a101c]" />
                 </div>
                 <div>
                   <div className="text-[16px] font-bold text-foreground">Fiducia AI</div>
@@ -1335,7 +1335,7 @@ export function Reports() {
                 </div>
               </div>
               <Button onClick={generateAI} disabled={isLoadingAi || transactions.length < 5}
-                className="bg-fiducia-blue hover:bg-fiducia-blue/90 text-white gap-2 font-semibold shadow-lg shadow-fiducia-blue/20">
+                className="bg-fiducia-blue hover:bg-fiducia-blue/90 text-white dark:text-background gap-2 font-semibold shadow-lg shadow-fiducia-blue/20">
                 {isLoadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {aiInsight ? 'Renovar Análise' : 'Gerar Análise Inteligente'}
               </Button>

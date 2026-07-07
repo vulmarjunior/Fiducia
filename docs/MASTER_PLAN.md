@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.3.2` |
+| **Versão atual** | `0.3.4` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-07-06 (correções CRUD de lançamentos recorrentes — 12 fixes) |
+| **Última alteração em código** | 2026-07-06 (reformulação completa do dark mode — paleta navy profundo unificada) |
 | **Último deploy** | Não registrado formalmente |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -72,7 +72,7 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** v0.3.2 entregue com 12 correções no CRUD de lançamentos recorrentes/parcelados: matching de série centralizado, QuickConfirm seguro, edição de parcelas funcional, RecurrenceRule cleanup, badges visuais.
+**Foco atual:** v0.3.3 entregue com exportação PDF estruturada (jsPDF + autotable) para 7 tipos de documentos (5 relatórios + extrato + fatura), substituindo `window.print()`. Modal de cartão corrigido: Observação, Tags e remainderPosition agora acessíveis; diálogo "Nova Categoria" com seletor de categoria pai.
 
 **Próximo passo sugerido:** Evoluir a cobertura com recorrências futuras ainda não materializadas, cenários conservador/realista/projetado e visualização diária detalhada.
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-07-06 | v0.3.3 — Exportação PDF estruturada + correções no modal de cartão | Relatórios / Transações / Cartões |
 | 2026-07-06 | v0.3.2 — Correções CRUD de lançamentos recorrentes (12 fixes) | Transações / Cartões |
 | 2026-06-23 | v0.3.1 — Análise inteligente Groq — IA interpreta dados calculados | IA / Relatórios |
 | 2026-06-23 | v0.3.0 — Relatório de análise de faturas de cartão | Relatórios |

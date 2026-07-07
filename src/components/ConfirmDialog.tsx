@@ -58,10 +58,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-semibold text-white rounded-xl transition shadow-sm ${
+            className={`px-4 py-2 text-sm font-semibold text-white dark:text-background rounded-xl transition shadow-sm ${
               isDestructive 
-                ? 'bg-red-500 hover:bg-red-600 border border-red-600/20' 
-                : 'bg-primary hover:bg-primary/90 border border-primary/20'
+                ? 'bg-red-500 hover:bg-red-600 border border-red-600/20 dark:bg-red-600 dark:hover:bg-red-500' 
+                : 'bg-primary hover:bg-primary/90 border border-primary/20 dark:text-primary-foreground'
             }`}
           >
             {confirmText}

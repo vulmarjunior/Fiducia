@@ -114,7 +114,7 @@ export function Layout() {
                     {item.name}
                     {item.badge && (
                       <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-fiducia-red/10 text-fiducia-red'
+                        isActive ? 'bg-white/20 text-white dark:bg-background/30 dark:text-foreground' : 'bg-fiducia-red/10 text-fiducia-red'
                       }`}>
                         {item.badge}
                       </span>

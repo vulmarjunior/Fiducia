@@ -414,7 +414,7 @@ export function Audit() {
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conta / Cartão</Label>
               <select
-                className="flex h-11 w-full rounded-md border border-secondary/30 bg-white px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50"
+                className="flex h-11 w-full rounded-md border border-input bg-background dark:bg-input/30 px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50 text-foreground"
                 value={closePeriodData.entityId}
                 onChange={(e) => setClosePeriodData(prev => ({ ...prev, entityId: e.target.value }))}
               >
@@ -433,8 +433,8 @@ export function Audit() {
                 type="month"
                 value={closePeriodData.month}
                 onChange={(e) => setClosePeriodData(prev => ({ ...prev, month: e.target.value }))}
-                className="flex h-11 w-full rounded-md border border-secondary/30 bg-white px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50"
-              />
+                className="flex h-11 w-full rounded-md border border-input bg-background dark:bg-input/30 px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50 text-foreground"
+                />
             </div>
           </div>
           <DialogFooter>

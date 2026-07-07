@@ -527,7 +527,7 @@ export function Categories() {
                           key={iconName}
                           type="button"
                           onClick={() => setFormData({...formData, icon: iconName})}
-                          className={`p-2 rounded-md hover:bg-secondary flex items-center justify-center ${formData.icon === iconName ? 'bg-fiducia-blue text-white' : 'text-muted-foreground'}`}
+                          className={`p-2 rounded-md hover:bg-secondary flex items-center justify-center ${formData.icon === iconName ? 'bg-fiducia-blue text-white dark:bg-fiducia-blue/20 dark:text-fiducia-blue' : 'text-muted-foreground'}`}
                           title={iconName}
                         >
                           <IconComp className="h-4 w-4" />

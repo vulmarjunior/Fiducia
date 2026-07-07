@@ -1480,7 +1480,7 @@ export function TransactionDialog() {
             </div>
 
             {/* Icon bar */}
-            <div className="flex items-center justify-around py-4 border-y border-gray-50 dark:border-gray-800">
+            <div className="flex items-center justify-around py-4 border-y border-border">
               {!isCreditCard && (
                 <button type="button" onClick={() => setShowRecurrence(!showRecurrence)}
                   className={`p-3 rounded-2xl transition-all ${showRecurrence ? 'bg-primary/10 text-primary shadow-inner' : 'bg-muted text-muted-foreground hover:bg-muted'}`} title="Recorrência">
@@ -1763,12 +1763,12 @@ export function TransactionDialog() {
                 </div>
                 <div className="flex gap-1.5">
                   <button type="button" onClick={() => setFormData({ ...formData, status: 'pago' })}
-                    className={`p-2 rounded-lg transition-all ${formData.status === 'pago' ? 'bg-green-100 text-green-600 shadow-sm' : 'bg-background text-muted-foreground/50 hover:text-muted-foreground border border-border/50'}`}
+                    className={`p-2 rounded-lg transition-all ${formData.status === 'pago' ? 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 shadow-sm' : 'bg-background text-muted-foreground/50 hover:text-muted-foreground border border-border/50'}`}
                     title={formData.type === 'receita' ? 'Recebido' : 'Pago'}>
                     <ThumbsUp className={`h-4 w-4 ${formData.status === 'pago' ? 'fill-current' : ''}`} />
                   </button>
                   <button type="button" onClick={() => setFormData({ ...formData, status: 'pendente' })}
-                    className={`p-2 rounded-lg transition-all ${formData.status === 'pendente' ? 'bg-amber-100 text-amber-500 shadow-sm' : 'bg-background text-muted-foreground/50 hover:text-muted-foreground border border-border/50'}`}
+                    className={`p-2 rounded-lg transition-all ${formData.status === 'pendente' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-500 dark:text-amber-400 shadow-sm' : 'bg-background text-muted-foreground/50 hover:text-muted-foreground border border-border/50'}`}
                     title="Pendente">
                     <ThumbsDown className={`h-4 w-4 ${formData.status === 'pendente' ? 'fill-current' : ''}`} />
                   </button>
@@ -1778,7 +1778,7 @@ export function TransactionDialog() {
           </form>
         </div>
 
-        <div className="p-6 pt-2 flex items-center justify-between gap-4 bg-background border-t border-gray-50 dark:border-gray-800">
+        <div className="p-6 pt-2 flex items-center justify-between gap-4 bg-background border-t border-border">
           <Button type="button" variant="ghost" onClick={() => { close(); resetForm(); }}
             className="h-14 rounded-2xl text-muted-foreground font-semibold hover:bg-muted">
             Cancelar
@@ -1794,11 +1794,11 @@ export function TransactionDialog() {
             </Button>
           )}
           <Button form="transaction-dialog-form" type="submit" onClick={() => { keepOpenRef.current = false; }}
-            className={`h-14 rounded-2xl font-bold text-white shadow-xl transition-all active:scale-[0.98] ${
-              formData.type === 'despesa' ? 'bg-red-600 shadow-red-100 dark:shadow-red-950' :
-              formData.type === 'receita' ? 'bg-green-600 shadow-green-100 dark:shadow-green-950' :
-              formData.type === 'transferencia' ? 'bg-blue-600 shadow-blue-100 dark:shadow-blue-950' :
-              'bg-blue-600 shadow-blue-100 dark:shadow-blue-950'
+            className={`h-14 rounded-2xl font-bold text-white dark:text-background shadow-xl transition-all active:scale-[0.98] ${
+              formData.type === 'despesa' ? 'bg-red-600 dark:bg-red-500 shadow-red-100 dark:shadow-red-950' :
+              formData.type === 'receita' ? 'bg-green-600 dark:bg-green-500 shadow-green-100 dark:shadow-green-950' :
+              formData.type === 'transferencia' ? 'bg-blue-600 dark:bg-blue-500 shadow-blue-100 dark:shadow-blue-950' :
+              'bg-blue-600 dark:bg-blue-500 shadow-blue-100 dark:shadow-blue-950'
             }`}>
             {editingId ? 'Atualizar' : 'Salvar'}
           </Button>

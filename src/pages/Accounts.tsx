@@ -725,7 +725,7 @@ export function Accounts() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAdjustAccountId(null)}>Cancelar</Button>
-            <Button onClick={handleAdjustBalance} className="bg-fiducia-blue hover:bg-fiducia-blue/90 text-white">Confirmar Ajuste</Button>
+            <Button onClick={handleAdjustBalance} className="bg-fiducia-blue hover:bg-fiducia-blue/90 text-white dark:text-background">Confirmar Ajuste</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -883,7 +883,7 @@ export function Accounts() {
                     toast.error('Erro ao sincronizar saldo');
                   }
                 }} 
-                className="bg-fiducia-green hover:bg-fiducia-green/90 text-white mr-auto"
+                className="bg-fiducia-green hover:bg-fiducia-green/90 text-white dark:text-background mr-auto"
               >
                 Sincronizar para R$ {diagnoseData.expectedBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </Button>
