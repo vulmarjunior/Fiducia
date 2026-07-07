@@ -1142,6 +1142,7 @@ ${sample.map(t =>
                     }}
                     placeholder="Tags..."
                     className="text-sm"
+                    classNamePrefix="rs"
                     menuPosition="fixed"
                     menuPortalTarget={document.body}
                     styles={{
@@ -1156,6 +1157,18 @@ ${sample.map(t =>
                         }
                       }),
                       menuPortal: base => ({ ...base, zIndex: 9999 }),
+                      menu: (base) => ({ ...base, backgroundColor: 'var(--popover)' }),
+                      menuList: (base) => ({ ...base, backgroundColor: 'var(--popover)' }),
+                      option: (base, state) => ({
+                        ...base,
+                        backgroundColor: state.isSelected || state.isFocused ? 'var(--accent)' : 'transparent',
+                        color: state.isSelected || state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
+                        ':hover': { backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)' },
+                      }),
+                      input: (base) => ({ ...base, color: 'var(--popover-foreground)' }),
+                      placeholder: (base) => ({ ...base, color: 'var(--muted-foreground)' }),
+                      noOptionsMessage: (base) => ({ ...base, color: 'var(--muted-foreground)' }),
+                      loadingMessage: (base) => ({ ...base, color: 'var(--muted-foreground)' }),
                       multiValue: (base, state) => ({
                         ...base,
                         backgroundColor: state.data.color + '20',

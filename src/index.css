@@ -198,3 +198,45 @@
     box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.04);
   }
 }
+
+/* React-Select dark mode — dropdown drawer background fix */
+.dark .rs__menu {
+  background-color: var(--surface) !important;
+}
+.dark .rs__menu-list {
+  background-color: var(--surface);
+}
+.dark .rs__option {
+  color: var(--text-primary);
+}
+.dark .rs__option--is-selected,
+.dark .rs__option--is-focused {
+  background-color: var(--surface2) !important;
+  color: var(--text-primary);
+}
+.dark .rs__single-value {
+  color: var(--text-primary);
+}
+.dark .rs__input-container {
+  color: var(--text-primary);
+}
+.dark .rs__placeholder {
+  color: var(--text-muted);
+}
+.dark .rs__control {
+  background-color: var(--surface2) !important;
+  border-color: var(--border-color) !important;
+}
+.dark .rs__indicator-separator {
+  background-color: var(--border-color);
+}
+.dark .rs__multi-value {
+  background-color: var(--muted);
+}
+.dark .rs__multi-value__label {
+  color: var(--text-primary);
+}
+.dark .rs__no-options-message,
+.dark .rs__loading-message {
+  color: var(--text-muted);
+}

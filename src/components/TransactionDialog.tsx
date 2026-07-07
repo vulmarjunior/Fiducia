@@ -1376,12 +1376,14 @@ export function TransactionDialog() {
                   }}
                   placeholder="Selecione"
                   className="text-sm"
+                  classNamePrefix="rs"
                   menuPosition="fixed"
                   menuPortalTarget={document.body}
                   styles={{
                     control: (base: any) => ({ ...base, minHeight: '48px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'var(--muted)', boxShadow: 'none' }),
                     menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
                     menu: (base: any) => ({ ...base, zIndex: 9999, minWidth: '280px', backgroundColor: 'var(--popover)' }),
+                    menuList: (base: any) => ({ ...base, backgroundColor: 'var(--popover)' }),
                     groupHeading: (base: any) => ({ ...base, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted-foreground)', paddingTop: '10px', paddingBottom: '4px', paddingLeft: '12px' }),
                     option: (base: any, state: any) => ({
                       ...base,
@@ -1391,10 +1393,13 @@ export function TransactionDialog() {
                       paddingBottom: '8px',
                       backgroundColor: state.isSelected || state.isFocused ? 'var(--accent)' : 'transparent',
                       color: state.isSelected || state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
+                      ':hover': { backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)' },
                     }),
                     singleValue: (base: any) => ({ ...base, color: 'var(--popover-foreground)' }),
                     input: (base: any) => ({ ...base, color: 'var(--popover-foreground)' }),
                     placeholder: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
+                    noOptionsMessage: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
+                    loadingMessage: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
                   }}
                 />
                 {(isCreditCard || formData.invoicePeriod) && (
@@ -1422,20 +1427,25 @@ export function TransactionDialog() {
                       onChange={(selected: any) => setFormData({ ...formData, destinationAccountId: selected?.value || '' })}
                       placeholder="Destino"
                       className="text-sm"
+                      classNamePrefix="rs"
                       menuPosition="fixed"
                       menuPortalTarget={document.body}
                       styles={{
                         control: (base: any) => ({ ...base, minHeight: '48px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'var(--muted)', boxShadow: 'none' }),
                         menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
                         menu: (base: any) => ({ ...base, zIndex: 9999, minWidth: '280px', backgroundColor: 'var(--popover)' }),
+                        menuList: (base: any) => ({ ...base, backgroundColor: 'var(--popover)' }),
                         option: (base: any, state: any) => ({
                           ...base,
                           backgroundColor: state.isSelected || state.isFocused ? 'var(--accent)' : 'transparent',
                           color: state.isSelected || state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
+                          ':hover': { backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)' },
                         }),
                         singleValue: (base: any) => ({ ...base, color: 'var(--popover-foreground)' }),
                         input: (base: any) => ({ ...base, color: 'var(--popover-foreground)' }),
                         placeholder: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
+                        noOptionsMessage: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
+                        loadingMessage: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
                       }}
                     />
                   </>
@@ -1731,18 +1741,23 @@ export function TransactionDialog() {
                     onChange={(selected: any) => setFormData({ ...formData, tagIds: selected ? selected.map((s: any) => s.value) : [] })}
                     placeholder="Selecione tags..."
                     className="text-sm"
+                    classNamePrefix="rs"
                     menuPosition="fixed"
                     menuPortalTarget={document.body}
                     styles={{
                        control: (base: any) => ({ ...base, minHeight: '40px', borderRadius: '0.75rem', border: 'none', backgroundColor: 'var(--muted)', boxShadow: 'none' }),
                        menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
                        menu: (base: any) => ({ ...base, backgroundColor: 'var(--popover)' }),
+                       menuList: (base: any) => ({ ...base, backgroundColor: 'var(--popover)' }),
                        option: (base: any, state: any) => ({
                          ...base, backgroundColor: state.isSelected || state.isFocused ? 'var(--accent)' : 'transparent',
                          color: state.isSelected || state.isFocused ? 'var(--accent-foreground)' : 'var(--popover-foreground)',
+                         ':hover': { backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)' },
                        }),
                         input: (base: any) => ({ ...base, color: 'var(--popover-foreground)' }),
                         placeholder: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
+                        noOptionsMessage: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
+                        loadingMessage: (base: any) => ({ ...base, color: 'var(--muted-foreground)' }),
                         multiValue: (base: any, state: any) => ({ ...base, backgroundColor: state.data.color + '20', borderRadius: '4px' }),
                        multiValueLabel: (base: any, state: any) => ({ ...base, color: state.data.color, fontWeight: 600 }),
                        multiValueRemove: (base: any, state: any) => ({ ...base, color: state.data.color, ':hover': { backgroundColor: state.data.color + '40', color: state.data.color } }),

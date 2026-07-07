@@ -51,6 +51,7 @@ export function CategorySelect({ categories, value, onChange, typeFilter, placeh
       onChange={(selected: any) => onChange(selected?.value || '')}
       placeholder={placeholder || 'Buscar...'}
       isSearchable
+      classNamePrefix="rs"
       menuPosition="fixed"
       menuPortalTarget={document.body}
       formatOptionLabel={(option: any) => {
@@ -73,6 +74,7 @@ export function CategorySelect({ categories, value, onChange, typeFilter, placeh
         }),
         menuPortal: base => ({ ...base, zIndex: 9999 }),
         menu: (base) => ({ ...base, zIndex: 9999, minWidth: '280px', backgroundColor: 'var(--popover)' }),
+        menuList: (base) => ({ ...base, backgroundColor: 'var(--popover)' }),
         option: (base, state) => ({
           ...base,
           paddingLeft: `${(state.data.level * 16) + 12}px`,
@@ -87,6 +89,8 @@ export function CategorySelect({ categories, value, onChange, typeFilter, placeh
         singleValue: (base) => ({ ...base, color: 'var(--popover-foreground)' }),
         input: (base) => ({ ...base, color: 'var(--popover-foreground)' }),
         placeholder: (base) => ({ ...base, color: 'var(--muted-foreground)' }),
+        noOptionsMessage: (base) => ({ ...base, color: 'var(--muted-foreground)' }),
+        loadingMessage: (base) => ({ ...base, color: 'var(--muted-foreground)' }),
       }}
     />
   );
