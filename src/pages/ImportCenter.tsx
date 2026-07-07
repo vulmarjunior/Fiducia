@@ -209,7 +209,8 @@ export function ImportCenter() {
       toast.success('Candidato criado para revisao.');
     } catch (error) {
       console.error(error);
-      toast.error('Erro ao criar candidato de importacao.');
+      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error('Erro ao criar candidato de importacao: ' + message);
     } finally {
       setIsSavingCandidate(false);
     }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { parseBankAlert } from './importAlertParser';
 
 const referenceDate = new Date(2026, 6, 7);
@@ -73,5 +73,15 @@ describe('parseBankAlert', () => {
     expect(parsed.type).toBe('unknown');
     expect(parsed.amount).toBeUndefined();
     expect(parsed.confidence).toBeLessThan(0.35);
+  });
+  it('detecta SMS de compra aprovada do Itau com final de cartao', () => {
+    const parsed = parseBankAlert('Compra aprovada de R$ 150,00 em POLY DE, 07/07 as 17:52 no seu Itau final 2038.', referenceDate);
+
+    expect(parsed.type).toBe('card_expense');
+    expect(parsed.amount).toBe(150);
+    expect(parsed.date).toBe('2026-07-07');
+    expect(parsed.cardLastDigits).toBe('2038');
+    expect(parsed.bankHint).toBe('itau');
+    expect(parsed.merchant).toBe('POLY DE');
   });
 });
