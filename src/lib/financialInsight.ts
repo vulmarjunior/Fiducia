@@ -60,6 +60,7 @@ export interface FinancialInsightParams {
   creditCards: any[];
   invoices: any[];
   budgets: any[];
+  recurrenceRules?: any[];
 }
 
 const isIncome = (t: any) => t.type === 'receita' || t.type === 'income';
@@ -71,7 +72,7 @@ const isEffectivelyPaid = (t: any) =>
 const isPending = (t: any) => t.status === 'pendente' || t.status === 'pending';
 
 export function buildFinancialInsightContext(params: FinancialInsightParams): FinancialInsightContext | null {
-  const { accounts, transactions, categories, creditCards, invoices, budgets } = params;
+  const { accounts, transactions, categories, creditCards, invoices, budgets, recurrenceRules = [] } = params;
 
   if (!transactions.length) return null;
 
@@ -84,6 +85,7 @@ export function buildFinancialInsightContext(params: FinancialInsightParams): Fi
     transactions,
     creditCards,
     invoices,
+    recurrenceRules,
     options: { startDate: now, days: 90 },
   });
 

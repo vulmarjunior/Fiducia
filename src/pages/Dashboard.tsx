@@ -23,6 +23,7 @@ export function Dashboard() {
   const [categories, setCategories] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [recurrenceRules, setRecurrenceRules] = useState<any[]>([]);
   const [showValues, setShowValues] = useState(true);
   const [aiTip, setAiTip] = useState<string>('');
   const [isLoadingAi, setIsLoadingAi] = useState(false);
@@ -76,6 +77,11 @@ export function Dashboard() {
       setInvoices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => handleFirestoreError(error, OperationType.GET, 'invoices'));
 
+    const recurrenceRulesQuery = query(collection(db, 'recurrenceRules'), where('userId', '==', user.uid));
+    const unsubscribeRecurrenceRules = onSnapshot(recurrenceRulesQuery, (snapshot) => {
+      setRecurrenceRules(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'recurrenceRules'));
+
     return () => {
       unsubscribeAccounts();
       unsubscribeCards();
@@ -84,6 +90,7 @@ export function Dashboard() {
       unsubscribeCategories();
       unsubscribeGoals();
       unsubscribeInvoices();
+      unsubscribeRecurrenceRules();
     };
   }, [user, isAuthReady]);
 
@@ -187,8 +194,8 @@ Regras OBRIGATÓRIAS:
   const monthlyBalance = monthlyIncome - monthlyExpense;
 
   const cashCoverage = useMemo(
-    () => projectDailyBalance(accounts, transactions, creditCards, invoices, 90),
-    [accounts, transactions, creditCards, invoices]
+    () => projectDailyBalance(accounts, transactions, creditCards, invoices, 90, recurrenceRules),
+    [accounts, transactions, creditCards, invoices, recurrenceRules]
   );
 
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -531,6 +538,11 @@ Regras OBRIGATÓRIAS:
               <span className="font-mono font-semibold text-fiducia-blue">{formatCurrency(cashCoverage.startingBalance)}</span>
             </div>
           </div>
+          {cashCoverage.daysAtRisk > 0 && (
+            <div className="mt-2 text-[12px] text-fiducia-red leading-relaxed">
+              ⚠️ {cashCoverage.daysAtRisk} dia{cashCoverage.daysAtRisk > 1 ? 's' : ''} com saldo negativo nos próximos 90 dias
+            </div>
+          )}
           <div className="mt-3 pt-2 border-t border-border text-[10px] text-fiducia-blue font-semibold text-right">
             Ver projeção completa →
           </div>

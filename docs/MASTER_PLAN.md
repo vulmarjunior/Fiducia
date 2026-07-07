@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.3.4` |
+| **Versão atual** | `0.4.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-07-06 (reformulação completa do dark mode — paleta navy profundo unificada) |
+| **Última alteração em código** | 2026-07-06 (evolução da previsão de caixa: recurrências, cenários, visão diária e correções documentais) |
 | **Último deploy** | Não registrado formalmente |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -161,20 +161,29 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 | `CHANGELOG.md` | Histórico permanente de releases | ✅ Atual |
 | `AGENTS.md` | Orientações para agentes de IA | ✅ Atual |
 | `dev-log.md` | Descobertas técnicas, armadilhas, decisões | ✅ Atual |
-| `docs/LOGICA_DO_SISTEMA.md` | Arquitetura detalhada do sistema | ⚠️ Referencia Gemini (desatualizado); código usa Groq |
+| `docs/LOGICA_DO_SISTEMA.md` | Arquitetura detalhada do sistema | ✅ Atual (Gemini→Groq corrigido em v0.4.0) |
 | `docs/calculo_metricas.md` | Regras de cálculo de indicadores | ✅ Atual |
 | `docs/especificacao-cartao-credito.md` | Especificação conceitual de cartão | ✅ Atual (v2.0) |
-| `docs/ia-conciliacao-inteligente.md` | Spec IA Conciliação | ⚠️ Já implementado; deveria ser movido para archive ou ter status atualizado |
-| `docs/plano-de-melhorias.md` | Diagnóstico e plano de correções | ⚠️ Itens parcialmente resolvidos; revisar status |
+| `docs/ia-conciliacao-inteligente.md` | Spec IA Conciliação | ✅ Status "IMPLEMENTADO" adicionado em v0.4.0 |
+| `docs/plano-de-melhorias.md` | Diagnóstico e plano de correções | ⚠️ Parcialmente resolvido; inventário revisado em v0.4.0 |
+| `docs/plano-evolucao-previsao-caixa.md` | Spec evolução previsão de caixa | ✅ Criado em v0.4.0 |
 | `docs/archive/sessions/` | Arquivo de sessões concluídas | ✅ Ativo |
 
 ---
 
 ## 10. Próximo Passo Autorizado
 
-Após v0.2.0, priorizar evolução da previsão de caixa. Em seguida:
+Após v0.4.0, evoluiu-se a previsão de caixa conforme planejado. Próximos itens do backlog:
 
-1. Incluir recorrências futuras ainda não materializadas no motor de cobertura.
-2. Criar cenários conservador/realista/projetado para diferenciar recebíveis confirmados, esperados e projetados.
-3. Refinar a UI da aba Projeção com visão diária expandível e alertas por data crítica.
-4. Corrigir inconsistências documentais pendentes: Gemini→Groq, status de IA conciliação e plano de melhorias.
+1. ~~Incluir recorrências futuras ainda não materializadas no motor de cobertura.~~ ✅ v0.4.0
+2. ~~Criar cenários conservador/realista/projetado.~~ ✅ v0.4.0
+3. ~~Refinar a UI da aba Projeção com visão diária expandível e alertas por data crítica.~~ ✅ v0.4.0
+4. ~~Corrigir inconsistências documentais pendentes: Gemini→Groq, status de IA conciliação e plano de melhorias.~~ ✅ v0.4.0
+
+Próximos itens (MASTER_PLAN §6):
+- Correção de categorias por string legível (migration)
+- Alerta de limite disponível
+- Estorno total/parcial
+- Pagamento parcial de fatura
+- Paradigmas de orçamento
+- Testes de integração

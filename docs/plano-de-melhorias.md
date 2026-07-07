@@ -1,5 +1,7 @@
 # Plano de Melhorias & Diagnóstico de Consistência — Sistema Fidúcia
 
+> **STATUS: Parcialmente resolvido** — Última revisão: 2026-07-06 (v0.4.0).
+
 Este documento consolida os diagnósticos realizados sobre o sistema, abordando os impactos das alterações de autenticação, as discrepâncias de cálculo entre telas e as inconsistências na categorização e edição de lançamentos originados da fatura de cartão de crédito.
 
 ---

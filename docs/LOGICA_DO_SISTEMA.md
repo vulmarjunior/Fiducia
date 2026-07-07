@@ -4,7 +4,7 @@
 Este é um aplicativo Single Page Application (SPA) construído com **React**, **Vite** e **TypeScript**.
 A estilização é feita com **Tailwind CSS** juntamente com a biblioteca de componentes **Shadcn/UI**.
 O backend (banco de dados e autenticação) é inteiramente gerenciado usando o **Firebase** (Firestore Database e Firebase Authentication).
-As análises inteligentes e dicas contextuais são feitas integrando o modelo LLM do Google, consumindo a **Gemini API**.
+As análises inteligentes e dicas contextuais são feitas integrando o modelo LLM via Groq, consumindo a **Groq API**.
 
 ## 2. Banco de Dados (Estrutura do Firestore)
 O sistema opera com o banco de dados em tempo real Firestore (NoSQL). O design de dados é centrado no usuário: todas as coleções possuem uma forte relação com o `userId` oriundo da autenticação para garantir total isolamento de dados (cada usuário interage apenas com seus próprios registros).
@@ -47,7 +47,7 @@ O sistema opera com o banco de dados em tempo real Firestore (NoSQL). O design d
 - **Objetivo**: Ser o raio-X diário das finanças e hub de operações rápidas.
 - **Dinamismo Operacional**:
   - Resolve snapshots do Firestore globalmente para derivar saldos imediatos de contas; faz parse manual e filtragem para aglutinar gastos atômicos que casem com a referência do Mês atual e da visão global.
-  - **Fiducia AI Insight**: Um side-effect (useEffect) envia o balanço consolidável bruto para a Gemini API, que devolve uma pílula (short-tip inteligente) com até 150 caracteres, gerando empatia instantânea com o usuário com insights reativos.
+  - **Fiducia AI Insight**: Um side-effect (useEffect) envia o balanço consolidável bruto para a Groq API, que devolve uma pílula (short-tip inteligente) com até 150 caracteres, gerando empatia instantânea com o usuário com insights reativos.
 
 ### 3.3 Gestor de Transações (`/src/pages/Transactions.tsx`)
 - **Objetivo Central**: Um super-formulário CRUD dotado de lógicas transversais robustas das movimentações de caixa.
@@ -72,8 +72,8 @@ O sistema opera com o banco de dados em tempo real Firestore (NoSQL). O design d
 ### 3.6 Central Analítica em Relatórios (`/src/pages/Reports.tsx`)
 - **Recharts Data Binding**: 
   - Estrutura-se vetores derivativos do Firebase para arrays de Objetos simplificados (ex: `{ mes: 'Fev', Receita: x, Despesa: y }`) e preenche o motor de gráficos para plotagens imersivas.
-- **Auditoria de Saúde Assistida por IA (Gemini Full Analysis)**:
-  - Se acoplado pela UI, um gerador empacota as últimas 50 transições num Payload robusto JSON, acopla o Score Sintético base, formula um prompt restrito em back-language para o Gemini produzir Relatórios em Markdown avaliando a capacidade de poupar/excedentes. Processo contido em estado de loading seguro.
+- **Auditoria de Saúde Assistida por IA (Groq Full Analysis)**:
+  - Se acoplado pela UI, um gerador empacota as últimas 50 transições num Payload robusto JSON, acopla o Score Sintético base, formula um prompt restrito em back-language para o Groq produzir Relatórios em Markdown avaliando a capacidade de poupar/excedentes. Processo contido em estado de loading seguro.
 
 ### 3.7 Auditoria Contábil e Engenharia Reversa (`/src/pages/Audit.tsx`)
 - **Detecção de Fraude Histórica**: Re-somatórios lógicos (Transações ordenadas no tempo vs Valores Absolutos setados) para avisar diferenças anômalas aos saldos de conta registrados nas models matrizes.

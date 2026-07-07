@@ -1,5 +1,7 @@
 # Conciliação Inteligente com IA
 
+> **STATUS: IMPLEMENTADO em v0.3.x** — Todas as funcionalidades descritas neste documento foram implementadas em `src/pages/Reconciliation.tsx` (AI Auto-Match via `handleAiAutoMatch`, AI Análise de Divergências via `handleAiAnalysis`). Este documento é mantido como referência da especificação original.
+
 ## Objetivo
 Aprimorar a página de Conciliação (`src/pages/Reconciliation.tsx`) com inteligência artificial para:
 1. Matching automático por similaridade de descrição (não só valor exato)

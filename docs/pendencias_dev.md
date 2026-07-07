@@ -7,18 +7,8 @@
 
 ## Próxima Pauta (sugerida)
 
-**Sessão:** Evolução da previsão de caixa
+### Itens do backlog (MASTER_PLAN §6)
 
-### Objetivo
-
-1. Incluir `recurrenceRules` no motor de cobertura para gerar compromissos futuros ainda não materializados
-2. Criar cenários conservador / realista / projetado
-3. Refinar a aba Projeção Futura com visão diária expandível e alertas por data crítica
-4. Corrigir inconsistências documentais antigas: Gemini→Groq, IA conciliação e plano de melhorias
-
-### Backlog (MASTER_PLAN §6)
-
-Itens pendentes aguardando priorização:
 - Correção de categorias por string legível (migration)
 - Alerta de limite disponível
 - Estorno total/parcial

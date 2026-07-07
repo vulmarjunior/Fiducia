@@ -49,6 +49,7 @@ export function Reports() {
   const [creditCards, setCreditCards] = useState<any[]>([]);
   const [budgets, setBudgets] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [recurrenceRules, setRecurrenceRules] = useState<any[]>([]);
 
   const [activeTab, setActiveTab] = useState<Tab>('cashflow');
 
@@ -66,6 +67,8 @@ export function Reports() {
   const [includeSavings, setIncludeSavings] = useState(false);
   const [projType, setProjType] = useState<'all' | 'income' | 'expense'>('all');
   const [projCategory, setProjCategory] = useState<string>('all');
+  const [projScenario, setProjScenario] = useState<'conservative' | 'realistic' | 'projected'>('realistic');
+  const [showDailyView, setShowDailyView] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
 
   // Aba 5 — IA
@@ -157,7 +160,8 @@ export function Reports() {
     const u4 = onSnapshot(q('creditCards'), s => setCreditCards(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'creditCards'));
     const u5 = onSnapshot(q('budgets'), s => setBudgets(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'budgets'));
     const u6 = onSnapshot(q('invoices'), s => setInvoices(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'invoices'));
-    return () => { u1(); u2(); u3(); u4(); u5(); u6(); };
+    const u7 = onSnapshot(q('recurrenceRules'), s => setRecurrenceRules(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'recurrenceRules'));
+    return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); };
   }, [user, isAuthReady]);
 
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -273,12 +277,14 @@ export function Reports() {
     transactions,
     creditCards,
     invoices,
+    recurrenceRules,
     options: {
       startDate: now,
       endDate: projEndDate,
       includeSavings,
+      scenario: projScenario,
     },
-  }), [accounts, transactions, creditCards, invoices, includeSavings, projEndDate]);
+  }), [accounts, transactions, creditCards, invoices, recurrenceRules, includeSavings, projEndDate, projScenario]);
 
   const projectionData = useMemo(() => cashCoverageProjection.monthlyProjection.map(m => ({
     ...m,
@@ -304,6 +310,7 @@ export function Reports() {
     minimumBalanceDate: cashCoverageProjection.minimumBalanceDate,
     firstRiskDate: cashCoverageProjection.firstRiskDate,
     isAtRisk: cashCoverageProjection.isAtRisk,
+    daysAtRisk: cashCoverageProjection.daysAtRisk,
     coverageBalance: cashCoverageProjection.coverageBalance,
     bankExpenses: cashCoverageProjection.totalBankExpenses,
     closedInvoices: cashCoverageProjection.totalClosedInvoices,
@@ -409,6 +416,7 @@ export function Reports() {
         creditCards,
         invoices,
         budgets,
+        recurrenceRules,
       });
       if (!context) {
         toast.error('Dados insuficientes para gerar análise.');
@@ -805,11 +813,19 @@ export function Reports() {
                 </button>
               </div>
             </div>
-            <div className="ml-auto">
-              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportProjectionPDF} disabled={isExportingPdf}>
-                <FileDown className="h-3.5 w-3.5" />
-                {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
-              </Button>
+            <div className="flex flex-wrap gap-3 items-center mt-3 pt-3 border-t border-border/50">
+              <span className="text-[11px] text-muted-foreground font-medium">Cenário:</span>
+              <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+                {([['conservative', 'Conservador'], ['realistic', 'Realista'], ['projected', 'Projetado']] as const).map(([v, l]) => (
+                  <FBtn key={v} active={projScenario === v} onClick={() => setProjScenario(v)}>{l}</FBtn>
+                ))}
+              </div>
+              <div className="ml-auto">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportProjectionPDF} disabled={isExportingPdf}>
+                  <FileDown className="h-3.5 w-3.5" />
+                  {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+                </Button>
+              </div>
             </div>
           </div>
           <div className={`border rounded-2xl p-5 shadow-sm ${projKPIs.isAtRisk ? 'bg-fiducia-red/5 border-fiducia-red/20' : 'bg-fiducia-green/5 border-fiducia-green/20'}`}>
@@ -825,6 +841,11 @@ export function Reports() {
                 </div>
                 <div className="text-[12px] text-muted-foreground mt-1">
                   Caixa inicial + a receber - obrigacoes = {fmt(projKPIs.coverageBalance)}. Menor saldo projetado: {fmt(projKPIs.minimumBalance)} em {projKPIs.minimumBalanceDate.split('-').reverse().join('/')}.
+                  {projKPIs.daysAtRisk > 0 && (
+                    <span className="block mt-1 text-fiducia-red font-semibold">
+                      ⚠️ {projKPIs.daysAtRisk} dia{projKPIs.daysAtRisk > 1 ? 's' : ''} com saldo negativo no periodo
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-right">
@@ -845,14 +866,9 @@ export function Reports() {
                   <div className="text-[13px] font-bold font-mono text-fiducia-blue">-{fmt(projKPIs.futureCard)}</div>
               </div>
             </div>
-            <div className="flex items-center gap-2 ml-auto">
-              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportProjectionPDF} disabled={isExportingPdf}>
-                <FileDown className="h-3.5 w-3.5" />
-                {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
-              </Button>
-            </div>
           </div>
           </div>
+
 
 
           {/* KPIs */}
@@ -1314,6 +1330,76 @@ export function Reports() {
               )}
             </div>
           </div>
+
+          <button
+            onClick={() => setShowDailyView(!showDailyView)}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-card border border-border rounded-2xl text-[13px] font-bold text-muted-foreground hover:text-foreground transition-colors shadow-sm"
+          >
+            {showDailyView ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            {showDailyView ? 'Ocultar' : 'Mostrar'} Visão Diária ({cashCoverageProjection.dailyProjection.length} dias)
+          </button>
+
+          {showDailyView && (
+            <div className="space-y-4">
+              {projKPIs.daysAtRisk > 0 && (
+                <div className="bg-fiducia-red/5 border border-fiducia-red/20 rounded-2xl p-4">
+                  <div className="text-[11px] font-bold text-fiducia-red uppercase tracking-wider mb-2">Dias Críticos</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+                    {cashCoverageProjection.dailyProjection
+                      .filter(d => d.endingBalance < 0)
+                      .sort((a, b) => a.endingBalance - b.endingBalance)
+                      .slice(0, 5)
+                      .map(d => (
+                        <div key={d.date} className="bg-card border border-border rounded-xl p-3">
+                          <div className="text-[10px] text-muted-foreground">{d.date.split('-').reverse().join('/')}</div>
+                          <div className="text-[14px] font-bold font-mono text-fiducia-red mt-1">{fmt(d.endingBalance)}</div>
+                          <div className="text-[9px] text-muted-foreground mt-0.5">
+                            {d.expense > 0 ? `Saídas: ${fmt(d.expense)}` : ''}
+                            {d.income > 0 ? ` ${d.expense > 0 ? '·' : ''} Entradas: ${fmt(d.income)}` : ''}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+              <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+                <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-secondary/30">
+                      <tr className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        <th className="text-left py-3 px-4">Data</th>
+                        <th className="text-right py-3 px-4">Saldo Inicial</th>
+                        <th className="text-right py-3 px-4">Entradas</th>
+                        <th className="text-right py-3 px-4">Saídas</th>
+                        <th className="text-right py-3 px-4">Saldo Final</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {cashCoverageProjection.dailyProjection.map(d => {
+                        const isRisk = d.endingBalance < 0;
+                        const isTight = !isRisk && d.endingBalance < (projKPIs.totalPay * 0.2);
+                        return (
+                          <tr key={d.date} className={isRisk ? 'bg-fiducia-red/5' : isTight ? 'bg-fiducia-amber/5' : ''}>
+                            <td className="py-2.5 px-4 font-medium text-foreground">
+                              {d.date.split('-').slice(1).reverse().join('/')}
+                              {isRisk && <span className="ml-2 text-[9px] text-fiducia-red font-bold">⬤</span>}
+                              {isTight && <span className="ml-2 text-[9px] text-fiducia-amber font-bold">⬤</span>}
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-mono">{fmt(d.startingBalance)}</td>
+                            <td className="py-2.5 px-4 text-right font-mono text-fiducia-green">{d.income > 0 ? `+${fmt(d.income)}` : '—'}</td>
+                            <td className="py-2.5 px-4 text-right font-mono text-fiducia-red">{d.expense > 0 ? `-${fmt(d.expense)}` : '—'}</td>
+                            <td className={`py-2.5 px-4 text-right font-mono font-bold ${isRisk ? 'text-fiducia-red' : isTight ? 'text-fiducia-amber' : 'text-fiducia-green'}`}>
+                              {fmt(d.endingBalance)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

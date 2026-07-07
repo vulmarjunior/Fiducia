@@ -5,6 +5,33 @@
 
 ---
 
+## [0.4.0] — 2026-07-06 — Evolução da Previsão de Caixa + Correções Documentais
+
+**Resultado:** Motor de projeção de caixa estendido com regras de recorrência (`recurrenceRules`), três cenários de projeção (conservador/realista/projetado), métrica de dias em risco (`daysAtRisk`), visão diária expandível e seção de dias críticos. Documentação corrigida (Gemini→Groq, status de docs desatualizados).
+
+**Alterações técnicas:**
+- `src/lib/cashCoverage.ts` — **+80 linhas.** Adicionado parâmetro `recurrenceRules?: any[]` ao `buildCashCoverageProjection()`; geração de eventos futuros a partir de regras ativas (`status: 'active'`) com controle de não-duplicação (match por `parentId`); tipo `CashCoverageScenario` (`'conservative' | 'realistic' | 'projected'`); opção `scenario` em `CashCoverageOptions` (default `'realistic'`); filtro de eventos por `certainty` antes da simulação diária; métrica `daysAtRisk: number` no retorno
+- `src/lib/cashCoverage.test.ts` — 5/5 testes passando (compatível com novas opções)
+- `src/lib/utils.ts` — `projectDailyBalance()` atualizado: aceita `recurrenceRules`, usa `scenario: 'conservative'` para Dashboard (segurança)
+- `src/lib/financialInsight.ts` — `FinancialInsightParams` aceita `recurrenceRules`; repassado ao `buildCashCoverageProjection()`
+- `src/pages/Reports.tsx` — **+120 linhas.** Snapshot `recurrenceRules` via Firestore `onSnapshot`; estado `projScenario` com seletor de cenário (Conservador/Realista/Projetado); seletor renderizado na aba Projeção Futura; métrica `daysAtRisk` no KPI de risco; toggle "Visão Diária" com tabela colorida (vermelho/âmbar/verde por faixa de saldo); seção "Dias Críticos" com top 5 piores dias; PDF botão movido para linha de cenários
+- `src/pages/Dashboard.tsx` — Snapshot `recurrenceRules`; `projectDailyBalance()` agora recebe `recurrenceRules` e usa cenário conservador; alerta "X dias com saldo negativo nos próximos 90 dias" no KPI de Cobertura
+- `docs/LOGICA_DO_SISTEMA.md` — 4 correções: "Gemini API" → "Groq API" (linhas 7, 50, 75, 76)
+- `docs/ia-conciliacao-inteligente.md` — Adicionado header `STATUS: IMPLEMENTADO em v0.3.x`
+- `docs/plano-de-melhorias.md` — Adicionado header `STATUS: Parcialmente resolvido` com data de revisão
+- `docs/plano-evolucao-previsao-caixa.md` — **Criado.** Especificação técnica completa da evolução
+- `package.json`, `src/lib/utils.ts` — Versão `0.4.0`
+
+**Regra de cenários:**
+
+| Cenário | Filtro `certainty` | Uso |
+|---------|-------------------|-----|
+| Conservador | Só `confirmed` | Dashboard (segurança) |
+| Realista | `confirmed` + `expected` | Reports (default) |
+| Projetado | Todos | Reports (visão completa com recorrências) |
+
+**Arquivos modificados:** 12 arquivos.
+
 ## [0.3.4] — 2026-07-06 — Reformulação Completa do Dark Mode
 
 **Resultado:** Sistema agora possui dark mode unificado com paleta navy profundo (inspirada no degrade emerald/cyan/blue da logo). Bordas visíveis, contraste WCAG AA garantido em todos os textos, todas as telas corrigidas.
