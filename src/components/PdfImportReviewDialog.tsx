@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
+import React, { useState }from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter }from './ui/dialog';
+import { Button }from './ui/button';
+import { Badge }from './ui/badge';
 import {
   Loader2, FileText, AlertCircle, CheckSquare, Square,
   TrendingDown, TrendingUp, Upload, ChevronDown, CreditCard
-} from 'lucide-react';
-import { PdfTransaction } from '../services/pdfInvoiceService';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { CategorySelect } from './CategorySelect';
+}from 'lucide-react';
+import { PdfTransaction }from '../services/pdfInvoiceService';
+import { format, parseISO }from 'date-fns';
+import { ptBR }from 'date-fns/locale';
+import { CategorySelect }from './CategorySelect';
 interface Category {
   id: string;
   name: string;
@@ -68,7 +68,7 @@ export function PdfImportReviewDialog({
   const toggleAll = () => {
     if (selectedIds.size === transactions.length) {
       setSelectedIds(new Set());
-    } else {
+    }else {
       setSelectedIds(new Set(transactions.map((t) => t.id)));
     }
   };
@@ -113,7 +113,7 @@ export function PdfImportReviewDialog({
     try {
       await onConfirm(selected, categoryMap, series);
       onOpenChange(false);
-    } finally {
+    }finally {
       setIsConfirming(false);
     }
   };
@@ -134,9 +134,9 @@ export function PdfImportReviewDialog({
     categories.filter((c) => c.type === type || c.type === (type === 'despesa' ? 'expense' : 'income'));
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[820px] max-h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
-        <DialogHeader className="p-6 pb-4 border-b shrink-0">
+    <Dialog open={open}onOpenChange={onOpenChange}>
+      <DialogContent className="w-[96vw] sm:max-w-[820px] max-h-[92vh] flex flex-col p-0 overflow-hidden gap-0">
+        <DialogHeader className="p-4 sm:p-6 pb-4 border-b shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 dark:from-violet-400 dark:to-indigo-500 flex items-center justify-center shrink-0 shadow-lg">
               <FileText className="w-4 h-4 text-white dark:text-violet-950" />
@@ -144,7 +144,7 @@ export function PdfImportReviewDialog({
             <div>
               <DialogTitle className="text-lg font-bold">Importar Fatura PDF</DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                {cardName} — revise, categorize e selecione antes de confirmar
+                {cardName}— revise, categorize e selecione antes de confirmar
               </DialogDescription>
             </div>
           </div>
@@ -186,9 +186,9 @@ export function PdfImportReviewDialog({
 
           {/* Lista */}
           {!isLoading && transactions.length > 0 && (
-            <div className="p-4 space-y-3">
+            <div className="p-3 sm:p-4 space-y-3">
               {/* Resumo */}
-              <div className="grid grid-cols-3 gap-3 mb-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
                 <div className="bg-muted/50 rounded-xl p-3 text-center">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Selecionadas</p>
                   <p className="text-xl font-black">{selectedIds.size}</p>
@@ -220,8 +220,8 @@ export function PdfImportReviewDialog({
               )}
 
               {/* Header da tabela */}
-              <div className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b">
-                <button onClick={toggleAll} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b">
+                <button onClick={toggleAll}className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
                   {selectedIds.size === transactions.length ? (
                     <CheckSquare className="w-4 h-4" />
                   ) : (
@@ -242,7 +242,7 @@ export function PdfImportReviewDialog({
                 let formattedDate = tx.date;
                 try {
                   formattedDate = format(parseISO(tx.date), 'dd/MM/yy', { locale: ptBR });
-                } catch {
+                }catch {
                   // mantém original
                 }
 
@@ -250,9 +250,9 @@ export function PdfImportReviewDialog({
                 const currentCategory = categoryMap[tx.id] || '';
 
                 return (
-                  <div key={tx.id} className="space-y-1">
+                  <div key={tx.id}className="space-y-1">
                     <div
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all select-none ${
+                      className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 px-3 py-3 sm:py-2.5 rounded-lg border transition-all select-none ${
                         isSelected
                           ? 'bg-background border-border'
                           : 'bg-muted/30 border-transparent opacity-50'
@@ -271,10 +271,10 @@ export function PdfImportReviewDialog({
                       </button>
 
                       {/* Data */}
-                      <span className="w-20 shrink-0 text-xs text-muted-foreground font-mono">{formattedDate}</span>
+                      <span className="w-full sm:w-20 shrink-0 text-xs text-muted-foreground font-mono">{formattedDate}</span>
 
                       {/* Descrição + badges */}
-                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                      <div className="w-full sm:flex-1 min-w-0 flex items-center gap-1.5">
                         <span className={`text-sm font-medium truncate ${!isSelected ? 'line-through' : ''}`}>
                           {tx.description}
                         </span>
@@ -289,8 +289,8 @@ export function PdfImportReviewDialog({
                       </div>
 
                       {/* Select de categoria */}
-                      <div 
-                        className={`w-56 shrink-0 ${!isSelected ? 'pointer-events-none opacity-50' : ''}`} 
+                      <div
+                        className={`w-full sm:w-56 shrink-0 ${!isSelected ? 'pointer-events-none opacity-50' : ''}`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <CategorySelect
@@ -302,7 +302,7 @@ export function PdfImportReviewDialog({
                       </div>
 
                       {/* Valor */}
-                      <div className="w-24 text-right shrink-0 flex items-center justify-end gap-1">
+                      <div className="w-full sm:w-24 sm:text-right shrink-0 flex items-center justify-between sm:justify-end gap-1">
                         {tx.type === 'receita' ? (
                           <TrendingUp className="w-3 h-3 text-emerald-500 shrink-0" />
                         ) : (
@@ -329,7 +329,7 @@ export function PdfImportReviewDialog({
 
                       return (
                         <div
-                          className={`ml-6 flex items-center gap-2 px-3 py-2 rounded-lg text-xs cursor-pointer transition-all ${
+                          className={`sm:ml-6 flex items-start sm:items-center gap-2 px-3 py-2 rounded-lg text-xs cursor-pointer transition-all ${
                             isExpanded
                               ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
                               : 'bg-muted/40 border border-dashed border-muted-foreground/20 text-muted-foreground hover:border-amber-300 hover:text-amber-700'
@@ -340,7 +340,7 @@ export function PdfImportReviewDialog({
                           {isExpanded ? (
                             <>
                               <span>
-                                Expandir série ativado — criará <strong>{remaining}</strong> parcela(s) futura(s) ({current + 1}/{total} até {total}/{total})
+                                Expandir série ativado — criará <strong>{remaining}</strong> parcela(s) futura(s) ({current + 1}/{total}até {total}/{total})
                               </span>
                               <ChevronDown className="w-3 h-3 ml-auto rotate-180" />
                             </>
@@ -364,20 +364,20 @@ export function PdfImportReviewDialog({
 
         {!isLoading && transactions.length > 0 && (
           <DialogFooter className="p-4 border-t shrink-0 bg-muted/20">
-            <div className="flex items-center justify-between w-full gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-3">
               <p className="text-xs text-muted-foreground">
                 {selectedIds.size === 0
                   ? 'Selecione ao menos uma transação'
-                  : `${selectedIds.size} transação(ões)${expandedSeries.size > 0 ? ` + ${[...expandedSeries].filter(id => selectedIds.has(id)).length} série(s) expandida(s)` : ''}`}
+                  : `${selectedIds.size}transação(ões)${expandedSeries.size > 0 ? ` + ${[...expandedSeries].filter(id => selectedIds.has(id)).length}série(s) expandida(s)` : ''}`}
               </p>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isConfirming}>
+              <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}disabled={isConfirming}>
                   Cancelar
                 </Button>
                 <Button
                   onClick={handleConfirm}
                   disabled={selectedIds.size === 0 || isConfirming}
-                  className="bg-violet-600 hover:bg-violet-700 text-white dark:text-background gap-2"
+                  className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white dark:text-background gap-2"
                 >
                   {isConfirming ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Importando...</>

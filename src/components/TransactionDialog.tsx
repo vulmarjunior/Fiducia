@@ -1539,7 +1539,7 @@ export function TransactionDialog() {
                         </div>
                       )}
                       {!(editingId && editingTx?.parentId) && (
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-1 sm:flex gap-2">
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'avulso' })}
                           className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.ccRecurrenceType === 'avulso' ? 'bg-primary dark:bg-accent text-white dark:text-accent-foreground shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>AVULSO</button>
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'parcelado' })}
@@ -1549,7 +1549,7 @@ export function TransactionDialog() {
                       </div>
                       )}
                       {formData.ccRecurrenceType === 'parcelado' && (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
                             <Label className="text-[10px] font-bold text-muted-foreground uppercase">Nº Parcelas</Label>
                             <Input type="number" min="2" value={formData.installmentsCount}
@@ -1586,7 +1586,7 @@ export function TransactionDialog() {
                         ) : null;
                       })()}
                       {formData.ccRecurrenceType === 'fixo' && (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
                             <Label className="text-[10px] font-bold text-muted-foreground uppercase">Frequência</Label>
                             <ShadcnSelect value={formData.frequency} onValueChange={(v) => setFormData({ ...formData, frequency: v })}>
@@ -1634,7 +1634,7 @@ export function TransactionDialog() {
                         </div>
                       )}
                       {!(editingId && editingTx?.parentId) && (
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-1 sm:flex gap-2">
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'parcelado', isRecurring: false })}
                           className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${!formData.isRecurring && formData.ccRecurrenceType === 'parcelado' ? 'bg-primary dark:bg-accent text-white dark:text-accent-foreground shadow-lg' : 'bg-background text-muted-foreground border border-border/50'}`}>PARCELADO</button>
                         <button type="button" onClick={() => setFormData({ ...formData, ccRecurrenceType: 'avulso', isRecurring: !formData.isRecurring })}
@@ -1642,7 +1642,7 @@ export function TransactionDialog() {
                       </div>
                       )}
                       {formData.ccRecurrenceType === 'parcelado' && (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
                             <Label className="text-[10px] font-bold text-muted-foreground uppercase">Nº Parcelas</Label>
                             <Input type="number" min="2" value={formData.installmentsCount}
@@ -1679,7 +1679,7 @@ export function TransactionDialog() {
                         ) : null;
                       })()}
                       {formData.isRecurring && (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
                             <Label className="text-[10px] font-bold text-muted-foreground uppercase">Frequência</Label>
                             <ShadcnSelect value={formData.frequency} onValueChange={(v) => setFormData({ ...formData, frequency: v })}>
@@ -1793,14 +1793,14 @@ export function TransactionDialog() {
           </form>
         </div>
 
-        <div className="p-6 pt-2 flex items-center justify-between gap-4 bg-background border-t border-border">
+        <div className="p-4 sm:p-6 sm:pt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 bg-background border-t border-border">
           <Button type="button" variant="ghost" onClick={() => { close(); resetForm(); }}
-            className="h-14 rounded-2xl text-muted-foreground font-semibold hover:bg-muted">
+            className="h-11 sm:h-14 w-full sm:w-auto rounded-2xl text-muted-foreground font-semibold hover:bg-muted">
             Cancelar
           </Button>
           {!editingId && (
             <Button form="transaction-dialog-form" type="submit" onClick={() => { keepOpenRef.current = true; }}
-              variant="outline" className={`h-14 rounded-2xl font-semibold transition-all border-2 ${
+              variant="outline" className={`h-11 sm:h-14 w-full sm:w-auto rounded-2xl font-semibold transition-all border-2 ${
                 formData.type === 'despesa' ? 'border-red-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20' :
                 formData.type === 'receita' ? 'border-green-200 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20' :
                 'border-blue-200 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20'
@@ -1809,7 +1809,7 @@ export function TransactionDialog() {
             </Button>
           )}
           <Button form="transaction-dialog-form" type="submit" onClick={() => { keepOpenRef.current = false; }}
-            className={`h-14 rounded-2xl font-bold text-white dark:text-background shadow-xl transition-all active:scale-[0.98] ${
+            className={`h-11 sm:h-14 w-full sm:w-auto rounded-2xl font-bold text-white dark:text-background shadow-xl transition-all active:scale-[0.98] ${
               formData.type === 'despesa' ? 'bg-red-600 dark:bg-red-500 shadow-red-100 dark:shadow-red-950' :
               formData.type === 'receita' ? 'bg-green-600 dark:bg-green-500 shadow-green-100 dark:shadow-green-950' :
               formData.type === 'transferencia' ? 'bg-blue-600 dark:bg-blue-500 shadow-blue-100 dark:shadow-blue-950' :
@@ -1839,7 +1839,7 @@ export function TransactionDialog() {
             {!isCreditCard && (
               <div className="space-y-2">
                 <Label>Tipo</Label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-1 sm:flex gap-2">
                   <button type="button" onClick={() => setNewCategoryType('despesa')}
                     className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${newCategoryType === 'despesa' ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' : 'bg-muted text-muted-foreground'}`}>Despesa</button>
                   <button type="button" onClick={() => setNewCategoryType('receita')}
@@ -1884,7 +1884,7 @@ export function TransactionDialog() {
             </div>
             <div className="space-y-2">
               <Label>Cor</Label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-1 sm:flex gap-2">
                 <Input type="color" value={newTagColor} onChange={(e) => setNewTagColor(e.target.value)} className="w-12 h-10 p-1 rounded-md" />
                 <Input value={newTagColor} onChange={(e) => setNewTagColor(e.target.value)} className="flex-1" />
               </div>

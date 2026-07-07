@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.5.0` |
+| **Versão atual** | `0.5.1` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-07-07 (conferência inteligente de fatura de cartão com PDF/CSV/XLS/XLSX + Groq) |
+| **Última alteração em código** | 2026-07-07 (ajustes responsivos em modais financeiros) |
 | **Último deploy** | Não registrado formalmente |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -72,9 +72,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** v0.5.0 entregue com fluxo **Conferir Fatura** em Cartões: importação PDF/CSV/XLS/XLSX, match determinístico + Groq, revisão de divergências e aplicação de criação/correção/conciliação com confirmação.
+**Foco atual:** v0.5.1 entregue com ajustes responsivos nos modais de fatura, conferência/importação de fatura e lançamento.
 
-**Próximo passo sugerido:** Testar o fluxo com faturas reais dos bancos/cartões usados no dia a dia e, depois, evoluir OCR, aprendizado por estabelecimento, estornos avançados e pagamento parcial de fatura.
+**Próximo passo sugerido:** Testar em celular real os fluxos de Cartões → Fatura → Conferir Fatura/Importar PDF e o modal de Novo Lançamento, validando com dados reais.
 
 ---
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-07-07 | v0.5.1 — Ajustes responsivos em modais financeiros | Cartões / Transações / UX Mobile |
 | 2026-07-07 | v0.5.0 — Conferência inteligente de fatura de cartão (PDF/CSV/XLS/XLSX + Groq) | Cartões / IA / Conciliação |
 | 2026-07-07 | v0.4.1 — Ordenação alternável + busca aprimorada (formato BR) | Transações |
 | 2026-07-06 | v0.3.3 — Exportação PDF estruturada + correções no modal de cartão | Relatórios / Transações / Cartões |

@@ -965,9 +965,9 @@ export function CreditCards() {
           setSelectedInvoiceMonth(d);
         }
       }}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-2 border-b">
-            <div className="flex justify-between items-center">
+        <DialogContent className="w-[96vw] sm:max-w-[920px] max-h-[92vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-4 sm:p-6 pb-3 border-b">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
               <div>
                 <DialogTitle className="flex items-center gap-2 text-xl">
                   <CreditCard className="w-5 h-5 text-fiducia-blue" />
@@ -977,8 +977,8 @@ export function CreditCards() {
                   Detalhamento de lançamentos e pagamentos
                 </DialogDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => {
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 xl:justify-end">
+                <Button variant="outline" size="sm" className="h-9 sm:h-8 gap-2 w-full sm:w-auto justify-center" onClick={() => {
                   const period = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
                   openTxDialog({ presetAccountId: selectedCardForInvoice?.id, presetMonth: period });
                 }}>
@@ -988,7 +988,7 @@ export function CreditCards() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                  className="h-9 sm:h-8 gap-2 w-full sm:w-auto justify-center border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950/40"
                   onClick={() => setIsInvoiceReconciliationOpen(true)}
                 >
                   <FileSearch className="h-4 w-4" />
@@ -997,7 +997,7 @@ export function CreditCards() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-2 border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-950/40"
+                  className="h-9 sm:h-8 gap-2 w-full sm:w-auto justify-center border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-950/40"
                   onClick={() => pdfInputRef.current?.click()}
                   disabled={isPdfLoading}
                 >
@@ -1011,10 +1011,10 @@ export function CreditCards() {
                   className="hidden"
                   onChange={handlePdfUpload}
                 />
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleExportInvoicePDF} disabled={isExportingPdf}>
+                <Button variant="outline" size="icon" className="h-9 w-full sm:h-8 sm:w-8" onClick={handleExportInvoicePDF} disabled={isExportingPdf}>
                   <Printer className="h-4 w-4" />
                 </Button>
-                <div className="flex items-center gap-3 bg-secondary/30 p-1.5 rounded-lg border">
+                <div className="flex items-center justify-between gap-2 bg-secondary/30 p-1.5 rounded-lg border w-full sm:w-auto">
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -1049,7 +1049,7 @@ export function CreditCards() {
           </div>
         </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
             {selectedCardForInvoice && (() => {
               const currentPeriod = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
               const previousPeriod = getPreviousPeriod(currentPeriod);
@@ -1164,7 +1164,7 @@ export function CreditCards() {
 
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap justify-between items-center gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 xl:justify-end">
                         <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                           <List className="w-3.5 h-3.5" /> Lançamentos
                         </h4>

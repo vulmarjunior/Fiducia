@@ -5,6 +5,24 @@
 
 ---
 
+## [0.5.1] — 2026-07-07 — Ajustes Responsivos em Modais Financeiros
+
+**Resultado:** Modais de fatura, conferência/importação de fatura e lançamento ficaram mais bem acomodados em desktop estreito e mobile. A barra de ações da fatura deixou de comprimir os controles, e os fluxos densos passam a empilhar ações/campos em telas menores.
+
+**Alterações técnicas:**
+- `src/pages/CreditCards.tsx` — Modal de fatura ampliado no desktop (`sm:max-w-[920px]`), header quebrável, ações com largura total no mobile e navegação de mês com largura previsível.
+- `src/components/InvoiceReconciliationDialog.tsx` — Header/footer responsivos, KPIs em uma coluna no mobile, cards de linha com valor abaixo da descrição em telas estreitas e ações em grid mobile.
+- `src/components/PdfImportReviewDialog.tsx` — Importador PDF legado convertido para comportamento de cards no mobile, removendo a dependência visual de colunas fixas em telas pequenas.
+- `src/components/TransactionDialog.tsx` — Rodapé e grids internos ajustados para empilhar no mobile, evitando compressão de botões e campos.
+- `package.json`, `package-lock.json`, `src/lib/utils.ts` — Versão `0.5.1`.
+
+**Validações:**
+- `npm run lint` — Sem erros
+- `npm run test` — 37/40 passando (3 falhas pré-existentes em `financialInsight.test.ts`)
+- `npm run build` — Build OK
+
+**Limitações:**
+- Verificação visual autenticada não foi possível nesta sessão; o app abriu apenas na tela de login no navegador interno.
 ## [0.5.0] — 2026-07-07 — Conferência Inteligente de Fatura de Cartão
 
 **Resultado:** Tela de Cartões ganhou o fluxo **Conferir Fatura**, que importa faturas PDF/CSV/XLS/XLSX, transforma o arquivo em linhas auditáveis, compara com lançamentos já existentes no Fiducia, usa Groq para sugerir matches semânticos, separa divergências por grupos e permite confirmar, criar, corrigir ou ignorar lançamentos antes de gravar.

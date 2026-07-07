@@ -7,6 +7,13 @@
 
 ## Próxima Pauta (sugerida)
 
+### Pós-v0.5.1 — Validação Mobile Real
+
+- Testar em celular real: Cartões → Fatura → Conferir Fatura.
+- Testar em celular real: Cartões → Fatura → Importar PDF.
+- Testar em celular real: Novo Lançamento bancário e de cartão.
+- Ajustar detalhes finos de espaçamento/scroll conforme telas e dados reais.
+
 ### Pós-v0.5.0 — Conferência de Fatura
 
 - Testar **Conferir Fatura** com faturas reais em PDF, CSV, XLS e XLSX.

@@ -225,7 +225,7 @@ export function InvoiceReconciliationDialog({
 
     return (
       <div key={line.id} className="rounded-lg border bg-card p-3 space-y-3">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm truncate">{line.description}</span>
@@ -244,7 +244,7 @@ export function InvoiceReconciliationDialog({
             )}
             {match?.reason && <div className="text-xs text-muted-foreground mt-1">{match.reason}</div>}
           </div>
-          <div className={`font-mono font-bold text-sm ${line.type === 'receita' ? 'text-emerald-600' : 'text-red-600'}`}>
+          <div className={`font-mono font-bold text-sm sm:text-right ${line.type === 'receita' ? 'text-emerald-600' : 'text-red-600'}`}>
             {line.type === 'receita' ? '-' : ''}{formatMoney(line.amount)}
           </div>
         </div>
@@ -256,7 +256,7 @@ export function InvoiceReconciliationDialog({
             onChange={(value) => setCategoryOverrides(prev => ({ ...prev, [line.id]: value }))}
             placeholder="Categoria"
           />
-          <div className="flex flex-wrap gap-1 justify-end">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1 sm:justify-end">
             <Button size="sm" variant={action === 'confirm_match' ? 'default' : 'outline'} className="h-7 px-2" onClick={() => setAction(line.id, 'confirm_match')} disabled={!match?.systemTransactionId}>OK</Button>
             <Button size="sm" variant={action === 'create_transaction' ? 'default' : 'outline'} className="h-7 px-2" onClick={() => setAction(line.id, 'create_transaction')}>Criar</Button>
             <Button size="sm" variant={action === 'update_transaction' ? 'default' : 'outline'} className="h-7 px-2" onClick={() => setAction(line.id, 'update_transaction')} disabled={!match?.systemTransactionId}>Corrigir</Button>
@@ -292,9 +292,9 @@ export function InvoiceReconciliationDialog({
 
   return (
     <Dialog open={open} onOpenChange={(value) => { if (!value) reset(); onOpenChange(value); }}>
-      <DialogContent className="sm:max-w-[980px] max-h-[92vh] flex flex-col p-0 overflow-hidden gap-0">
-        <DialogHeader className="p-6 pb-4 border-b shrink-0">
-          <div className="flex items-start justify-between gap-4">
+      <DialogContent className="w-[96vw] sm:max-w-[980px] max-h-[92vh] flex flex-col p-0 overflow-hidden gap-0">
+        <DialogHeader className="p-4 sm:p-6 pb-4 border-b shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
             <div>
               <DialogTitle className="flex items-center gap-2 text-lg">
                 <FileSearch className="w-5 h-5 text-fiducia-blue" /> Conferir Fatura
@@ -304,14 +304,14 @@ export function InvoiceReconciliationDialog({
               </DialogDescription>
             </div>
             {step !== 'idle' && step !== 'extracting' && step !== 'matching' && (
-              <Button variant="outline" size="sm" className="gap-2" onClick={reset}>
+              <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto justify-center" onClick={reset}>
                 <RefreshCcw className="w-4 h-4" /> Novo arquivo
               </Button>
             )}
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
           {step === 'idle' && (
             <div className="border border-dashed rounded-2xl p-10 text-center bg-muted/20">
               <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
@@ -333,7 +333,7 @@ export function InvoiceReconciliationDialog({
 
           {step === 'review' && (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="rounded-lg border p-3 bg-card"><div className="text-[10px] uppercase font-bold text-muted-foreground">Importado</div><div className="font-mono font-bold">{formatMoney(totals.importedLinesTotal)}</div></div>
                 <div className="rounded-lg border p-3 bg-card"><div className="text-[10px] uppercase font-bold text-muted-foreground">No Fiducia</div><div className="font-mono font-bold">{formatMoney(totals.systemPeriodTotal)}</div></div>
                 <div className="rounded-lg border p-3 bg-card"><div className="text-[10px] uppercase font-bold text-muted-foreground">Conciliado</div><div className="font-mono font-bold">{formatMoney(totals.matchedTotal)}</div></div>
@@ -381,11 +381,11 @@ export function InvoiceReconciliationDialog({
 
         {step === 'review' && (
           <DialogFooter className="p-4 border-t shrink-0 bg-muted/20">
-            <div className="flex items-center justify-between w-full gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-3">
               <div className="text-xs text-muted-foreground">{lines.length} linha(s) · {matches.filter(m => m.systemTransactionId).length} match(es)</div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                <Button onClick={handleApply} className="gap-2 bg-fiducia-blue hover:bg-fiducia-blue/90">
+              <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                <Button onClick={handleApply} className="gap-2 w-full sm:w-auto bg-fiducia-blue hover:bg-fiducia-blue/90">
                   <CheckCircle2 className="w-4 h-4" /> Aplicar Conferência
                 </Button>
               </div>
