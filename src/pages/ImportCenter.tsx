@@ -10,6 +10,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { PageHelp } from '../components/PageHelp';
 import { formatCurrency } from '../lib/utils';
 import { createImportCandidate, confirmImportCandidate, ignoreImportCandidate, markImportCandidateDuplicate } from '../services/importCandidateService';
 import { checkImportDuplicate } from '../services/importDuplicateService';
@@ -440,7 +441,22 @@ export function ImportCenter() {
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Importar</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-foreground">Importar</h1>
+            <PageHelp
+              title="Importar"
+              description="Use esta central para transformar alertas, textos compartilhados e extratos bancarios em candidatos de lancamento. Nada entra no financeiro sem revisao e confirmacao."
+              items={[
+                { label: 'Colar alerta', desc: 'Cole SMS, notificacao, e-mail ou mensagem do banco. O Fiducia tenta identificar valor, data, tipo, banco, cartao e estabelecimento.' },
+                { label: 'Compartilhar no celular', desc: 'No Android, selecione um texto e compartilhe com a PWA instalada. O texto abre aqui para analise e revisao.' },
+                { label: 'Arquivos bancarios', desc: 'Use OFX, CSV, XLS, XLSX ou PDF textual para criar varios candidatos. Revise o mapeamento de colunas antes de gerar a lista.' },
+                { label: 'Revisao obrigatoria', desc: 'O candidato so vira lancamento depois que voce confere conta/cartao, categoria, valor, data e descricao.' },
+                { label: 'Duplicidades', desc: 'Se houver lancamento parecido, o sistema avisa. Voce pode confirmar mesmo assim, ignorar ou marcar como duplicado.' },
+                { label: 'Faturas de cartao', desc: 'Para conferir uma fatura fechada contra os lancamentos do cartao, use Cartoes > Conferir Fatura. Esse fluxo e mais detalhado.' },
+              ]}
+              relatedPages={['Lancamentos', 'Conciliacao', 'Cartoes']}
+            />
+          </div>
           <p className="text-sm text-muted-foreground mt-1">Capture alertas bancarios como candidatos e confirme so depois de revisar.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
