@@ -5,6 +5,57 @@
 
 ---
 
+## [0.6.1] — 2026-07-13 — Períodos Civis na Projeção Futura
+
+**Resultado:** O seletor de período da Projeção Futura passa a usar meses civis (até o último dia do mês) em vez de meses rolantes a partir da data atual. Adicionado filtro "30 dias" para verificação de liquidez de curto prazo.
+
+**Alterações técnicas:**
+- `src/pages/Reports.tsx` — `projPeriod` ganhou opção `'30d'` e `'nextMonth'`; lógica do `projEndDate` refatorada: `'30d'` = today+30d, `'nextMonth'` = último dia do mês seguinte, `'3months'`/'`6months`'/'`12months`' = último dia do mês N posterior. Labels dos botões atualizados. PageHelp atualizado.
+- `package.json`, `src/lib/utils.ts` — Versão `0.6.1`.
+
+**Correções e causa-raiz:**
+- O filtro "Próx. mês" usava `setMonth(+1)` (ex: 13/07 → 13/08), 30-31 dias rolantes, causando falsos positivos de "cobertura positiva" quando a janela era curta demais para enxergar eventos no fim do mês. Agora "Próx. mês" = até 31/08, "3 meses" = até 31/10, etc.
+
+**Validações:**
+- `npm run lint` — Sem erros
+- `npm run test` — 54/54 passando
+
+---
+
+## [0.6.0] — 2026-07-13 — Central de Importação Assistida
+
+**Resultado:** Nova tela `/importar` com entrada assistida de transações por texto livre, importação em lote de arquivos bancários (OFX/CSV/XLS/XLSX/PDF) e rota de compartilhamento PWA (`share_target`). Alertas SMS e notificações bancárias são interpretados automaticamente e geram candidatos revisáveis antes da confirmação.
+
+**Alterações técnicas:**
+- `src/pages/ImportCenter.tsx` — Tela principal com abas Texto e Arquivos, lista de candidatos pendentes com ações em lote (confirmar, ignorar, marcar duplicado), pré-visualização de importação de arquivos com mapeamento de colunas.
+- `src/services/importAlertParser.ts` — Parser local de alertas bancários (SMS, notificações push) com extração de valor, tipo, estabelecimento e método de pagamento.
+- `src/services/importAlertParser.test.ts` — 10 testes unitários cobrindo padrões de alerta.
+- `src/services/importCandidateService.ts` — Serviço de confirmação de candidatos usando `runTransaction` atômico; atualiza saldo de conta apenas quando aplicável e cria lançamento em fatura para cartão sem afetar saldo.
+- `src/services/importDuplicateService.ts` — Detecção de duplicidade por similaridade de valor, data e descrição.
+- `src/services/importSuggestionService.ts` — Sugestão de categoria e conta baseada em histórico.
+- `src/services/importFileCandidateService.ts` — Parser unificado de arquivos bancários reaproveitando OFX existente e extração local de texto para PDF.
+- `src/services/importFileCandidateService.test.ts` — 4 testes unitários.
+- `src/App.tsx` — Rotas `/importar`, `/importar/compartilhar` e `/importar/:id`.
+- `src/components/Layout.tsx` — Item "Importar" no menu principal.
+- `src/types/index.ts` — Tipos `ImportCandidate`, `ParsedImportResult`, `ConfirmImportCandidateInput` e relacionados.
+- `firestore.rules` — Coleção `importCandidates` e permissão para `credit_card_invoice` em `reconciliationHistory`.
+- `vite.config.ts` — Configurado `share_target` PWA para `/importar/compartilhar`.
+- `package.json`, `src/lib/utils.ts` — Versão `0.6.0`.
+
+**Correções e causa-raiz:**
+- Três testes em `financialInsight.test.ts` corrigidos: usavam datas fixas (`2026-06-*`) que ficaram no passado, causando clamp de datas no cash coverage, mismatch no filtro mensal de orçamentos e ausência de dados no último mês do cashflow. Solução: datas dinâmicas relativas a `new Date()`.
+
+**Validações:**
+- `npm run lint` — Sem erros
+- `npm run test` — 54/54 passando
+- `npm run build` — Build OK
+
+**Importação de faturas de cartão** permanece direcionada ao fluxo especializado em Cartões > Conferir Fatura.
+
+**Fase 3** (e-mail, app companion Android, Open Finance, perfis avançados) permanece no backlog para implementação futura.
+
+---
+
 ## [0.5.1] — 2026-07-07 — Ajustes Responsivos em Modais Financeiros
 
 **Resultado:** Modais de fatura, conferência/importação de fatura e lançamento ficaram mais bem acomodados em desktop estreito e mobile. A barra de ações da fatura deixou de comprimir os controles, e os fluxos densos passam a empilhar ações/campos em telas menores.

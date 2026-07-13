@@ -17,16 +17,25 @@ describe('buildFinancialInsightContext', () => {
   });
 
   it('extrai cobertura de caixa com risco detectado', () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const d1 = new Date(today);
+    d1.setDate(today.getDate() + 2);
+    const d2 = new Date(today);
+    d2.setDate(today.getDate() + 7);
+    const dateStr1 = d1.toISOString().split('T')[0];
+    const dateStr2 = d2.toISOString().split('T')[0];
+
     const result = buildFinancialInsightContext({
       accounts: [{ id: 'acc-1', balance: 1000 }],
       transactions: [
         {
           id: 'rent', type: 'despesa', status: 'pendente', amount: 1500,
-          date: '2026-06-25', description: 'Aluguel', accountId: 'acc-1',
+          date: dateStr1, description: 'Aluguel', accountId: 'acc-1',
         },
         {
           id: 'salary', type: 'receita', status: 'pendente', amount: 2000,
-          date: '2026-06-30', description: 'Salario', accountId: 'acc-1',
+          date: dateStr2, description: 'Salario', accountId: 'acc-1',
         },
       ],
       categories: [],
@@ -37,7 +46,7 @@ describe('buildFinancialInsightContext', () => {
 
     expect(result).not.toBeNull();
     expect(result!.cashCoverage.isAtRisk).toBe(true);
-    expect(result!.cashCoverage.firstRiskDate).toBe('2026-06-25');
+    expect(result!.cashCoverage.firstRiskDate).toBe(dateStr1);
     expect(result!.cashCoverage.minimumBalance).toBe(-500);
     expect(result!.health.isAtRisk).toBe(true);
   });
@@ -126,12 +135,15 @@ describe('buildFinancialInsightContext', () => {
   });
 
   it('extrai orcamentos com items estourados', () => {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
     const result = buildFinancialInsightContext({
       accounts: [{ id: 'acc-1', balance: 1000 }],
       transactions: [
         {
           id: 't1', type: 'despesa', status: 'realizado', amount: 600,
-          date: '2026-06-10', description: 'Alimentacao', categoryId: 'cat-1',
+          date: `${currentMonth}-10`, description: 'Alimentacao', categoryId: 'cat-1',
         },
       ],
       categories: [{ id: 'cat-1', name: 'Alimentação', type: 'despesa' }],
@@ -150,16 +162,22 @@ describe('buildFinancialInsightContext', () => {
   });
 
   it('calcula tendencia do fluxo de caixa', () => {
-    const result = buildFinancialInsightContext({
-      accounts: [{ id: 'acc-1', balance: 5000 }],
-      transactions: Array.from({ length: 3 }, (_, i) => ({
+    const now = new Date();
+    const transactions = Array.from({ length: 3 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 2 + i, 5);
+      return {
         id: `inc-${i}`,
         type: 'receita',
         status: 'realizado',
         amount: 3000 + i * 500,
-        date: `${2026}-${String(4 + i).padStart(2, '0')}-05`,
+        date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-05`,
         description: `Salario mes ${i + 1}`,
-      })),
+      };
+    });
+
+    const result = buildFinancialInsightContext({
+      accounts: [{ id: 'acc-1', balance: 5000 }],
+      transactions,
       categories: [],
       creditCards: [],
       invoices: [],

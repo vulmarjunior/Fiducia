@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.5.1` |
+| **Versão atual** | `0.6.1` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-07-07 (ajustes responsivos em modais financeiros) |
+| **Última alteração em código** | 2026-07-13 (períodos mês civil na projeção futura + correção de testes) |
 | **Último deploy** | Não registrado formalmente |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -72,9 +72,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Central de Importacao Assistida com Fases 1 e 2 implementadas em codigo, aguardando build/test completo fora do bloqueio `spawn EPERM`.
+**Foco atual:** Central de Importacao Assistida Fases 1 e 2 concluidas. Build, testes e validacao de importacao ja realizados em 2026-07-13.
 
-**Proximo passo sugerido:** Validar manualmente `/importar` com dados reais, rodar `npm run build`/`npm run test` completo fora do bloqueio atual e testar Web Share Target em Android. Fase 3 fica para implementacao futura.
+**Proximo passo sugerido:** Avancar para o proximo item do backlog (correcao de categorias por string, alerta de limite, estorno, pagamento parcial, paradigmas de orcamento, ou testes de integracao). Fase 3 da Central permanece para implementacao futura.
 
 ---
 
@@ -84,6 +84,8 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-07-13 | v0.6.1 — Períodos civis na Projeção Futura | Relatórios / UX |
+| 2026-07-13 | v0.6.0 — Central de Importação Assistida (Fases 1 e 2) | Importação / PWA / UX |
 | 2026-07-07 | v0.5.1 — Ajustes responsivos em modais financeiros | Cartões / Transações / UX Mobile |
 | 2026-07-07 | v0.5.0 — Conferência inteligente de fatura de cartão (PDF/CSV/XLS/XLSX + Groq) | Cartões / IA / Conciliação |
 | 2026-07-07 | v0.4.1 — Ordenação alternável + busca aprimorada (formato BR) | Transações |
@@ -124,7 +126,8 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 8 | Paradigmas de orçamento (impacto fracionado vs integral) | ⚠️ Pendente | Especificado, não implementado |
 | 9 | Testes automatizados (integração + unitários) | 🔄 Parcial | Unitários para cartão e cobertura; integração pendente |
 | 10 | Gestão de versão / releases | ✅ Concluído | v0.1.0 definida; exibida no Login e Dashboard |
-| 11 | Central de Importacao Assistida - Fase 3 | Futuro | E-mail, app companion Android, Open Finance, perfis avancados por banco e aprendizado local; exige decisao de privacidade/consentimento |
+| 11 | Central de Importacao Assistida - Fases 1 e 2 | ✅ Concluído | Entrada por texto, candidatos revisaveis, share target PWA, importacao bancaria em lote. Fases 1 e 2 entregues em v0.6.0. |
+| 12 | Central de Importacao Assistida - Fase 3 | ⚠️ Futuro | E-mail, app companion Android, Open Finance, perfis avancados por banco e aprendizado local; exige decisao de privacidade/consentimento |
 
 ---
 
@@ -177,18 +180,19 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 
 ## 10. Próximo Passo Autorizado
 
-Após v0.4.0, evoluiu-se a previsão de caixa conforme planejado. Próximos itens do backlog:
+Apos v0.6.0 (Central de Importacao Assistida Fases 1 e 2), o proximo item do backlog a ser abordado:
 
 1. ~~Incluir recorrências futuras ainda não materializadas no motor de cobertura.~~ ✅ v0.4.0
 2. ~~Criar cenários conservador/realista/projetado.~~ ✅ v0.4.0
 3. ~~Refinar a UI da aba Projeção com visão diária expandível e alertas por data crítica.~~ ✅ v0.4.0
 4. ~~Corrigir inconsistências documentais pendentes: Gemini→Groq, status de IA conciliação e plano de melhorias.~~ ✅ v0.4.0
+5. ~~Central de Importacao Assistida Fases 1 e 2.~~ ✅ v0.6.0
 
 Próximos itens (MASTER_PLAN §6):
 - Correção de categorias por string legível (migration)
-- Alerta de limite disponível
-- Estorno total/parcial
+- Alerta de limite disponível (configurável)
+- Estorno total/parcial de compras
 - Pagamento parcial de fatura
-- Paradigmas de orçamento
+- Paradigmas de orçamento (impacto fracionado vs integral)
 - Testes de integração
-- Central de Importacao Assistida - Fase 3 futura (e-mail, app companion Android, Open Finance, perfis avancados e aprendizado local)
+- Central de Importacao Assistida - Fase 3 (e-mail, app companion Android, Open Finance)

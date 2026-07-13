@@ -62,7 +62,7 @@ export function Reports() {
   const [catType, setCatType] = useState<'expense' | 'income'>('expense');
 
   // Aba 4 — Projeção Futura
-  const [projPeriod, setProjPeriod] = useState<'1month' | '3months' | '6months' | '12months' | 'custom'>('3months');
+  const [projPeriod, setProjPeriod] = useState<'30d' | 'nextMonth' | '3months' | '6months' | '12months' | 'custom'>('3months');
   const [projCustomEnd, setProjCustomEnd] = useState('');
   const [includeSavings, setIncludeSavings] = useState(false);
   const [projType, setProjType] = useState<'all' | 'income' | 'expense'>('all');
@@ -257,17 +257,20 @@ export function Reports() {
 
   // ─── ABA 4: PROJEÇÃO FUTURA ───────────────────────────────────────────────
   const projEndDate = useMemo(() => {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    switch (projPeriod) {
-      case '1month': d.setMonth(d.getMonth() + 1); break;
-      case '3months': d.setMonth(d.getMonth() + 3); break;
-      case '6months': d.setMonth(d.getMonth() + 6); break;
-      case '12months': d.setMonth(d.getMonth() + 12); break;
-      case 'custom':
-        if (projCustomEnd) return new Date(projCustomEnd + 'T23:59:59');
-        d.setMonth(d.getMonth() + 3);
+    if (projPeriod === '30d') {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 30);
+      return d;
     }
-    return d;
+    if (projPeriod === 'nextMonth') {
+      return new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
+    }
+    if (projPeriod === 'custom') {
+      if (projCustomEnd) return new Date(projCustomEnd + 'T23:59:59');
+      return new Date(now.getFullYear(), now.getMonth() + 3, 0, 23, 59, 59);
+    }
+    const months = projPeriod === '3months' ? 3 : projPeriod === '6months' ? 6 : 12;
+    return new Date(now.getFullYear(), now.getMonth() + months + 1, 0, 23, 59, 59);
   }, [projPeriod, projCustomEnd]);
 
   const projEndMonthStr = toMonthStr(projEndDate);
@@ -463,7 +466,7 @@ export function Reports() {
             { label: '1. Fluxo de Caixa', desc: 'Receitas vs despesas realizadas na conta corrente (sem cartão e sem transferências) nos últimos meses. O botão "Só Realizados"/"Incluindo Pendentes" controla se lançamentos com status pendente entram no cálculo. A Taxa de Poupança mostra quantos % da sua receita líquida sobra após as despesas no período.' },
             { label: '2. Categorias', desc: 'Distribuição dos gastos ou receitas por categoria. A métrica "% Renda" revela o peso real de cada categoria sobre sua receita total, diferente do "% Total" que compara apenas entre categorias. Use para descobrir onde seu dinheiro está sendo mais consumido proporcionalmente.' },
             { label: '3. Tendência & Orçamento', desc: 'Curva cumulativa de despesas dia a dia dentro do mês atual, comparada com os limites de orçamento configurados. Mostra se você está gastando acima ou abaixo do planejado e projeta se ultrapassará o limite até o fim do mês.' },
-            { label: '4. Projeção Futura', desc: 'Simulação de saldo futuro projetando receitas a receber, despesas a pagar e faturas de cartão mês a mês. Use o seletor de período para definir o horizonte (próximo mês, 3, 6, 12 meses ou data personalizada) e os filtros de tipo e categoria para isolar receitas ou despesas específicas. É possível incluir ou excluir investimentos do saldo inicial.' },
+            { label: '4. Projeção Futura', desc: 'Simulação de saldo futuro projetando receitas a receber, despesas a pagar e faturas de cartão mês a mês. Use o seletor de período para definir o horizonte: 30 dias (rolante a partir de hoje), Próx. mês (até o último dia do mês seguinte), 3/6/12 meses (até o último dia do mês correspondente) ou data personalizada. Os filtros de tipo e categoria permitem isolar receitas ou despesas específicas. É possível incluir ou excluir investimentos do saldo inicial.' },
             { label: '4a. Cenários da Projeção', desc: 'Conservador: inclui apenas o que é certo — faturas já fechadas e transações bancárias pendentes. Responde "meu caixa quebra mesmo sem considerar nada incerto?".\n\nRealista (recomendado): inclui também a fatura em andamento (seus gastos atuais do cartão que ainda não fecharam). É o cenário de referência para o dia a dia.\n\nProjetado: cenário completo — inclui parcelamentos de meses futuros e regras de recorrência ativas. Revela se seu padrão de consumo atual é sustentável no médio prazo.' },
             { label: '5. Faturas de Cartão', desc: 'Análise detalhada das faturas ao longo do tempo: evolução mensal dos valores, participação de cada cartão no total e distribuição por status. Aberta = em andamento (você ainda está gastando). Fechada = valor definido, aguardando vencimento. Paga = já quitada. Futura = períodos posteriores com parcelamentos já contratados que ainda vão vencer.' },
             { label: '6. Análise IA', desc: 'O assistente Fiducia processa seus últimos meses de fluxo de caixa e lançamentos recentes para gerar uma nota de saúde financeira com recomendações personalizadas. A análise considera padrões de gasto, consistência de receitas, evolução do saldo e riscos identificados na projeção de caixa.' },
@@ -785,9 +788,9 @@ export function Reports() {
           <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
             <div className="flex flex-wrap gap-3 items-center">
               <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
-                {(['1month', '3months', '6months', '12months'] as const).map(p => (
+                {(['30d', 'nextMonth', '3months', '6months', '12months'] as const).map(p => (
                   <FBtn key={p} active={projPeriod === p} onClick={() => setProjPeriod(p)}>
-                    {p === '1month' ? 'Próx. mês' : p === '3months' ? '3 meses' : p === '6months' ? '6 meses' : '12 meses'}
+                    {p === '30d' ? '30 dias' : p === 'nextMonth' ? 'Próx. mês' : p === '3months' ? '3 meses' : p === '6months' ? '6 meses' : '12 meses'}
                   </FBtn>
                 ))}
                 <FBtn active={projPeriod === 'custom'} onClick={() => setProjPeriod('custom')}>Personalizado</FBtn>
