@@ -478,7 +478,7 @@ export function ImportCenter() {
                 value={rawText}
                 onChange={event => setRawText(event.target.value)}
                 rows={7}
-                className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/50"
                 placeholder="Ex.: Compra aprovada no cartao final 1234 em MERCADO CENTRAL no valor de R$ 84,90 em 07/07."
               />
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -608,7 +608,7 @@ export function ImportCenter() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label>Tipo</Label>
-                    <select value={form.type} onChange={event => setForm({ ...form, type: event.target.value as ConfirmImportCandidateInput['type'] })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/30">
+                    <select value={form.type} onChange={event => setForm({ ...form, type: event.target.value as ConfirmImportCandidateInput['type'] })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
                       <option value="despesa">Despesa</option>
                       <option value="receita">Receita</option>
                       <option value="transferencia">Transferencia</option>
@@ -616,7 +616,7 @@ export function ImportCenter() {
                   </div>
                   <div className="space-y-1">
                     <Label>Status</Label>
-                    <select value={form.status} onChange={event => setForm({ ...form, status: event.target.value as ConfirmImportCandidateInput['status'] })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/30" disabled={Boolean(form.creditCardId)}>
+                    <select value={form.status} onChange={event => setForm({ ...form, status: event.target.value as ConfirmImportCandidateInput['status'] })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50" disabled={Boolean(form.creditCardId)}>
                       <option value="pago">Pago</option>
                       <option value="pendente">Pendente</option>
                       <option value="realizado">Realizado</option>
@@ -642,7 +642,7 @@ export function ImportCenter() {
 
                 <div className="space-y-1">
                   <Label>Conta</Label>
-                  <select value={form.accountId || ''} onChange={event => setForm({ ...form, accountId: event.target.value, creditCardId: '', status: 'pago' })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/30">
+                  <select value={form.accountId || ''} onChange={event => setForm({ ...form, accountId: event.target.value, creditCardId: '', status: 'pago' })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
                     <option value="">Selecione uma conta</option>
                     {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
                   </select>
@@ -650,7 +650,7 @@ export function ImportCenter() {
 
                 <div className="space-y-1">
                   <Label>Cartao</Label>
-                  <select value={form.creditCardId || ''} onChange={event => setForm({ ...form, creditCardId: event.target.value, accountId: '', status: 'realizado' })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/30">
+                  <select value={form.creditCardId || ''} onChange={event => setForm({ ...form, creditCardId: event.target.value, accountId: '', status: 'realizado' })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
                     <option value="">Selecione um cartao</option>
                     {creditCards.map(card => <option key={card.id} value={card.id}>{card.name}{card.lastFourDigits ? ` - final ${card.lastFourDigits}` : ''}</option>)}
                   </select>
@@ -658,7 +658,7 @@ export function ImportCenter() {
 
                 <div className="space-y-1">
                   <Label>Categoria</Label>
-                  <select value={form.categoryId || ''} onChange={event => setForm({ ...form, categoryId: event.target.value })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/30">
+                  <select value={form.categoryId || ''} onChange={event => setForm({ ...form, categoryId: event.target.value })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
                     <option value="">Sem categoria</option>
                     {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                   </select>
@@ -702,7 +702,7 @@ export function ImportCenter() {
 
                 <div className="space-y-1">
                   <Label>Observacao</Label>
-                  <textarea value={form.observation || ''} onChange={event => setForm({ ...form, observation: event.target.value })} rows={3} className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30" />
+                  <textarea value={form.observation || ''} onChange={event => setForm({ ...form, observation: event.target.value })} rows={3} className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/50" />
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -729,7 +729,7 @@ export function ImportCenter() {
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <div className="space-y-1">
               <Label>Conta sugerida para o arquivo</Label>
-              <select value={importAccountId} onChange={event => setImportAccountId(event.target.value)} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/30">
+              <select value={importAccountId} onChange={event => setImportAccountId(event.target.value)} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
                 <option value="">Detectar pelo arquivo ou escolher depois</option>
                 {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
               </select>
@@ -758,7 +758,7 @@ export function ImportCenter() {
               {filePreview.sheetNames.length > 1 && (
                 <div className="space-y-1">
                   <Label>Aba da planilha</Label>
-                  <select value={filePreview.selectedSheet || ''} onChange={event => handleChangeSheet(event.target.value)} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/30">
+                  <select value={filePreview.selectedSheet || ''} onChange={event => handleChangeSheet(event.target.value)} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
                     {filePreview.sheetNames.map(sheet => <option key={sheet} value={sheet}>{sheet}</option>)}
                   </select>
                 </div>
@@ -769,7 +769,7 @@ export function ImportCenter() {
                   {(['date', 'description', 'amount', 'debit', 'credit', 'type'] as const).map(field => (
                     <div key={field} className="space-y-1">
                       <Label>{field === 'date' ? 'Data' : field === 'description' ? 'Descricao' : field === 'amount' ? 'Valor unico' : field === 'debit' ? 'Debito' : field === 'credit' ? 'Credito' : 'Tipo'}</Label>
-                      <select value={fileMapping[field] || ''} onChange={event => setFileMapping({ ...fileMapping, [field]: event.target.value || undefined })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/30">
+                      <select value={fileMapping[field] || ''} onChange={event => setFileMapping({ ...fileMapping, [field]: event.target.value || undefined })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
                         <option value="">Nao usar</option>
                         {filePreview.headers.map(header => <option key={header} value={header}>{header}</option>)}
                       </select>
@@ -780,7 +780,7 @@ export function ImportCenter() {
 
               {filePreview.rowsPreview.length > 0 && (
                 <div className="max-h-48 overflow-auto rounded-lg border border-border bg-background">
-                  <table className="w-full min-w-[520px] text-xs">
+                  <table className="w-full min-w-0 text-xs">
                     <thead className="bg-muted/50">
                       <tr>{Object.keys(filePreview.rowsPreview[0]).slice(0, 6).map(header => <th key={header} className="px-2 py-1 text-left font-medium">{header}</th>)}</tr>
                     </thead>

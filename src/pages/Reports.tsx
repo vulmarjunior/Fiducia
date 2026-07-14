@@ -475,17 +475,17 @@ export function Reports() {
       </div>
 
       {/* ── TAB BAR ── */}
-      <div className="flex gap-1 bg-secondary/30 p-1 rounded-2xl border border-border overflow-x-auto">
+      <div className="flex gap-1 bg-secondary/50 dark:bg-secondary/80 p-1 rounded-2xl border border-border overflow-x-auto">
         {tabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold whitespace-nowrap transition-all ${isActive ? 'bg-background shadow-sm text-foreground border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}>
+<button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-2 sm:px-4 py-2.5 rounded-xl text-[13px] font-semibold whitespace-nowrap transition-all ${isActive ? 'bg-background shadow-sm text-foreground border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}>
               <Icon className="w-4 h-4" />
-              {tab.label}
-              {tab.id === 'projection' && <span className="text-[9px] font-bold bg-fiducia-blue text-white dark:text-background px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
-              {tab.id === 'invoices' && <span className="text-[9px] font-bold bg-fiducia-amber text-white dark:text-background px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
+              <span className="hidden sm:inline">{tab.label}</span>
+              {tab.id === 'projection' && <span className="hidden sm:inline text-[9px] font-bold bg-fiducia-blue text-white dark:text-background px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
+              {tab.id === 'invoices' && <span className="hidden sm:inline text-[9px] font-bold bg-fiducia-amber text-white dark:text-background px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
             </button>
           );
         })}
@@ -497,7 +497,7 @@ export function Reports() {
       {activeTab === 'cashflow' && (
         <div className="space-y-6">
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+<div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
               {(['3months', '6months', '12months', 'year'] as const).map(p => (
                 <FBtn key={p} active={cashflowPeriod === p} onClick={() => setCashflowPeriod(p)}>
                   {p === '3months' ? '3 Meses' : p === '6months' ? '6 Meses' : p === '12months' ? '12 Meses' : 'Ano'}
@@ -598,14 +598,14 @@ export function Reports() {
       {activeTab === 'categories' && (
         <div className="space-y-6">
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+<div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
               {(['month', '3months', '6months', '12months', 'year'] as const).map(p => (
                 <FBtn key={p} active={catPeriod === p} onClick={() => setCatPeriod(p)}>
                   {p === 'month' ? 'Mês' : p === '3months' ? '3M' : p === '6months' ? '6M' : p === '12months' ? '12M' : 'Ano'}
                 </FBtn>
               ))}
             </div>
-            <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+            <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
               <FBtn active={catType === 'expense'} onClick={() => setCatType('expense')}>Despesas</FBtn>
               <FBtn active={catType === 'income'} onClick={() => setCatType('income')}>Receitas</FBtn>
             </div>
@@ -787,7 +787,7 @@ export function Reports() {
           {/* Filtros */}
           <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
             <div className="flex flex-wrap gap-3 items-center">
-              <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
                 {(['30d', 'nextMonth', '3months', '6months', '12months'] as const).map(p => (
                   <FBtn key={p} active={projPeriod === p} onClick={() => setProjPeriod(p)}>
                     {p === '30d' ? '30 dias' : p === 'nextMonth' ? 'Próx. mês' : p === '3months' ? '3 meses' : p === '6months' ? '6 meses' : '12 meses'}
@@ -799,7 +799,7 @@ export function Reports() {
                 <input type="date" value={projCustomEnd} onChange={e => setProjCustomEnd(e.target.value)}
                   className="h-8 bg-background border border-border rounded-xl px-3 text-xs" />
               )}
-              <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
                 {([['all', 'Todos'], ['income', 'Receitas'], ['expense', 'Despesas']] as const).map(([v, l]) => (
                   <FBtn key={v} active={projType === v} onClick={() => setProjType(v)}>{l}</FBtn>
                 ))}
@@ -819,7 +819,7 @@ export function Reports() {
             </div>
             <div className="flex flex-wrap gap-3 items-center mt-3 pt-3 border-t border-border/50">
               <span className="text-[11px] text-muted-foreground font-medium">Cenário:</span>
-              <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
                 {([['conservative', 'Conservador'], ['realistic', 'Realista'], ['projected', 'Projetado']] as const).map(([v, l]) => (
                   <FBtn key={v} active={projScenario === v} onClick={() => setProjScenario(v)}>{l}</FBtn>
                 ))}
@@ -950,7 +950,7 @@ export function Reports() {
               return (
                 <div key={m.month} className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
                   <button onClick={() => toggleMonth(m.month)}
-                    className="w-full flex items-center justify-between p-5 hover:bg-secondary/30 transition-colors text-left">
+                    className="w-full flex items-center justify-between p-5 hover:bg-secondary/50 dark:bg-secondary/80 transition-colors text-left">
                     <div className="flex items-center gap-3">
                       {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                       <div>
@@ -999,7 +999,7 @@ export function Reports() {
                             const acc = accounts.find(a => a.id === t.accountId);
                             return (
                               <div key={t.id} onClick={() => openTxDialog({ editId: t.id })}
-                                className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/30 cursor-pointer transition-colors border-t border-border/20">
+                                className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/50 dark:bg-secondary/80 cursor-pointer transition-colors border-t border-border/20">
                                 <div className="w-8 h-8 rounded-lg bg-fiducia-green/10 flex items-center justify-center shrink-0">
                                   <ArrowUpRight className="w-4 h-4 text-fiducia-green" />
                                 </div>
@@ -1029,7 +1029,7 @@ export function Reports() {
                             const isPast = t.date.substring(0, 10) < todayStr;
                             return (
                               <div key={t.id} onClick={() => openTxDialog({ editId: t.id })}
-                                className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/30 cursor-pointer transition-colors border-t border-border/20">
+                                className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/50 dark:bg-secondary/80 cursor-pointer transition-colors border-t border-border/20">
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isPast ? 'bg-fiducia-red/20' : 'bg-fiducia-red/10'}`}>
                                   <ArrowDownRight className="w-4 h-4 text-fiducia-red" />
                                 </div>
@@ -1062,7 +1062,7 @@ export function Reports() {
                             const periodLabel = new Date(y, mn - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
                             return (
                               <div key={inv.id} onClick={() => navigate('/cards')}
-                                className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/30 cursor-pointer transition-colors border-t border-border/20">
+                                className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/50 dark:bg-secondary/80 cursor-pointer transition-colors border-t border-border/20">
                                 <div className="w-8 h-8 rounded-lg bg-fiducia-amber/10 flex items-center justify-center shrink-0">
                                   <CreditCard className="w-4 h-4 text-fiducia-amber" />
                                 </div>
@@ -1101,7 +1101,7 @@ export function Reports() {
           {/* Filtros */}
           <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
             <div className="flex flex-wrap gap-3 items-center">
-              <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
                 {(['3months', '6months', '12months', 'custom'] as const).map(p => (
                   <FBtn key={p} active={invPeriod === p} onClick={() => setInvPeriod(p)}>
                     {p === '3months' ? '3 Meses' : p === '6months' ? '6 Meses' : p === '12months' ? '12 Meses' : 'Personalizado'}
@@ -1117,7 +1117,7 @@ export function Reports() {
                 <option value="all">Todos os cartões</option>
                 {creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <div className="flex p-1 bg-secondary/30 rounded-xl border border-border gap-0.5">
+              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
                 {(['all', 'open', 'closed', 'paid', 'future'] as const).map(p => (
                   <FBtn key={p} active={invStatusFilter === p} onClick={() => setInvStatusFilter(p)}>
                     {p === 'all' ? 'Todas' : p === 'open' ? 'Abertas' : p === 'closed' ? 'Fechadas' : p === 'paid' ? 'Pagas' : 'Futuras'}
@@ -1369,7 +1369,7 @@ export function Reports() {
               <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
                 <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
                   <table className="w-full text-xs">
-                    <thead className="sticky top-0 bg-secondary/30">
+                    <thead className="sticky top-0 bg-secondary/50 dark:bg-secondary/80">
                       <tr className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                         <th className="text-left py-3 px-4">Data</th>
                         <th className="text-right py-3 px-4">Saldo Inicial</th>

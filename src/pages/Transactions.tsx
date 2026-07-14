@@ -57,7 +57,7 @@ const TransactionObservation = ({ observation }: { observation: string }) => {
             <MessageSquare className="h-3.5 w-3.5" />
           </button>
         )} />
-        <PopoverContent className="w-[280px] p-4 rounded-xl shadow-xl border-none bg-slate-900 text-slate-50">
+        <PopoverContent className="w-[280px] p-4 rounded-xl shadow-xl border-none bg-popover text-popover-foreground">
           <div className="flex justify-between items-start mb-2">
             <h4 className="text-xs font-bold uppercase tracking-wider opacity-50">Observação</h4>
             <PopoverClose render={(props) => (
@@ -87,7 +87,7 @@ const TransactionObservation = ({ observation }: { observation: string }) => {
       )} />
       <TooltipContent 
         side="top" 
-        className="max-w-[280px] p-3 rounded-lg shadow-lg border-none bg-slate-900 text-slate-50"
+        className="max-w-[280px] p-3 rounded-lg shadow-lg border-none bg-popover text-popover-foreground"
       >
         <div className="space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-wider opacity-50">Observação</p>
@@ -1023,7 +1023,7 @@ ${sample.map(t =>
 
             <div className="space-y-2 md:col-span-2">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Período</Label>
-              <div className="flex p-1 bg-secondary/30 rounded-xl">
+              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl">
                 <button 
                   onClick={() => setFilterType('month')}
                   className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${filterType === 'month' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`}
@@ -1318,7 +1318,7 @@ ${sample.map(t =>
 
                 <div className="border rounded-lg overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-secondary/50">
+                    <thead className="bg-secondary/50 dark:bg-secondary/80">
                       <tr>
                         <th className="p-2 text-left w-10"></th>
                         <th className="p-2 text-left">Data</th>
@@ -1492,7 +1492,7 @@ ${sample.map(t =>
       <Card className="border-none shadow-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-secondary/30">
+            <thead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-secondary/50 dark:bg-secondary/80">
               <tr>
                 <th className="px-3 md:px-6 py-3 md:py-4 rounded-tl-xl">Descrição</th>
                 <th className="px-3 md:px-6 py-3 md:py-4">Categoria</th>

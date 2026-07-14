@@ -404,7 +404,7 @@ Regras OBRIGATÓRIAS:
           >
             {showValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
-          <div className="inline-flex bg-secondary/50 border border-border rounded-xl p-1 gap-1">
+          <div className="inline-flex bg-secondary/50 dark:bg-secondary/80 border border-border rounded-xl p-1 gap-1">
             {(['week', 'month', 'year'] as const).map(p => (
               <button
                 key={p}
@@ -509,7 +509,7 @@ Regras OBRIGATÓRIAS:
             </div>
             <div className="relative group/tip">
               <Info className="w-4 h-4 text-muted-foreground cursor-help" />
-              <div className="absolute right-0 top-6 w-72 p-3 bg-popover border border-border rounded-xl shadow-lg text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-10">
+              <div className="absolute right-0 top-6 w-60 max-w-[calc(100vw-3rem)] sm:w-72 p-3 bg-popover border border-border rounded-xl shadow-lg text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-10">
                 <strong className="block mb-1">Cobertura de Caixa</strong>
                 Simula o saldo diário pelos próximos 90 dias, aplicando receitas, despesas pendentes e vencimentos de faturas de cartão <strong>na ordem cronológica</strong>.
                 <br /><br />

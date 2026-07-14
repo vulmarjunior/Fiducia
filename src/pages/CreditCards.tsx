@@ -1011,10 +1011,10 @@ export function CreditCards() {
                   className="hidden"
                   onChange={handlePdfUpload}
                 />
-                <Button variant="outline" size="icon" className="h-9 w-full sm:h-8 sm:w-8" onClick={handleExportInvoicePDF} disabled={isExportingPdf}>
+                <Button variant="outline" size="icon" className="h-9 sm:h-8 sm:w-8 shrink-0" onClick={handleExportInvoicePDF} disabled={isExportingPdf}>
                   <Printer className="h-4 w-4" />
                 </Button>
-                <div className="flex items-center justify-between gap-2 bg-secondary/30 p-1.5 rounded-lg border w-full sm:w-auto">
+                <div className="flex items-center justify-between gap-2 bg-secondary/50 dark:bg-secondary/80 p-1.5 rounded-lg border w-full sm:w-auto">
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -1186,7 +1186,7 @@ export function CreditCards() {
                           </Button>
                         )}
                       </div>
-                      <div className="flex items-center bg-secondary/30 rounded-lg border p-0.5">
+                      <div className="flex items-center bg-secondary/50 dark:bg-secondary/80 rounded-lg border p-0.5">
                         <Button
                           variant={invoiceViewMode === 'organized' ? 'default' : 'ghost'}
                           size="sm"
@@ -1370,7 +1370,7 @@ export function CreditCards() {
                   })() : (
                     <div className="border rounded-xl overflow-x-auto shadow-sm bg-card">
                       <table className="w-full text-sm">
-                        <thead className="bg-secondary/30 border-b">
+                        <thead className="bg-secondary/50 dark:bg-secondary/80 border-b">
                           <tr>
                             <th className="p-3 text-left font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Lançamento</th>
                             <th className="p-3 text-left font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Descrição</th>
@@ -1599,7 +1599,7 @@ export function CreditCards() {
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conta de Origem</Label>
               <select 
-                className="flex h-11 w-full rounded-md border border-input bg-background dark:bg-input/30 px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50 text-foreground"
+                className="flex h-11 w-full rounded-md border border-input bg-background dark:bg-input/50 px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50 text-foreground"
                 value={paymentData.accountId}
                 onChange={(e) => setPaymentData({...paymentData, accountId: e.target.value})}
                 required

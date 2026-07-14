@@ -61,7 +61,7 @@ export function ActivityLog() {
       case 'create': return <Plus size={16} className="text-emerald-500" />;
       case 'update': return <Edit2 size={16} className="text-blue-500" />;
       case 'delete': return <Trash2 size={16} className="text-red-500" />;
-      default: return <History size={16} className="text-slate-500" />;
+      default: return <History size={16} className="text-muted-foreground" />;
     }
   };
 

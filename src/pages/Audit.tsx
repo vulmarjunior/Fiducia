@@ -261,7 +261,7 @@ export function Audit() {
                       variant="ghost" 
                       size="sm" 
                       onClick={() => handleUnlockPeriod(cp.id)}
-                      className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 shrink-0"
+                      className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-950/30 shrink-0"
                     >
                       <Unlock className="h-4 w-4 mr-2" />
                       Reabrir
@@ -295,7 +295,7 @@ export function Audit() {
                           Período: {format(parseISO(inv.period + '-01'), 'MMMM yyyy', { locale: ptBR })}
                         </p>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
-                          inv.status === 'paga' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                          inv.status === 'paga' ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
                         }`}>
                           {inv.status}
                         </span>
@@ -305,7 +305,7 @@ export function Audit() {
                       variant="ghost" 
                       size="sm" 
                       onClick={() => handleReopenInvoice(inv.id)}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 shrink-0"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/30 shrink-0"
                     >
                       <RefreshCcw className="h-4 w-4 mr-2" />
                       Reabrir
@@ -414,7 +414,7 @@ export function Audit() {
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conta / Cartão</Label>
               <select
-                className="flex h-11 w-full rounded-md border border-input bg-background dark:bg-input/30 px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50 text-foreground"
+                className="flex h-11 w-full rounded-md border border-input bg-background dark:bg-input/50 px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50 text-foreground"
                 value={closePeriodData.entityId}
                 onChange={(e) => setClosePeriodData(prev => ({ ...prev, entityId: e.target.value }))}
               >
@@ -433,7 +433,7 @@ export function Audit() {
                 type="month"
                 value={closePeriodData.month}
                 onChange={(e) => setClosePeriodData(prev => ({ ...prev, month: e.target.value }))}
-                className="flex h-11 w-full rounded-md border border-input bg-background dark:bg-input/30 px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50 text-foreground"
+                className="flex h-11 w-full rounded-md border border-input bg-background dark:bg-input/50 px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50 text-foreground"
                 />
             </div>
           </div>
