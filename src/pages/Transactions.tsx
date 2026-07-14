@@ -965,7 +965,7 @@ ${sample.map(t =>
             ]}
           />
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <div className="relative">
             <input
               type="file"
@@ -975,11 +975,11 @@ ${sample.map(t =>
               title="Importar arquivo (OFX, CSV, Excel)"
             />
             <Button variant="outline" className="rounded-xl shadow-sm">
-              <FileUp className="mr-2 h-4 w-4" /> Importar Arquivo
+              <FileUp className="h-4 w-4" /> <span className="hidden sm:inline ml-1.5">Importar Arquivo</span>
             </Button>
           </div>
           <Button variant="outline" className="rounded-xl shadow-sm" onClick={handleExportStatementPDF} disabled={isExportingPdf}>
-            <FileDown className="mr-2 h-4 w-4" /> {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+            <FileDown className="h-4 w-4" /> <span className="hidden sm:inline ml-1.5">{isExportingPdf ? 'Gerando...' : 'Exportar PDF'}</span>
           </Button>
           <Tooltip>
             <TooltipTrigger render={(props) => (
@@ -988,7 +988,7 @@ ${sample.map(t =>
                 className="rounded-xl shadow-lg shadow-primary/20"
                 onClick={() => openTxDialog()}
               >
-                <Plus className="mr-2 h-4 w-4" /> Novo Lançamento
+                <Plus className="h-4 w-4" /> <span className="hidden sm:inline ml-1.5">Novo Lançamento</span>
               </Button>
             )} />
             <TooltipContent side="bottom">

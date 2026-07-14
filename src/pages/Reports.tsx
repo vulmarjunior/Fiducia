@@ -785,51 +785,55 @@ export function Reports() {
         <div className="space-y-6">
           {/* Filtros */}
           {/* Filtros */}
-          <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
-            <div className="flex flex-wrap gap-3 items-center">
-              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
+<div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
+            <div className="space-y-3">
+            <div className="flex flex-nowrap gap-2 items-center overflow-x-auto pb-1">
+              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5 shrink-0">
                 {(['30d', 'nextMonth', '3months', '6months', '12months'] as const).map(p => (
                   <FBtn key={p} active={projPeriod === p} onClick={() => setProjPeriod(p)}>
-                    {p === '30d' ? '30 dias' : p === 'nextMonth' ? 'Próx. mês' : p === '3months' ? '3 meses' : p === '6months' ? '6 meses' : '12 meses'}
+                    <span className="hidden sm:inline">{p === '30d' ? '30 dias' : p === 'nextMonth' ? 'Próx. mês' : p === '3months' ? '3 meses' : p === '6months' ? '6 meses' : '12 meses'}</span>
+                    <span className="sm:hidden">{p === '30d' ? '30d' : p === 'nextMonth' ? 'Próx.' : p === '3months' ? '3m' : p === '6months' ? '6m' : '12m'}</span>
                   </FBtn>
                 ))}
-                <FBtn active={projPeriod === 'custom'} onClick={() => setProjPeriod('custom')}>Personalizado</FBtn>
+                <FBtn active={projPeriod === 'custom'} onClick={() => setProjPeriod('custom')}>
+                  <span className="hidden sm:inline">Personalizado</span>
+                  <span className="sm:hidden">Data</span>
+                </FBtn>
               </div>
               {projPeriod === 'custom' && (
                 <input type="date" value={projCustomEnd} onChange={e => setProjCustomEnd(e.target.value)}
-                  className="h-8 bg-background border border-border rounded-xl px-3 text-xs" />
+                  className="h-8 bg-background border border-border rounded-xl px-3 text-xs shrink-0" />
               )}
-              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
+              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5 shrink-0">
                 {([['all', 'Todos'], ['income', 'Receitas'], ['expense', 'Despesas']] as const).map(([v, l]) => (
                   <FBtn key={v} active={projType === v} onClick={() => setProjType(v)}>{l}</FBtn>
                 ))}
               </div>
               <select value={projCategory} onChange={e => setProjCategory(e.target.value)}
-                className="h-8 bg-background border border-border rounded-xl px-3 text-xs text-foreground">
+                className="h-8 bg-background border border-border rounded-xl px-3 text-xs text-foreground shrink-0 max-w-[140px]">
                 <option value="all">Todas as categorias</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <div className="ml-auto flex items-center gap-2 shrink-0">
-                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Incluir investimentos:</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap hidden sm:inline">Incluir investimentos:</span>
                 <button onClick={() => setIncludeSavings(!includeSavings)}
                   className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${includeSavings ? 'bg-fiducia-blue' : 'bg-secondary border border-border'}`}>
                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${includeSavings ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </button>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3 items-center mt-3 pt-3 border-t border-border/50">
-              <span className="text-[11px] text-muted-foreground font-medium">Cenário:</span>
-              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
+            <div className="flex flex-nowrap gap-3 items-center overflow-x-auto pb-1 pt-3 border-t border-border/50">
+              <span className="text-[11px] text-muted-foreground font-medium shrink-0">Cenário:</span>
+              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5 shrink-0">
                 {([['conservative', 'Conservador'], ['realistic', 'Realista'], ['projected', 'Projetado']] as const).map(([v, l]) => (
                   <FBtn key={v} active={projScenario === v} onClick={() => setProjScenario(v)}>{l}</FBtn>
                 ))}
               </div>
-              <div className="ml-auto">
-                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportProjectionPDF} disabled={isExportingPdf}>
-                  <FileDown className="h-3.5 w-3.5" />
-                  {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 shrink-0" onClick={handleExportProjectionPDF} disabled={isExportingPdf}>
+                <FileDown className="h-3.5 w-3.5" />
+                {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+              </Button>
+            </div>
             </div>
           </div>
           <div className={`border rounded-2xl p-5 shadow-sm ${projKPIs.isAtRisk ? 'bg-fiducia-red/5 border-fiducia-red/20' : 'bg-fiducia-green/5 border-fiducia-green/20'}`}>
