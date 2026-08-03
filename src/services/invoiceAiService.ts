@@ -2,6 +2,7 @@ import { ImportedInvoiceLine, InvoiceLineMatch } from '../types';
 import { CategoryHint, extractTextFromPdf } from './pdfInvoiceService';
 import { callGroq } from './groqService';
 import { normalizeInvoiceText } from '../lib/invoiceReconciliation';
+import { parseInvoiceTextToMarkdown } from '../lib/invoiceMarkdownParser';
 
 function parseJsonArray<T>(value: string): T[] {
   const jsonMatch = value.match(/\[[\s\S]*\]/);
@@ -47,46 +48,63 @@ export async function extractInvoiceLinesWithGroq(params: {
   categories: CategoryHint[];
   source?: 'pdf' | 'csv' | 'xlsx';
 }): Promise<ImportedInvoiceLine[]> {
-  const truncated = params.rawText.length > 18000
-    ? `${params.rawText.substring(0, 18000)}\n[... texto truncado ...]`
-    : params.rawText;
+  const categoryMap = new Map<string, string>();
+  const expenseNames: string[] = [];
+  const incomeNames: string[] = [];
 
-  const expenseCategories = params.categories
-    .filter(c => c.type === 'despesa' || c.type === 'expense')
-    .slice(0, 50)
-    .map(c => ({ id: c.id, name: c.name }));
+  for (const c of params.categories) {
+    const name = c.name.toLowerCase().trim();
+    if (!categoryMap.has(name)) categoryMap.set(name, c.id);
+    if (c.type === 'despesa' || c.type === 'expense') {
+      if (!expenseNames.includes(name) && expenseNames.length < 30) expenseNames.push(name);
+    } else {
+      if (!incomeNames.includes(name) && incomeNames.length < 10) incomeNames.push(name);
+    }
+  }
 
-  const incomeCategories = params.categories
-    .filter(c => c.type === 'receita' || c.type === 'income')
-    .slice(0, 20)
-    .map(c => ({ id: c.id, name: c.name }));
+  const markdown = parseInvoiceTextToMarkdown(params.rawText);
+  const useMarkdown = markdown.rows.length >= 3;
 
-  const currentYear = new Date().getFullYear();
+  const schemaOnly = `{
+"date":"YYYY-MM-DD","description":"orig","amount":0,"type":"despesa|receita",
+"kind":"purchase|installment|credit|refund|fee|payment|unknown",
+"installmentNumber":null,"totalInstallments":null,
+"suggestedCategoryName":"exata da lista ou null","confidence":0.8}
+Despesas: [${expenseNames.join('|')}]
+Receitas: [${incomeNames.join('|')}]`;
 
-  const systemPrompt = `Você é um extrator de faturas de cartão de crédito brasileiras. Retorne APENAS um array JSON válido.
+  const systemPrompt = useMarkdown
+    ? `Extraia campos de cada linha da tabela de fatura. Retorne APENAS JSON array.
+Cada linha da tabela = 1 item.
+Regras: amount SEMPRE positivo. Parcelado: amount=valor da parcela. Não invente linhas.
+${schemaOnly}`
+    : `Você é um extrator de faturas de cartão de crédito brasileiras. Retorne APENAS JSON array.
+${schemaOnly}
+Regras extras para texto bruto:
+- Ignore cabeçalhos, rodapés, limite, saldo anterior e totais.
+- Datas DD/MM → YYYY-MM-DD (ano: ${new Date().getFullYear()}).
+- Créditos/estornos = "receita". Compras/débitos = "despesa".`;
 
-Schema obrigatório por item:
-{"date":"YYYY-MM-DD","description":"texto","normalizedDescription":"texto limpo","amount":123.45,"type":"despesa|receita","kind":"purchase|installment|credit|refund|fee|payment|unknown","installmentNumber":1|null,"totalInstallments":10|null,"suggestedCategoryId":"id|null","confidence":0.0,"rawText":"linha original"}
-
-Regras:
-- Não invente linhas. Se não tiver certeza, use confidence baixa e kind "unknown".
-- Compras/débitos são "despesa". Créditos, estornos e abatimentos são "receita".
-- O amount deve ser sempre positivo.
-- Compra parcelada deve usar o valor individual da parcela exibida, nunca o valor total da compra.
-- Preserve parcela atual/total quando existir texto como 03/10, 3 de 10 ou PARC 03.
-- Ignore cabeçalhos, rodapés, limite, saldo anterior, vencimento e totais sem linha individual.
-- Converta datas DD/MM para YYYY-MM-DD usando o ano mais provável da fatura; se o ano não aparecer, use ${currentYear}.
-- Categorias de despesa disponíveis: ${JSON.stringify(expenseCategories)}
-- Categorias de receita disponíveis: ${JSON.stringify(incomeCategories)}
-- suggestedCategoryId deve ser null se nenhuma categoria encaixar.`;
+  const userContent = useMarkdown
+    ? `Cartão: ${params.cardName}\n\nTabela da fatura:\n${markdown.table}`
+    : `Cartão: ${params.cardName}\n\nTexto da fatura:\n${params.rawText.length > 6000 ? params.rawText.substring(0, 6000) + '\n[...]' : params.rawText}`;
 
   const result = await callGroq([
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: `Cartão: ${params.cardName}\n\nTexto/linhas da fatura:\n${truncated}` },
+    { role: 'user', content: userContent },
   ], { model: 'llama-3.3-70b-versatile', maxTokens: 5000, temperature: 0.1 });
 
   return parseJsonArray<any>(result)
-    .map((item, index) => normalizeLine(item, index, params.source ?? 'pdf'))
+    .map((item, index) => {
+      const raw = { ...item };
+      if (raw.suggestedCategoryName && categoryMap.has(String(raw.suggestedCategoryName).toLowerCase().trim())) {
+        raw.suggestedCategoryId = categoryMap.get(String(raw.suggestedCategoryName).toLowerCase().trim());
+        delete raw.suggestedCategoryName;
+      } else if (raw.suggestedCategoryName) {
+        delete raw.suggestedCategoryName;
+      }
+      return normalizeLine(raw, index, params.source ?? 'pdf');
+    })
     .filter((item): item is ImportedInvoiceLine => Boolean(item));
 }
 
