@@ -164,9 +164,10 @@ export function InvoiceReconciliationDialog({
       setCategoryOverrides(initialCategories);
       setStep('review');
       toast.success(`${parsed.lines.length} linha(s) analisada(s) para conferência.`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Invoice reconciliation import error:', err);
-      toast.error('Erro ao analisar a fatura. Verifique o arquivo e tente novamente.');
+      const msg = err?.message || 'Erro ao analisar a fatura. Verifique o arquivo e tente novamente.';
+      toast.error(msg);
       setStep('idle');
     }
   };
