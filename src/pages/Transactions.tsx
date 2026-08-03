@@ -308,9 +308,9 @@ export function Transactions() {
 
       let totalAmount = 0;
       invoiceTransactions.forEach(t => {
-        if (t.type === 'despesa') totalAmount += t.amount;
-        else if (t.type === 'receita') totalAmount -= t.amount;
-        else if (t.type === 'transferencia') {
+        if (t.type === 'despesa' || t.type === 'expense') totalAmount += t.amount;
+        else if (t.type === 'receita' || t.type === 'income') totalAmount -= t.amount;
+        else if (t.type === 'transferencia' || t.type === 'transfer') {
           if (t.accountId === closePeriodAccountId) totalAmount -= t.amount; // Outflow from card (e.g. cash advance)
           if (t.destinationAccountId === closePeriodAccountId) totalAmount -= t.amount; // Inflow to card (e.g. payment)
         }
@@ -914,8 +914,11 @@ ${sample.map(t =>
     return groups;
   }, [processedTransactions]);
 
+  const isValidMonthFormat = (v: string) => /^\d{4}-\d{2}$/.test(v);
+
   const handlePrevMonth = () => {
-    const [year, month] = selectedMonth.split('-').map(Number);
+    const base = isValidMonthFormat(selectedMonth) ? selectedMonth : currentMonthStr;
+    const [year, month] = base.split('-').map(Number);
     let newMonth = month - 1;
     let newYear = year;
     if (newMonth < 1) {
@@ -926,7 +929,8 @@ ${sample.map(t =>
   };
 
   const handleNextMonth = () => {
-    const [year, month] = selectedMonth.split('-').map(Number);
+    const base = isValidMonthFormat(selectedMonth) ? selectedMonth : currentMonthStr;
+    const [year, month] = base.split('-').map(Number);
     let newMonth = month + 1;
     let newYear = year;
     if (newMonth > 12) {
@@ -1055,7 +1059,7 @@ ${sample.map(t =>
                   <Input 
                     type="month" 
                     value={selectedMonth} 
-                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    onChange={(e) => { if (/^\d{4}-\d{2}$/.test(e.target.value) || e.target.value === '') setSelectedMonth(e.target.value); }}
                     className="h-11 bg-background shadow-sm border-secondary/30 rounded-xl"
                   />
                   <Button variant="outline" size="icon" onClick={handleNextMonth} className="h-11 w-11 rounded-xl shrink-0">
@@ -1446,12 +1450,12 @@ ${sample.map(t =>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="closeMonth">Mês/Ano</Label>
-                  <Input 
-                    id="closeMonth" 
-                    type="month" 
-                    value={closePeriodMonth} 
-                    onChange={(e) => setClosePeriodMonth(e.target.value)} 
-                  />
+                    <Input 
+                      id="closeMonth" 
+                      type="month" 
+                      value={closePeriodMonth} 
+                      onChange={(e) => { if (/^\d{4}-\d{2}$/.test(e.target.value) || e.target.value === '') setClosePeriodMonth(e.target.value); }} 
+                    />
                 </div>
                 {creditCards.some(cc => cc.id === closePeriodAccountId) && (
                   <div className="space-y-2">

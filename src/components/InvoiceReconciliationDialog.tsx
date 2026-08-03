@@ -25,6 +25,7 @@ interface InvoiceReconciliationDialogProps {
   invoicePeriod: string;
   categories: any[];
   systemTransactions: Transaction[];
+  invoices: any[];
   onApplied?: () => void;
 }
 
@@ -61,6 +62,7 @@ export function InvoiceReconciliationDialog({
   invoicePeriod,
   categories,
   systemTransactions,
+  invoices,
   onApplied,
 }: InvoiceReconciliationDialogProps) {
   const [step, setStep] = useState<'idle' | 'extracting' | 'matching' | 'review' | 'applying'>('idle');
@@ -186,6 +188,13 @@ export function InvoiceReconciliationDialog({
 
   const handleApply = async () => {
     if (!card || lines.length === 0) return;
+
+    const invoice = invoices.find((i: any) => i.cardId === card.id && i.period === invoicePeriod);
+    if (invoice && (invoice.status === 'fechada' || invoice.status === 'paga')) {
+      toast.error('Esta fatura já está fechada. Reabra-a antes de aplicar a conferência.');
+      return;
+    }
+
     const diffRequiresConfirmation = Math.abs(totals.difference) >= 0.01 || unmatchedSystem.length > 0;
     if (diffRequiresConfirmation) {
       const ok = window.confirm(`Ainda há diferença de ${formatMoney(totals.difference)} e ${unmatchedSystem.length} lançamento(s) sobrando no Fiducia. Finalizar mesmo assim?`);

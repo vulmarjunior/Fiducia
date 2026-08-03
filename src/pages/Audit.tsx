@@ -432,7 +432,7 @@ export function Audit() {
               <input
                 type="month"
                 value={closePeriodData.month}
-                onChange={(e) => setClosePeriodData(prev => ({ ...prev, month: e.target.value }))}
+                onChange={(e) => { if (/^\d{4}-\d{2}$/.test(e.target.value) || e.target.value === '') setClosePeriodData(prev => ({ ...prev, month: e.target.value })); }}
                 className="flex h-11 w-full rounded-md border border-input bg-background dark:bg-input/50 px-3 py-2 text-sm shadow-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary/50 text-foreground"
                 />
             </div>

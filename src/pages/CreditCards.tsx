@@ -269,6 +269,11 @@ export function CreditCards() {
       return;
     }
 
+    if (isPeriodClosed(paymentData.date, paymentData.accountId, cards, invoices, closedPeriods)) {
+      toast.error('Período fechado para a conta de origem do pagamento.');
+      return;
+    }
+
     // Período correto baseado no mês selecionado no modal
     const currentPeriod = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
     const nextPeriod = getNextPeriod(currentPeriod);
@@ -387,6 +392,11 @@ export function CreditCards() {
       }
 
       const newInvoicePeriod = `${year}-${month.toString().padStart(2, '0')}`;
+
+      if (isPeriodClosed(tx.date, tx.accountId, cards, invoices, closedPeriods, newInvoicePeriod)) {
+        toast.error('Não é possível mover um lançamento para uma fatura fechada.');
+        return;
+      }
 
       await updateDoc(doc(db, 'transactions', tx.id), {
         invoicePeriod: newInvoicePeriod,
@@ -579,6 +589,13 @@ export function CreditCards() {
     expandedSeries: Array<{ txId: string; installmentNumber: number; totalInstallments: number }>
   ) => {
     if (!user || !selectedCardForInvoice) return;
+
+    const currentPeriod = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
+    const invoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === currentPeriod);
+    if (invoice && (invoice.status === 'fechada' || invoice.status === 'paga')) {
+      toast.error('Esta fatura já está fechada. Reabra-a antes de importar transações.');
+      return;
+    }
 
     try {
       const batch = writeBatch(db);
@@ -1705,6 +1722,7 @@ export function CreditCards() {
           card={selectedCardForInvoice}
           invoicePeriod={`${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`}
           categories={categories}
+          invoices={invoices}
           systemTransactions={transactions.filter(t =>
             (t.accountId === selectedCardForInvoice.id || t.destinationAccountId === selectedCardForInvoice.id) &&
             t.invoicePeriod === `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`

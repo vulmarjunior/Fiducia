@@ -1408,8 +1408,8 @@ export function TransactionDialog() {
                     <Input
                       id="tx-invoice"
                       type="month"
-                      value={formData.invoicePeriod}
-                      onChange={(e) => setFormData({ ...formData, invoicePeriod: e.target.value })}
+                      value={formData.invoicePeriod || ''}
+                      onChange={(e) => { if (/^\d{4}-\d{2}$/.test(e.target.value) || e.target.value === '') setFormData(prev => ({ ...prev, invoicePeriod: e.target.value })); }}
                       className="bg-muted border-none focus:ring-2 focus:ring-primary/20 h-10 text-sm rounded-xl text-fiducia-blue font-bold"
                       required={isCreditCard}
                     />
