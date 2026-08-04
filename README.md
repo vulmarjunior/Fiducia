@@ -174,3 +174,7 @@ Cada coleção é isolada por `userId`.
 ## Licença
 
 Projeto privado. Todos os direitos reservados.
+
+### Configuração da IA
+
+Configure `GROQ_API_KEY` somente nas variáveis de ambiente server-side da Vercel. A aplicação envia chamadas autenticadas para `/api/groq`; não use `VITE_GROQ_API_KEY` nem exponha a chave no cliente.

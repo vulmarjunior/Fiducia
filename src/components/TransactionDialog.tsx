@@ -17,6 +17,7 @@ import { Repeat, MessageSquare, Tag, Paperclip, ThumbsUp, ThumbsDown, Plus } fro
 import Select from 'react-select';
 import { motion } from 'motion/react';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
+import { normalizeCreditCardTransaction } from '../lib/creditCardTransaction';
 
 const now = new Date();
 const currentDateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
@@ -167,14 +168,15 @@ export function TransactionDialog() {
   }, [options?.presetAccountId, options?.presetType]);
 
   const populateEdit = useCallback((tx: any) => {
-    const cardFromTx = creditCards.find((c: any) => c.id === tx.accountId);
+    const normalizedAccountId = tx.accountId || tx.creditCardId || '';
+    const normalizedTx = normalizeCreditCardTransaction(tx);
     setFormData({
       type: tx.type || 'despesa',
       amount: tx.amount || 0,
       date: tx.date?.split('T')[0] || currentDateStr,
       description: tx.description || '',
       categoryId: resolveCategoryId(categories, tx.categoryId || ''),
-      accountId: tx.accountId || '',
+      accountId: normalizedAccountId,
       destinationAccountId: tx.destinationAccountId || '',
       status: tx.status || 'pago',
       invoicePeriod: tx.invoicePeriod || '',
@@ -189,7 +191,7 @@ export function TransactionDialog() {
       remainderPosition: 'first',
     });
     setEditingId(tx.id);
-    setEditingTx(tx);
+    setEditingTx(normalizedTx);
     setShowRecurrence(!!tx.parentId);
     setShowObservation(!!tx.observation);
     setShowTags(!!(tx.tags && tx.tags.length > 0));
@@ -656,7 +658,8 @@ export function TransactionDialog() {
           const txRef = doc(db, 'transactions', editingId);
           const txSnap = await transaction.get(txRef);
           if (!txSnap.exists()) throw new Error('Transaction not found');
-          const oldT = txSnap.data() as any;
+          const rawOldT = txSnap.data() as any;
+          const oldT = normalizeCreditCardTransaction(rawOldT);
 
           let accountSnap: any = null;
           let balanceDelta = 0;
@@ -748,7 +751,8 @@ export function TransactionDialog() {
           const txRef = doc(db, 'transactions', editingId);
           const txSnap = await transaction.get(txRef);
           if (!txSnap.exists()) throw new Error('Transaction not found');
-          const oldT = txSnap.data() as any;
+          const rawOldT = txSnap.data() as any;
+          const oldT = normalizeCreditCardTransaction(rawOldT);
 
           let accountSnap: any = null;
           let balanceDelta = 0;
@@ -829,7 +833,8 @@ export function TransactionDialog() {
           const txRef = doc(db, 'transactions', editingId);
           const txSnap = await transaction.get(txRef);
           if (!txSnap.exists()) throw new Error('Transaction not found');
-          const oldT = txSnap.data() as any;
+          const rawOldT = txSnap.data() as any;
+          const oldT = normalizeCreditCardTransaction(rawOldT);
 
           let accountSnap: any = null;
           let balanceDelta = 0;
@@ -1019,7 +1024,8 @@ export function TransactionDialog() {
             const txRef = doc(db, 'transactions', editingTx.id);
             const txSnap = await transaction.get(txRef);
             if (!txSnap.exists()) throw new Error('Transaction not found');
-            const oldT = txSnap.data() as any;
+            const rawOldT = txSnap.data() as any;
+            const oldT = normalizeCreditCardTransaction(rawOldT);
 
             const accountDeltas: Record<string, number> = {};
 
@@ -1116,7 +1122,8 @@ export function TransactionDialog() {
             const txRef = doc(db, 'transactions', editingTx.id);
             const txSnap = await transaction.get(txRef);
             if (!txSnap.exists()) throw new Error('Transaction not found');
-            const oldT = txSnap.data() as any;
+            const rawOldT = txSnap.data() as any;
+            const oldT = normalizeCreditCardTransaction(rawOldT);
 
             const accountDeltas: Record<string, number> = {};
 
@@ -1218,7 +1225,8 @@ export function TransactionDialog() {
           const txRef = doc(db, 'transactions', editingId);
           const txSnap = await transaction.get(txRef);
           if (!txSnap.exists()) throw new Error('Transaction not found');
-          const oldT = txSnap.data() as any;
+          const rawOldT = txSnap.data() as any;
+          const oldT = normalizeCreditCardTransaction(rawOldT);
 
           const accountDeltas: Record<string, number> = {};
 

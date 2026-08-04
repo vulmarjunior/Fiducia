@@ -19,6 +19,7 @@ import { SettingsPage } from './pages/Settings';
 import { ImportCenter } from './pages/ImportCenter';
 import { Toaster } from './components/ui/sonner';
 import { TooltipProvider } from './components/ui/tooltip';
+import { ReportingPeriodProvider } from './contexts/ReportingPeriodContext';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isAuthReady } = useAuth();
@@ -52,6 +53,7 @@ export default function App() {
   return (
     <AuthProvider>
       <TooltipProvider delay={300}>
+        <ReportingPeriodProvider>
         <Router>
           <Routes>
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -76,6 +78,7 @@ export default function App() {
             </Route>
           </Routes>
         </Router>
+        </ReportingPeriodProvider>
         <Toaster />
       </TooltipProvider>
     </AuthProvider>

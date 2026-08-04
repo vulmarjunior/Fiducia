@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.7.3` |
+| **Versão atual** | `0.8.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-04 (visibilidade e consistência de pagamentos parciais em cartões e relatórios) |
+| **Última alteração em código** | 2026-08-04 (segurança da IA, testes de fluxo, edição de cartão e período compartilhado) |
 | **Último deploy** | 2026-08-04 — regras Firestore da v0.7.2 |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -116,20 +116,20 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 
 | # | Item | Status | Observação |
 |---|------|--------|------------|
-| 1 | Unificação de contexto temporal entre Dashboard e Transactions | 🔄 Parcial | Alguns guards já aplicados; filtro padrão "mês atual" pendente |
+| 1 | Unificação de contexto temporal entre Dashboard e Transactions | ✅ Concluído | v0.8.0 — contexto mensal persistente e compartilhado |
 | 2 | Dropdown centralizado de categorias | ✅ Concluído | `CategorySelect` compartilhado |
 | 3 | Correção de categorias por string legível (migration) | ✅ Concluído | v0.7.0 — `resolveCategoryId`, `categoryMigration.ts`, auto-heal no Dashboard |
-| 4 | Consistência de mutabilidade — transações de cartão editáveis | ⚠️ Pendente | Parcelas de cartão no modal unificado; verificar se todas são editáveis |
+| 4 | Consistência de mutabilidade — transações de cartão editáveis | ✅ Concluído | v0.8.0 — normalização de lançamentos legados/importados por `creditCardId` |
 | 5 | Alerta de limite disponível (configurável) | ✅ Concluído | v0.7.0 — slider 50-95% em Configurações, badge no cartão, barra colorida no Dashboard |
 | 6 | Estorno total / parcial de compras | ✅ Concluído | v0.7.0 — botão Undo no Transactions + dropdown Estornar no CreditCards, diálogo total/parcial |
 | 7 | Pagamento parcial de fatura | ✅ Concluído | v0.7.0 — `paymentTransactionIds[]`, `paidAmount`, status `parcial`, múltiplos pagamentos |
 | 8 | Paradigmas de orçamento (impacto fracionado vs integral) | ✅ Concluído | v0.7.0 — `getBudgetImpact()` em utils, seletor em Configurações |
-| 9 | Testes automatizados (integração + unitários) | 🔄 Parcial | Unitários 63/63; integração pendente |
+| 9 | Testes automatizados (integração + unitários) | ✅ Concluído | v0.8.0 — 66/66, incluindo fluxo integrado de pagamento, saldo e fatura |
 | 10 | Gestão de versão / releases | ✅ Concluído | v0.7.0; exibida no Login e Dashboard |
 | 11 | Central de Importacao Assistida - Fases 1 e 2 | ✅ Concluído | Entregues em v0.6.0 |
 | 12 | Central de Importacao Assistida - Fase 3 | ⚠️ Futuro | E-mail, app companion Android, Open Finance, perfis avançados |
 | 13 | CI/CD — GitHub Actions | ✅ Concluído | v0.7.0 — `.github/workflows/ci.yml`: lint + test + build |
-| 14 | Chave Groq em proxy | ⚠️ Pendente | Código pendente de deploy (requer Firebase Function ou Vercel Edge) |
+| 14 | Chave Groq em proxy | ✅ Concluído | v0.8.0 — Vercel Function autenticada por Firebase ID token |
 
 ---
 
@@ -137,9 +137,9 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 
 | Risco | Severidade | Descrição |
 |-------|-----------|-----------|
-| Sem testes de integração | Alta | Regressões podem passar despercebidas em refatorações |
+| Testes dependentes de emulador | Baixa | Fluxos de domínio cobertos; suíte end-to-end com Firebase Emulator pode ampliar a cobertura |
 | Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard |
-| IA client-side | Média | Chave Groq exposta no bundle (client-side only); Cloud Function pendente de deploy |
+| IA server-side | ✅ Resolvido | Chave Groq restrita à Vercel Function; bundle verificado sem segredo |
 | Single developer | Alta | Todo conhecimento está em um único desenvolvedor (documentação atenua) |
 | Sem CI/CD | ✅ Resolvido | GitHub Actions configurado em v0.7.0 |
 
@@ -181,7 +181,7 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 
 ## 10. Próximo Passo Autorizado
 
-Itens entregues em v0.7.0 a v0.7.3 (2026-08-04):
+Itens entregues em v0.7.0 a v0.8.0 (2026-08-04):
 1. ✅ Pagamento parcial de fatura — `paymentTransactionIds[]`, `paidAmount`, status `parcial`
 2. ✅ Correção de categorias por string legível — `resolveCategoryId`, migration auto-heal
 3. ✅ CI/CD — GitHub Actions (lint + test + build)
@@ -191,9 +191,8 @@ Itens entregues em v0.7.0 a v0.7.3 (2026-08-04):
 7. ✅ Correção de permissão no Firestore para pagamento de fatura (v0.7.1).
 8. ✅ Correção transacional de pagamentos totais/parciais (v0.7.2) — total canônico, cálculo em centavos, proteção contra duplicidade e fechamento protegido.
 9. ✅ Experiência e consistência de pagamentos parciais (v0.7.3) — saldo líquido nos cards, progresso e histórico na fatura, saldo remanescente visível e relatórios pelo valor em aberto.
+10. ✅ Backlog técnico 1–4 (v0.8.0) — proxy Groq autenticado, testes integrados, edição uniforme de cartão e período mensal compartilhado.
 
 Pendências para sessão futura:
-- Chave Groq em proxy — implementar Cloud Function (Firebase/Vercel), deploy pendente
-- Testes de integração — setup Firebase Emulator + cenários core
-- Consistência de mutabilidade — transações de cartão editáveis (item 4)
 - Central de Importação Fase 3 — e-mail, app Android, Open Finance (longo prazo)
+- Ampliação opcional de testes end-to-end com Firebase Emulator

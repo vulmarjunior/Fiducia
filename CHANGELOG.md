@@ -5,6 +5,25 @@
 
 ---
 
+## [0.8.0] — 2026-08-04 — Segurança da IA e Consistência Operacional
+
+**Resultado:** As quatro pendências técnicas prioritárias foram concluídas. A chave Groq deixou o navegador, pagamentos e saldos ganharam testes integrados, lançamentos de cartão importados podem ser editados corretamente e Dashboard/Lançamentos compartilham o mesmo mês de referência.
+
+**Alterações técnicas:**
+- `api/groq.ts` — proxy Vercel autenticado por Firebase ID token, validação de payload e limite de parâmetros.
+- `src/services/groqService.ts`, `vite.config.ts` — cliente usa `/api/groq`; removida a injeção da chave no bundle.
+- `src/lib/financialFlows.integration.test.ts` — fluxo integrado de pagamentos parciais, quitação, saldo e precisão em centavos.
+- `src/lib/creditCardTransaction.ts`, `src/components/TransactionDialog.tsx` — normalização de lançamentos de cartão legados/importados.
+- `src/contexts/ReportingPeriodContext.tsx`, `src/pages/Dashboard.tsx`, `src/pages/Transactions.tsx` — mês persistente e compartilhado.
+- `package.json`, `package-lock.json`, `src/lib/utils.ts` — versão `0.8.0`.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 66/66 testes passando.
+- `npm run build` — build de produção concluído.
+- Bundle inspecionado — nenhum padrão de chave Groq presente.
+
+---
 ## [0.7.3] — 2026-08-04 — Visibilidade e Consistência de Pagamentos Parciais
 
 **Resultado:** O usuário passa a ver claramente quanto já pagou e quanto ainda falta pagar. O card do cartão, o detalhe da fatura e os relatórios usam o saldo remanescente, sem reapresentar a fatura anterior pelo valor integral.
