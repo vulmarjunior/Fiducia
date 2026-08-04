@@ -139,3 +139,9 @@ Para replicar exatamente a funcionalidade orgânica produzida aqui acima, não c
   2. `diagnoseBalance()` detecta e sinaliza `initialBalance` ausente com flag `initialBalanceMissing`.
   3. UI do diagnóstico exibe aviso âmbar quando `initialBalance` está ausente e orienta o usuário a usar Ajustar Saldo após sincronizar. Botão Sincronizar também persiste `initialBalance: 0` quando ausente.
 
+
+## Segurança das Chamadas de IA (v0.8.0)
+
+O cliente nunca acessa a Groq diretamente e não recebe `GROQ_API_KEY`. `callGroq()` obtém o Firebase ID token do usuário e chama `/api/groq`. A Vercel Function valida o token no Firebase Authentication, restringe modelo e tamanho do payload e somente então usa a chave disponível no ambiente server-side.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode

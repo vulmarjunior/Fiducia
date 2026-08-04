@@ -24,6 +24,7 @@ import { calculateInvoicePeriod, resolveAccountName, isEffectivelyPaid, isPeriod
 import { PageHelp } from '../components/PageHelp';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { generateAccountStatementPDF } from '../lib/pdfTemplates';
+import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
 
 const TransactionObservation = ({ observation }: { observation: string }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -109,6 +110,7 @@ export function Transactions() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const { open: openTxDialog } = useTransactionDialog();
   const location = useLocation();
+  const { selectedMonth, setSelectedMonth } = useReportingPeriod();
   const [isClosePeriodDialogOpen, setIsClosePeriodDialogOpen] = useState(false);
   
   const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
@@ -119,7 +121,6 @@ export function Transactions() {
   const currentMonthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
   const currentDateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
   
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthStr);
   const [startDate, setStartDate] = useState(`${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`);
   const [endDate, setEndDate] = useState(new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('en-CA'));
   const [searchTerm, setSearchTerm] = useState('');
@@ -270,7 +271,7 @@ export function Transactions() {
     const presetMonth = (location.state as any)?.presetMonth;
     if (presetAccountId && transactions.length >= 0) {
       setSelectedAccountFilter(presetAccountId);
-      if (presetMonth) setSelectedMonth(presetMonth);
+      if (presetMonth) { setSelectedMonth(presetMonth); setFilterType('month'); }
       window.history.replaceState({}, '');
     }
   }, [location.state, transactions]);

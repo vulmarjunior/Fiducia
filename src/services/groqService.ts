@@ -1,4 +1,6 @@
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+import { auth } from '../firebase';
+
+const GROQ_PROXY_URL = '/api/groq';
 
 interface GroqMessage {
   role: "user" | "assistant" | "system";
@@ -26,10 +28,13 @@ export async function callGroq(
 
   let response: Response;
   try {
-    response = await fetch(GROQ_API_URL, {
+    const idToken = await auth.currentUser?.getIdToken();
+    if (!idToken) throw new Error('Faça login novamente para usar os recursos de IA.');
+
+    response = await fetch(GROQ_PROXY_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        Authorization: `Bearer ${idToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -49,7 +54,9 @@ export async function callGroq(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Groq API error (${response.status}): ${errorText}`);
+    let message = errorText;
+    try { message = JSON.parse(errorText)?.error || errorText; } catch { /* resposta textual */ }
+    throw new Error(`Serviço de IA (${response.status}): ${message}`);
   }
 
   const data = await response.json();

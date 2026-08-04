@@ -12,6 +12,7 @@ import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLoca
 import { callGroq } from '../services/groqService';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
+import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
 import { migrateCategoryIds } from '../services/categoryMigration';
  
 export function Dashboard() {
@@ -32,6 +33,7 @@ export function Dashboard() {
   const [extraSectionsOpen, setExtraSectionsOpen] = useState(false);
   const [showPendingChart, setShowPendingChart] = useState(false);
   const navigate = useNavigate();
+  const { selectedMonth, setSelectedMonth } = useReportingPeriod();
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -186,7 +188,7 @@ Regras OBRIGATÓRIAS:
   const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
   
   const now = new Date();
-  const currentMonthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+  const currentMonthStr = selectedMonth;
   const currentDateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
   
   const currentMonthTransactions = transactions.filter(t => {
@@ -416,6 +418,7 @@ Regras OBRIGATÓRIAS:
           <div className="text-[28px] font-bold tracking-tight text-foreground">Visão Geral</div>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} aria-label="Mês de referência do Dashboard" className="h-10 rounded-lg border border-border bg-card px-3 text-sm font-semibold" />
           <button 
             onClick={() => setShowValues(!showValues)}
             className="p-2 rounded-lg border border-border bg-card hover:bg-secondary transition-colors text-muted-foreground"
