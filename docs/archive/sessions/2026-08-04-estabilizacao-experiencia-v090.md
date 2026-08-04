@@ -34,7 +34,8 @@ Executar a sequência recomendada após a análise sistêmica: segurança, teste
 - `npx vitest run --maxWorkers=1`: 70 aprovados, 2 testes de emulador ignorados sem host local.
 - `npm run build`: aprovado.
 - `npm audit --omit=dev`: 0 vulnerabilidades.
-- Testes do emulador serão executados no GitHub Actions com Java 21.
+- Firebase Emulator aprovado no GitHub Actions com Java 21.
+- Deploy Vercel e índice composto do Firestore publicados em produção.
 
 ## Pendências futuras
 
