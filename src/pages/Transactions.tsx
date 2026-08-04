@@ -352,7 +352,7 @@ export function Transactions() {
           description: `Pagamento Fatura ${card.name} - ${closePeriodMonth}`,
           accountId: closePeriodPaymentAccountId,
           destinationAccountId: closePeriodAccountId,
-          categoryId: 'Pagamento de Cartão',
+          categoryId: null,
           status: 'pendente',
           invoicePeriod: closePeriodMonth,
           createdAt: new Date().toISOString()
