@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
 import { MoneyInput } from '../components/MoneyInput';
 import { logActivity } from '../services/activityLogService';
+import { getBudgetImpact } from '../lib/utils';
 
 export function Budgets() {
   const { user, isAuthReady } = useAuth();
@@ -201,9 +202,10 @@ export function Budgets() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {budgets.map((budget) => {
           const category = categories.find(c => c.id === budget.categoryId);
+          const paradigm = localStorage.getItem('fiducia_budgetParadigm') || 'fracionado';
           const spent = transactions
             .filter(t => t.categoryId === budget.categoryId && (t.type === 'despesa' || t.type === 'expense'))
-            .reduce((sum, t) => sum + t.amount, 0);
+            .reduce((sum, t) => sum + getBudgetImpact(t, paradigm), 0);
           const percentage = Math.min(100, Math.round((spent / budget.amount) * 100));
           const isOverBudget = spent > budget.amount;
 

@@ -132,10 +132,12 @@ export interface Invoice {
   userId: string;
   cardId: string;
   period: string;
-  status: 'aberta' | 'fechada' | 'paga';
+  status: 'aberta' | 'fechada' | 'paga' | 'parcial';
   totalAmount: number;
   closedAt?: string;
   paymentTransactionId?: string;
+  paymentTransactionIds?: string[];
+  paidAmount?: number;
 }
 
 export interface ReconciliationHistory {

@@ -5,6 +5,61 @@
 
 ---
 
+## [0.7.0] — 2026-08-04 — Pagamento Parcial, Migration Categorias e Melhorias
+
+**Resultado:** Seis itens do backlog entregues. Faturas de cartão agora aceitam múltiplos pagamentos parciais com status `parcial`. Categorias com IDs legados (string legível) são auto-corrigidas em tempo real e migradas em batch. CI/CD via GitHub Actions. Alerta de limite de cartão configurável. Estorno total/parcial de despesas. Paradigma de orçamento fracionado vs integral.
+
+### Pagamento Parcial de Fatura
+- `src/types/index.ts` — `Invoice`: status `'parcial'`, campos `paymentTransactionIds: string[]` e `paidAmount: number`
+- `src/pages/CreditCards.tsx` — `handlePayInvoice` acumula pagamentos, status `parcial` vs `paga`, validação de excedente, badge "Pagamento Parcial" (âmbar), botão "Pagar Remanescente"
+- `src/pages/Transactions.tsx` — auto-sync recalcula `paidAmount` via loop em `paymentTransactionIds[]`
+- `src/components/TransactionDialog.tsx` — 3 blocos de sync atualizados para somar/ajustar `paidAmount` conforme mudança de status
+- `src/lib/cashCoverage.ts` — faturas `parcial` usam `totalAmount - paidAmount` como obrigação
+- `src/lib/invoiceAnalysis.ts` — `parcial` tratado como `closed`
+- `src/lib/pdfTemplates.ts` — status label "PARCIAL", cor âmbar
+- `src/pages/Dashboard.tsx`, `src/pages/Reports.tsx` — filtros incluem `parcial`, saldo remanescente
+- `src/lib/utils.ts` — funções `getInvoicePaymentIds()`, `isInvoiceClosed()`
+
+### Correção de Categorias por String Legível (Migration)
+- `src/lib/utils.ts` — `resolveCategoryId()` detecta ID não-UUID e faz match por nome exato/case-insensitive
+- `src/components/CategorySelect.tsx` — usa `resolveCategoryId` no valor do Select
+- `src/components/TransactionDialog.tsx` — `populateEdit` resolve `categoryId` ao abrir edição
+- `src/services/categoryMigration.ts` — **novo** — scan em transactions/budgets, match por nome, `writeBatch` atômico
+- `src/pages/Dashboard.tsx` — migration executa uma vez ao carregar
+
+### CI/CD
+- `.github/workflows/ci.yml` — **novo** — lint, test, build em push/PR no main
+
+### Alerta de Limite de Cartão
+- `src/pages/Settings.tsx` — slider 50-95% em Configurações > Preferências
+- `src/pages/CreditCards.tsx` — badge "Limite Alerta" ou "⚠ Limite Crítico" no card
+- `src/pages/Dashboard.tsx` — barra de progresso colorida (azul/âmbar/vermelho)
+
+### Estorno Total/Parcial
+- `src/pages/Transactions.tsx` — botão `Undo` nas ações, diálogo com Total/Parcial, cria receita vinculada via `parentId`
+- `src/pages/CreditCards.tsx` — opção "Estornar" nos dropdowns de transação de cartão
+
+### Paradigmas de Orçamento
+- `src/lib/utils.ts` — `getBudgetImpact(tx, paradigm)`: Fracionado (cada parcela conta) / Integral (total na 1ª)
+- `src/pages/Settings.tsx` — seletor em Configurações > Preferências
+- `src/pages/Dashboard.tsx`, `src/pages/Budgets.tsx`, `src/pages/Reports.tsx` — usam `getBudgetImpact`
+
+**Correções e causa-raiz:**
+- Teste `invoiceAnalysis.test.ts` — 1 falha por data fixa (`'2026-08'` caiu no mês corrente em 04/08/2026), não relacionada às alterações
+
+**Validações:**
+- `npm run lint` — Sem erros
+- `npm run test` — 53/54 passando (1 falha pré-existente)
+- `npm run build` — Build OK
+
+**Pendências para sessão futura:**
+- Chave Groq em proxy — implementar Cloud Function / Vercel Edge
+- Testes de integração — setup Firebase Emulator + cenários core
+- Consistência de mutabilidade — transações de cartão editáveis
+- Central de Importação Fase 3 — e-mail, app Android, Open Finance
+
+---
+
 ## [0.6.1] — 2026-07-13 — Períodos Civis na Projeção Futura
 
 **Resultado:** O seletor de período da Projeção Futura passa a usar meses civis (até o último dia do mês) em vez de meses rolantes a partir da data atual. Adicionado filtro "30 dias" para verificação de liquidez de curto prazo.

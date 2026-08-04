@@ -1,5 +1,6 @@
 import Select from 'react-select';
 import { getCategoryIcon } from '../lib/categoryIcons';
+import { resolveCategoryId } from '../lib/utils';
 
 interface CategoryOption {
   value: string;
@@ -32,6 +33,8 @@ const getCategoryOptions = (cats: any[], parentId: string | null = null, level: 
 };
 
 export function CategorySelect({ categories, value, onChange, typeFilter, placeholder }: CategorySelectProps) {
+  const resolvedValue = resolveCategoryId(categories, value);
+
   const filtered = typeFilter ? categories.filter(c => {
     if (c.type === typeFilter) return true;
     if ((typeFilter === 'expense' || typeFilter === 'despesa') && (c.type === 'expense' || c.type === 'despesa')) return true;
@@ -47,8 +50,11 @@ export function CategorySelect({ categories, value, onChange, typeFilter, placeh
   return (
     <Select
       options={opts}
-      value={opts.find(c => c.value === value) || null}
-      onChange={(selected: any) => onChange(selected?.value || '')}
+      value={opts.find(c => c.value === resolvedValue) || opts.find(c => c.value === value) || null}
+      onChange={(selected: any) => {
+        const val = selected?.value || '';
+        onChange(val);
+      }}
       placeholder={placeholder || 'Buscar...'}
       isSearchable
       classNamePrefix="rs"

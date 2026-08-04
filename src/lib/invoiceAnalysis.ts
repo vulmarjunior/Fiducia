@@ -193,7 +193,7 @@ export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnal
       const invoice = invoices.find((i: any) => i.cardId === card.id && i.period === period);
       const amount = computeInvoiceAmount(transactions, card.id, period, includeCredits);
 
-      if (amount <= 0 && (!invoice || invoice.status === 'paga')) {
+      if (amount <= 0 && (!invoice || invoice.status === 'paga' || invoice.status === 'parcial')) {
         if (invoice?.status === 'paga') {
           const paidAmount = invoice.totalAmount || amount;
           globalGrandTotal += paidAmount;
@@ -215,7 +215,7 @@ export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnal
       let status: 'open' | 'closed' | 'paid' | 'future';
       if (invoice?.status === 'paga') {
         status = 'paid';
-      } else if (invoice?.status === 'fechada') {
+      } else if (invoice?.status === 'fechada' || invoice?.status === 'parcial') {
         status = 'closed';
       } else if (invoice?.status === 'aberta') {
         status = 'open';

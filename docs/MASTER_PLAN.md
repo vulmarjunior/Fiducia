@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.6.1` |
+| **Versão atual** | `0.7.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-07-13 (períodos mês civil na projeção futura + correção de testes) |
+| **Última alteração em código** | 2026-08-04 (pagamento parcial, migration categorias, CI/CD, alerta limite, estorno, paradigma orçamento) |
 | **Último deploy** | Não registrado formalmente |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -112,22 +112,24 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 ## 6. Backlog Ativo
 
-As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev-log.md`. Status verificado contra o código em 2026-06-22.
+As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev-log.md`. Status verificado contra o código em 2026-08-04.
 
 | # | Item | Status | Observação |
 |---|------|--------|------------|
 | 1 | Unificação de contexto temporal entre Dashboard e Transactions | 🔄 Parcial | Alguns guards já aplicados; filtro padrão "mês atual" pendente |
 | 2 | Dropdown centralizado de categorias | ✅ Concluído | `CategorySelect` compartilhado |
-| 3 | Correção de categorias por string legível (migration) | ⚠️ Pendente | IDs string antigos podem ainda existir em dados legados |
+| 3 | Correção de categorias por string legível (migration) | ✅ Concluído | v0.7.0 — `resolveCategoryId`, `categoryMigration.ts`, auto-heal no Dashboard |
 | 4 | Consistência de mutabilidade — transações de cartão editáveis | ⚠️ Pendente | Parcelas de cartão no modal unificado; verificar se todas são editáveis |
-| 5 | Alerta de limite disponível (configurável) | ⚠️ Pendente | Especificado em `especificacao-cartao-credito.md` |
-| 6 | Estorno total / parcial de compras | ⚠️ Pendente | Especificado, não implementado |
-| 7 | Pagamento parcial de fatura | ⚠️ Pendente | Especificado, não implementado |
-| 8 | Paradigmas de orçamento (impacto fracionado vs integral) | ⚠️ Pendente | Especificado, não implementado |
-| 9 | Testes automatizados (integração + unitários) | 🔄 Parcial | Unitários para cartão e cobertura; integração pendente |
-| 10 | Gestão de versão / releases | ✅ Concluído | v0.1.0 definida; exibida no Login e Dashboard |
-| 11 | Central de Importacao Assistida - Fases 1 e 2 | ✅ Concluído | Entrada por texto, candidatos revisaveis, share target PWA, importacao bancaria em lote. Fases 1 e 2 entregues em v0.6.0. |
-| 12 | Central de Importacao Assistida - Fase 3 | ⚠️ Futuro | E-mail, app companion Android, Open Finance, perfis avancados por banco e aprendizado local; exige decisao de privacidade/consentimento |
+| 5 | Alerta de limite disponível (configurável) | ✅ Concluído | v0.7.0 — slider 50-95% em Configurações, badge no cartão, barra colorida no Dashboard |
+| 6 | Estorno total / parcial de compras | ✅ Concluído | v0.7.0 — botão Undo no Transactions + dropdown Estornar no CreditCards, diálogo total/parcial |
+| 7 | Pagamento parcial de fatura | ✅ Concluído | v0.7.0 — `paymentTransactionIds[]`, `paidAmount`, status `parcial`, múltiplos pagamentos |
+| 8 | Paradigmas de orçamento (impacto fracionado vs integral) | ✅ Concluído | v0.7.0 — `getBudgetImpact()` em utils, seletor em Configurações |
+| 9 | Testes automatizados (integração + unitários) | 🔄 Parcial | Unitários 54/54 (1 falha por data fixa); integração pendente |
+| 10 | Gestão de versão / releases | ✅ Concluído | v0.7.0; exibida no Login e Dashboard |
+| 11 | Central de Importacao Assistida - Fases 1 e 2 | ✅ Concluído | Entregues em v0.6.0 |
+| 12 | Central de Importacao Assistida - Fase 3 | ⚠️ Futuro | E-mail, app companion Android, Open Finance, perfis avançados |
+| 13 | CI/CD — GitHub Actions | ✅ Concluído | v0.7.0 — `.github/workflows/ci.yml`: lint + test + build |
+| 14 | Chave Groq em proxy | ⚠️ Pendente | Código pendente de deploy (requer Firebase Function ou Vercel Edge) |
 
 ---
 
@@ -135,12 +137,11 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 
 | Risco | Severidade | Descrição |
 |-------|-----------|-----------|
-| — | — | — |
 | Sem testes de integração | Alta | Regressões podem passar despercebidas em refatorações |
-| Dados legados com IDs string | Média | Categorias com IDs não-UUID podem quebrar dropdowns (plano-de-melhorias §3) |
-| IA client-side | Média | Chave Groq exposta no bundle (client-side only); sem proxy server |
+| Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard |
+| IA client-side | Média | Chave Groq exposta no bundle (client-side only); Cloud Function pendente de deploy |
 | Single developer | Alta | Todo conhecimento está em um único desenvolvedor (documentação atenua) |
-| Sem CI/CD | Baixa | Build e lint não são executados automaticamente em push/PR |
+| Sem CI/CD | ✅ Resolvido | GitHub Actions configurado em v0.7.0 |
 
 ---
 
@@ -180,19 +181,16 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 
 ## 10. Próximo Passo Autorizado
 
-Apos v0.6.0 (Central de Importacao Assistida Fases 1 e 2), o proximo item do backlog a ser abordado:
+Itens entregues em v0.7.0 (2026-08-04):
+1. ✅ Pagamento parcial de fatura — `paymentTransactionIds[]`, `paidAmount`, status `parcial`
+2. ✅ Correção de categorias por string legível — `resolveCategoryId`, migration auto-heal
+3. ✅ CI/CD — GitHub Actions (lint + test + build)
+4. ✅ Alerta de limite disponível — slider 50-95%, badge, barra colorida
+5. ✅ Estorno total/parcial — botão Undo, diálogo total/parcial, `parentId`
+6. ✅ Paradigmas de orçamento — `getBudgetImpact`, fracionado vs integral
 
-1. ~~Incluir recorrências futuras ainda não materializadas no motor de cobertura.~~ ✅ v0.4.0
-2. ~~Criar cenários conservador/realista/projetado.~~ ✅ v0.4.0
-3. ~~Refinar a UI da aba Projeção com visão diária expandível e alertas por data crítica.~~ ✅ v0.4.0
-4. ~~Corrigir inconsistências documentais pendentes: Gemini→Groq, status de IA conciliação e plano de melhorias.~~ ✅ v0.4.0
-5. ~~Central de Importacao Assistida Fases 1 e 2.~~ ✅ v0.6.0
-
-Próximos itens (MASTER_PLAN §6):
-- Correção de categorias por string legível (migration)
-- Alerta de limite disponível (configurável)
-- Estorno total/parcial de compras
-- Pagamento parcial de fatura
-- Paradigmas de orçamento (impacto fracionado vs integral)
-- Testes de integração
-- Central de Importacao Assistida - Fase 3 (e-mail, app companion Android, Open Finance)
+Pendências para sessão futura:
+- Chave Groq em proxy — implementar Cloud Function (Firebase/Vercel), deploy pendente
+- Testes de integração — setup Firebase Emulator + cenários core
+- Consistência de mutabilidade — transações de cartão editáveis (item 4)
+- Central de Importação Fase 3 — e-mail, app Android, Open Finance (longo prazo)

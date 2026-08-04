@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '../components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from '../components/ui/popover';
-import { Plus, Trash2, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Lock, FileUp, Check, X, AlertCircle, HelpCircle, Tag, Wallet, CheckCircle, AlignLeft, CreditCard, ChevronLeft, ChevronRight, Search, Repeat, MessageSquare, Paperclip, ThumbsUp, ThumbsDown, CheckCircle2, Sparkles, Loader2, FileDown, ArrowUpDown } from 'lucide-react';
+import { Plus, Trash2, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Lock, FileUp, Check, X, AlertCircle, HelpCircle, Tag, Wallet, CheckCircle, AlignLeft, CreditCard, ChevronLeft, ChevronRight, Search, Repeat, MessageSquare, Paperclip, ThumbsUp, ThumbsDown, CheckCircle2, Sparkles, Loader2, FileDown, ArrowUpDown, Undo } from 'lucide-react';
 import { toast } from 'sonner';
 import { parseOfx, OfxTransaction } from '../services/ofxService';
 import { parseCsvOrExcel } from '../services/importService';
@@ -20,7 +20,7 @@ import { callGroq } from '../services/groqService';
 import { logActivity } from '../services/activityLogService';
 import Select, { MultiValue } from 'react-select';
 import { getCategoryIcon } from '../lib/categoryIcons';
-import { calculateInvoicePeriod, resolveAccountName, isEffectivelyPaid, isPeriodClosed, formatCurrency, findSeriesTransactions, getSeriesKey } from '../lib/utils';
+import { calculateInvoicePeriod, resolveAccountName, isEffectivelyPaid, isPeriodClosed, formatCurrency, findSeriesTransactions, getSeriesKey, getInvoicePaymentIds } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { generateAccountStatementPDF } from '../lib/pdfTemplates';
@@ -130,6 +130,9 @@ export function Transactions() {
 
   const [deleteConfirmTx, setDeleteConfirmTx] = useState<any | null>(null);
   const [deleteScope, setDeleteScope] = useState('only');
+  const [estornoTx, setEstornoTx] = useState<any | null>(null);
+  const [estornoAmount, setEstornoAmount] = useState<number>(0);
+  const [isEstornoTotal, setIsEstornoTotal] = useState(true);
   const [closePeriodMonth, setClosePeriodMonth] = useState(currentMonthStr);
   const [closePeriodAccountId, setClosePeriodAccountId] = useState<string>('');
   const [closePeriodPaymentAccountId, setClosePeriodPaymentAccountId] = useState<string>('');
@@ -180,23 +183,31 @@ export function Transactions() {
       if (invoices.length > 0) {
         const syncInvoices = async () => {
           for (const invoice of invoices) {
-            if (invoice.paymentTransactionId) {
-              const paymentTx = data.find(t => t.id === invoice.paymentTransactionId) as any;
-              if (paymentTx) {
-                let newStatus = invoice.status;
-                if (paymentTx.status === 'pago' && invoice.status !== 'paga') {
-                  newStatus = 'paga';
-                } else if (paymentTx.status !== 'pago' && invoice.status === 'paga') {
-                  newStatus = 'fechada';
-                }
+            const paymentIds = getInvoicePaymentIds(invoice);
+            if (paymentIds.length === 0) continue;
 
-                if (newStatus !== invoice.status) {
-                  try {
-                    await updateDoc(doc(db, 'invoices', invoice.id), { status: newStatus });
-                  } catch (err) {
-                    console.error('Error syncing invoice status:', err);
-                  }
-                }
+            const paymentTxs = data.filter(t => paymentIds.includes(t.id)) as any[];
+            const pagoPaymentTxs = paymentTxs.filter(t => t.status === 'pago' || t.status === 'paid');
+            const totalPaid = pagoPaymentTxs.reduce((sum: number, t: any) => sum + t.amount, 0);
+            const invoiceTotal = invoice.totalAmount || 0;
+
+            let newStatus = invoice.status;
+            if (totalPaid >= invoiceTotal && invoiceTotal > 0) {
+              newStatus = 'paga';
+            } else if (totalPaid > 0 && totalPaid < invoiceTotal) {
+              newStatus = 'parcial';
+            } else if (paymentTxs.length > 0 && totalPaid === 0 && (invoice.status === 'paga' || invoice.status === 'parcial')) {
+              newStatus = 'fechada';
+            }
+
+            if (newStatus !== invoice.status || totalPaid !== (invoice.paidAmount || 0)) {
+              try {
+                await updateDoc(doc(db, 'invoices', invoice.id), {
+                  status: newStatus,
+                  paidAmount: totalPaid,
+                });
+              } catch (err) {
+                console.error('Error syncing invoice status:', err);
               }
             }
           }
@@ -355,7 +366,9 @@ export function Transactions() {
             status: 'fechada',
             totalAmount: totalAmount,
             closedAt: new Date().toISOString(),
-            paymentTransactionId: paymentTxRef.id
+            paymentTransactionIds: [paymentTxRef.id],
+            paymentTransactionId: null,
+            paidAmount: 0,
           });
         } else {
           const invoiceRef = doc(collection(db, 'invoices'));
@@ -366,7 +379,8 @@ export function Transactions() {
             status: 'fechada',
             totalAmount: totalAmount,
             closedAt: new Date().toISOString(),
-            paymentTransactionId: paymentTxRef.id
+            paymentTransactionIds: [paymentTxRef.id],
+            paidAmount: 0,
           });
         }
 
@@ -424,7 +438,59 @@ export function Transactions() {
     }
   };
 
+  const handleEstorno = async () => {
+    if (!estornoTx) return;
+    const t = estornoTx;
+    const amount = isEstornoTotal ? t.amount : estornoAmount;
+    if (amount <= 0 || amount > t.amount) {
+      toast.error('Valor do estorno inválido');
+      return;
+    }
 
+    const isCardTx = creditCards.some((cc: any) => cc.id === t.accountId);
+    const accountId = isCardTx ? t.accountId : t.accountId;
+    const invoicePeriod = t.invoicePeriod || '';
+
+    try {
+      const estornoRef = doc(collection(db, 'transactions'));
+      await runTransaction(db, async (transaction) => {
+        const txData: any = {
+          userId: user.uid,
+          type: 'receita',
+          amount,
+          date: currentDateStr,
+          description: `Estorno: ${t.description}`,
+          accountId,
+          categoryId: t.categoryId || '',
+          status: 'pago',
+          parentId: t.id,
+          tags: t.tags || [],
+          createdAt: new Date().toISOString(),
+        };
+
+        if (isCardTx && invoicePeriod) {
+          txData.invoicePeriod = invoicePeriod;
+        }
+
+        transaction.set(estornoRef, txData);
+
+        if (!isCardTx) {
+          const accRef = doc(db, 'accounts', accountId);
+          const accSnap = await transaction.get(accRef);
+          if (accSnap.exists()) {
+            transaction.update(accRef, { balance: (accSnap.data().balance || 0) + amount });
+          }
+        }
+      });
+
+      logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: estornoRef.id, description: `Estorno: ${t.description}` }).catch(() => {});
+      toast.success(isEstornoTotal ? 'Estorno total registrado' : `Estorno parcial de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+      setEstornoTx(null);
+    } catch (error) {
+      toast.error('Erro ao registrar estorno');
+      handleFirestoreError(error, OperationType.CREATE, 'transactions');
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteConfirmTx) return;
@@ -1642,6 +1708,24 @@ ${sample.map(t =>
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
+                            {(t.type === 'despesa' || t.type === 'expense') && (t.status === 'pago' || t.status === 'paid' || t.status === 'realizado') && !t.parentId && (
+                              <button
+                                onClick={() => {
+                                  if (isClosed) {
+                                    toast.error('Não é possível estornar um lançamento de um mês fechado.');
+                                    return;
+                                  }
+                                  setEstornoTx(t);
+                                  setEstornoAmount(t.amount);
+                                  setIsEstornoTotal(true);
+                                }}
+                                disabled={isClosed}
+                                className={`p-2 rounded-lg bg-background shadow-sm border border-secondary/30 ${isClosed ? 'cursor-not-allowed opacity-50' : 'hover:text-fiducia-amber hover:border-fiducia-amber/30 transition-colors'}`}
+                                title="Estornar"
+                              >
+                                <Undo className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1698,6 +1782,52 @@ ${sample.map(t =>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeleteConfirmTx(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete}>Excluir</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!estornoTx} onOpenChange={(open) => !open && setEstornoTx(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Undo className="h-5 w-5 text-fiducia-amber" />
+              Estornar Despesa
+            </DialogTitle>
+            <DialogDescription>
+              {estornoTx?.description} — R$ {estornoTx?.amount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex gap-3">
+              <label className={`flex-1 p-3 rounded-lg border-2 cursor-pointer text-center text-sm font-semibold ${isEstornoTotal ? 'border-fiducia-amber bg-fiducia-amber/5 text-fiducia-amber' : 'border-border text-muted-foreground'}`}>
+                <input type="radio" className="sr-only" name="estornoType" checked={isEstornoTotal} onChange={() => setIsEstornoTotal(true)} />
+                Total
+              </label>
+              <label className={`flex-1 p-3 rounded-lg border-2 cursor-pointer text-center text-sm font-semibold ${!isEstornoTotal ? 'border-fiducia-amber bg-fiducia-amber/5 text-fiducia-amber' : 'border-border text-muted-foreground'}`}>
+                <input type="radio" className="sr-only" name="estornoType" checked={!isEstornoTotal} onChange={() => setIsEstornoTotal(false)} />
+                Parcial
+              </label>
+            </div>
+            {!isEstornoTotal && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Valor do Estorno</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={estornoTx?.amount || 0}
+                  value={estornoAmount || ''}
+                  onChange={(e) => setEstornoAmount(parseFloat(e.target.value) || 0)}
+                  className="h-10"
+                />
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEstornoTx(null)}>Cancelar</Button>
+            <Button className="bg-fiducia-amber hover:bg-fiducia-amber/90 text-white font-bold" onClick={handleEstorno}>
+              Confirmar Estorno
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

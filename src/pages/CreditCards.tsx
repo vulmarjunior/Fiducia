@@ -9,10 +9,10 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock, Layers, Clock, FileSearch } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock, Layers, Clock, FileSearch, Undo } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
-import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, findSeriesTransactions, getSeriesKey, isEffectivelyPaid } from '../lib/utils';
+import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, isInvoiceClosed, findSeriesTransactions, getSeriesKey, isEffectivelyPaid } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
 import {
@@ -274,18 +274,24 @@ export function CreditCards() {
       return;
     }
 
-    // Período correto baseado no mês selecionado no modal
     const currentPeriod = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
     const nextPeriod = getNextPeriod(currentPeriod);
 
-    // Referências candidatas (podem estar obsoletas — a transaction confirma)
     const existingInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === currentPeriod);
+
+    if (existingInvoice?.paidAmount && existingInvoice?.totalAmount) {
+      const remaining = existingInvoice.totalAmount - existingInvoice.paidAmount;
+      if (paymentData.amount > remaining) {
+        toast.error(`Valor do pagamento não pode exceder o saldo remanescente de R$ ${remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`);
+        return;
+      }
+    }
+
     const existingNextInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === nextPeriod);
 
     let paymentTxRef: any;
     try {
       await runTransaction(db, async (transaction) => {
-        // 1. TODAS AS LEITURAS primeiro
         const accRef = doc(db, 'accounts', paymentData.accountId);
         const accSnap = await transaction.get(accRef);
         if (!accSnap.exists()) throw new Error('Conta de origem não encontrada');
@@ -305,7 +311,13 @@ export function CreditCards() {
           nextInvSnap = await transaction.get(nextInvDocRef);
         }
 
-        // 2. TODAS AS ESCRITAS depois
+        const invData = invSnap?.exists() ? invSnap.data() : null;
+        const existingIds: string[] = Array.isArray(invData?.paymentTransactionIds)
+          ? [...invData.paymentTransactionIds]
+          : (typeof invData?.paymentTransactionId === 'string' ? [invData.paymentTransactionId] : []);
+        const priorPaid = typeof invData?.paidAmount === 'number' ? invData.paidAmount : 0;
+        const newPaidAmount = priorPaid + paymentData.amount;
+
         paymentTxRef = doc(collection(db, 'transactions'));
         transaction.set(paymentTxRef, {
           userId: user.uid,
@@ -323,12 +335,16 @@ export function CreditCards() {
 
         transaction.update(accRef, { balance: currentBalance - paymentData.amount });
 
-        // Atualiza/cria invoice atual como paga
+        const newIds = [...existingIds, paymentTxRef.id];
+        const newStatus = newPaidAmount >= (invData?.totalAmount || paymentData.amount) ? 'paga' : 'parcial';
+
         if (invSnap?.exists()) {
           transaction.update(invDocRef, {
-            status: 'paga',
-            totalAmount: paymentData.amount,
-            paymentTransactionId: paymentTxRef.id,
+            status: newStatus,
+            totalAmount: invData?.totalAmount || paymentData.amount,
+            paymentTransactionIds: newIds,
+            paymentTransactionId: null,
+            paidAmount: newPaidAmount,
             closedAt: new Date().toISOString(),
           });
         } else {
@@ -337,14 +353,14 @@ export function CreditCards() {
             userId: user.uid,
             cardId: selectedCardForInvoice.id,
             period: currentPeriod,
-            status: 'paga',
+            status: newStatus,
             totalAmount: paymentData.amount,
-            paymentTransactionId: paymentTxRef.id,
+            paymentTransactionIds: newIds,
+            paidAmount: newPaidAmount,
             closedAt: new Date().toISOString(),
           });
         }
 
-        // Cria invoice do próximo período se não existir
         if (!nextInvSnap?.exists()) {
           const ref = nextInvDocRef || doc(collection(db, 'invoices'));
           transaction.set(ref, {
@@ -409,6 +425,34 @@ export function CreditCards() {
     } catch (error) {
       toast.error('Erro ao mover lançamento');
       handleFirestoreError(error, OperationType.UPDATE, 'transactions');
+    }
+  };
+
+  const handleEstornoTx = async (t: any) => {
+    if (!user) return;
+    try {
+      const ref = doc(collection(db, 'transactions'));
+      await runTransaction(db, async (transaction) => {
+        transaction.set(ref, {
+          userId: user.uid,
+          type: 'receita',
+          amount: t.amount,
+          date: new Date().toISOString().split('T')[0],
+          description: `Estorno: ${t.description}`,
+          accountId: t.accountId,
+          categoryId: t.categoryId || '',
+          status: 'pago',
+          parentId: t.id,
+          invoicePeriod: t.invoicePeriod || '',
+          tags: t.tags || [],
+          createdAt: new Date().toISOString(),
+        });
+      });
+      logActivity({ userId: user.uid, action: 'create', entityType: 'transaction', entityId: ref.id, description: `Estorno cartão: ${t.description}` }).catch(() => {});
+      toast.success('Estorno registrado');
+    } catch (error) {
+      toast.error('Erro ao registrar estorno');
+      handleFirestoreError(error, OperationType.CREATE, 'transactions');
     }
   };
 
@@ -917,6 +961,19 @@ export function CreditCards() {
                     <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
                       {displayLabel} • {periodName}
                     </p>
+                    {(() => {
+                      const threshold = parseInt(localStorage.getItem('fiducia_limitAlertThreshold') || '80');
+                      const usagePct = card.limit > 0 ? (totalUsage / card.limit) * 100 : 0;
+                      if (usagePct >= threshold) {
+                        return (
+                          <span className={`inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${usagePct >= 95 ? 'bg-fiducia-red/10 text-fiducia-red' : 'bg-fiducia-amber/10 text-fiducia-amber'}`}>
+                            {usagePct >= 95 ? '⚠ Limite Crítico ' : 'Limite Alerta '}
+                            {usagePct.toFixed(0)}%
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
 
                   <div className="space-y-1.5">
@@ -1107,7 +1164,10 @@ export function CreditCards() {
               
               const invoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === currentPeriod);
               const isPaid = invoice ? invoice.status === 'paga' : (totalInvoice <= 0 && periodPayments > 0);
-              const isClosed = invoice ? (invoice.status === 'fechada' || invoice.status === 'paga') : (new Date() > new Date(selectedInvoiceMonth.getFullYear(), selectedInvoiceMonth.getMonth(), selectedCardForInvoice.closingDay));
+              const isPartial = invoice ? invoice.status === 'parcial' : false;
+              const isClosed = invoice ? isInvoiceClosed(invoice.status) : (new Date() > new Date(selectedInvoiceMonth.getFullYear(), selectedInvoiceMonth.getMonth(), selectedCardForInvoice.closingDay));
+              const paidSoFar = invoice?.paidAmount || 0;
+              const remainingAmount = totalInvoice - paidSoFar;
 
               const handleCloseInvoice = async () => {
                 if (!selectedCardForInvoice) return;
@@ -1135,7 +1195,16 @@ export function CreditCards() {
               const handleReopenInvoice = async () => {
                 if (!invoice) return;
                 try {
-                  await updateDoc(doc(db, 'invoices', invoice.id), { status: 'aberta' });
+                  const hasPayments = (invoice.paymentTransactionIds && invoice.paymentTransactionIds.length > 0) || invoice.paymentTransactionId;
+                  if (hasPayments && !window.confirm('Esta fatura tem pagamentos registrados. Ao reabrir, os vínculos de pagamento serão removidos e os lançamentos de pagamento continuarão existindo como transferências avulsas. Deseja continuar?')) {
+                    return;
+                  }
+                  await updateDoc(doc(db, 'invoices', invoice.id), {
+                    status: 'aberta',
+                    paymentTransactionIds: [],
+                    paymentTransactionId: null,
+                    paidAmount: 0,
+                  });
                   logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: invoice.id, description: `Fatura reaberta: ${selectedCardForInvoice.name} - ${invoice.period}` }).catch(() => {});
                   toast.success('Fatura reaberta com sucesso');
                 } catch (error) {
@@ -1187,6 +1256,8 @@ export function CreditCards() {
                         </h4>
                         {isPaid ? (
                           <Badge className="bg-fiducia-green/10 text-fiducia-green border-fiducia-green/20 hover:bg-fiducia-green/20">Fatura Paga</Badge>
+                        ) : isPartial ? (
+                          <Badge className="bg-fiducia-amber/10 text-fiducia-amber border-fiducia-amber/20 hover:bg-fiducia-amber/20">Pagamento Parcial</Badge>
                         ) : isClosed ? (
                           <Badge className="bg-fiducia-red/10 text-fiducia-red border-fiducia-red/20 hover:bg-fiducia-red/20">Fatura Fechada</Badge>
                         ) : (
@@ -1197,7 +1268,7 @@ export function CreditCards() {
                             <Lock className="h-3 w-3" /> FECHAR FATURA
                           </Button>
                         )}
-                        {invoice && (invoice.status === 'fechada' || invoice.status === 'paga') && (
+                        {invoice && (invoice.status === 'fechada' || invoice.status === 'parcial' || invoice.status === 'paga') && (
                           <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={handleReopenInvoice}>
                             <RefreshCcw className="h-3 w-3" /> REABRIR FATURA
                           </Button>
@@ -1372,6 +1443,12 @@ export function CreditCards() {
                                               <Trash2 className="w-4 h-4 mr-2" />
                                               Excluir
                                             </DropdownMenuItem>
+                                            {(t.type === 'despesa' || t.type === 'expense') && (t.status === 'pago' || t.status === 'paid' || t.status === 'realizado') && !t.parentId && (
+                                              <DropdownMenuItem onClick={() => handleEstornoTx(t)}>
+                                                <Undo className="w-4 h-4 mr-2" />
+                                                Estornar
+                                              </DropdownMenuItem>
+                                            )}
                                           </DropdownMenuContent>
                                         </DropdownMenu>
                                       </div>
@@ -1477,6 +1554,12 @@ export function CreditCards() {
                                             <Trash2 className="w-4 h-4 mr-2" />
                                             Excluir
                                           </DropdownMenuItem>
+                                          {(t.type === 'despesa' || t.type === 'expense') && (t.status === 'pago' || t.status === 'paid' || t.status === 'realizado') && !t.parentId && (
+                                            <DropdownMenuItem onClick={() => handleEstornoTx(t)}>
+                                              <Undo className="w-4 h-4 mr-2" />
+                                              Estornar
+                                            </DropdownMenuItem>
+                                          )}
                                         </DropdownMenuContent>
                                       </DropdownMenu>
                                     </div>
@@ -1581,20 +1664,25 @@ export function CreditCards() {
                         <p className="text-sm font-bold">Dia {selectedCardForInvoice.dueDay} de {selectedInvoiceMonth.toLocaleDateString('pt-BR', { month: 'long' })}</p>
                       </div>
                     </div>
-                    {totalInvoice > 0 && (
+                    {totalInvoice > 0 && !isPaid && (
                         <Button 
                           className="bg-fiducia-green hover:bg-fiducia-green/90 text-white dark:text-background font-bold text-xs uppercase tracking-widest h-10 px-6 shadow-md"
                         onClick={() => {
                           setPaymentData({
                             accountId: '',
-                            amount: totalInvoice,
+                            amount: remainingAmount > 0 ? remainingAmount : totalInvoice,
                             date: new Date().toISOString().split('T')[0]
                           });
                           setIsPayInvoiceDialogOpen(true);
                         }}
                       >
-                        Pagar Fatura
+                        {isPartial ? 'Pagar Remanescente' : 'Pagar Fatura'}
                       </Button>
+                    )}
+                    {isPartial && (
+                      <div className="text-[10px] text-muted-foreground mt-1">
+                        Pago: R$ {paidSoFar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Restante: R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
                     )}
                   </div>
                 </div>

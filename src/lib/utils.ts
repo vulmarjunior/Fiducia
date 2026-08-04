@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { buildCashCoverageProjection } from './cashCoverage';
 
-export const APP_VERSION = '0.6.1';
+export const APP_VERSION = '0.7.0';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -103,14 +103,58 @@ export function isPeriodClosed(
   if (card) {
     const periodToCheck = invoicePeriod || calculateInvoicePeriod(dateString, card.closingDay, card.dueDay);
     const invoice = invoices.find((i: any) => i.cardId === accountId && i.period === periodToCheck);
-    return invoice ? (invoice.status === 'fechada' || invoice.status === 'paga') : false;
+    return invoice ? isInvoiceClosed(invoice.status) : false;
   }
   const period = dateString.substring(0, 7);
   return closedPeriods.some((cp: any) => (cp.period === period || cp.month === period) && cp.accountId === accountId);
 }
 
+export function getInvoicePaymentIds(invoice: any): string[] {
+  if (Array.isArray(invoice?.paymentTransactionIds)) return invoice.paymentTransactionIds;
+  if (typeof invoice?.paymentTransactionId === 'string') return [invoice.paymentTransactionId];
+  return [];
+}
+
+export function isInvoiceClosed(invoiceStatus?: string): boolean {
+  return invoiceStatus === 'fechada' || invoiceStatus === 'paga' || invoiceStatus === 'parcial';
+}
+
+const FIRESTORE_ID_RE = /^[a-zA-Z0-9]{20}$/;
+
+export function isLegacyCategoryId(value: string): boolean {
+  return !!value && !FIRESTORE_ID_RE.test(value) && value !== 'default' && value !== 'Pagamento de Cartão';
+}
+
+export function resolveCategoryId(categories: any[], value: string): string {
+  if (!value) return '';
+  if (FIRESTORE_ID_RE.test(value)) return value;
+  if (value === 'default' || value === 'Pagamento de Cartão') return value;
+
+  const byName = categories.find(c => c.name === value);
+  if (byName) return byName.id;
+
+  const lower = value.toLowerCase().trim();
+  const byNameLower = categories.find(c => c.name.toLowerCase().trim() === lower);
+  if (byNameLower) return byNameLower.id;
+
+  return value;
+}
+
 export function formatCurrency(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+export function getBudgetImpact(tx: any, paradigm?: string): number {
+  if (!tx) return 0;
+  if (!paradigm || paradigm === 'fracionado') return tx.amount || 0;
+  if (paradigm === 'integral') {
+    if (tx.installmentNumber === 1 && tx.totalInstallments && tx.totalInstallments > 1) {
+      return (tx.amount || 0) * tx.totalInstallments;
+    }
+    if (tx.installmentNumber && tx.installmentNumber > 1) return 0;
+    return tx.amount || 0;
+  }
+  return tx.amount || 0;
 }
 
 /**

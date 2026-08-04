@@ -1007,7 +1007,7 @@ export async function generateCreditCardInvoicePDF(opts: {
   closingDatePrev.setMonth(closingDatePrev.getMonth() - 1);
   closingDatePrev.setDate(card.closingDay + 1);
 
-  const statusLabel = opts.invoiceStatus === 'aberta' ? 'ABERTA' : opts.invoiceStatus === 'fechada' ? 'FECHADA' : opts.invoiceStatus === 'paga' ? 'PAGA' : '—';
+  const statusLabel = opts.invoiceStatus === 'aberta' ? 'ABERTA' : opts.invoiceStatus === 'fechada' ? 'FECHADA' : opts.invoiceStatus === 'parcial' ? 'PARCIAL' : opts.invoiceStatus === 'paga' ? 'PAGA' : '—';
 
   let y = MARGIN_LEFT + 2;
   doc.setFont('helvetica', 'bold');
@@ -1039,7 +1039,7 @@ export async function generateCreditCardInvoicePDF(opts: {
   y += 4;
 
   // Status badge
-  const statusColors: Record<string, number[]> = { aberta: [59, 130, 246], fechada: [239, 68, 68], paga: [16, 185, 129] };
+  const statusColors: Record<string, number[]> = { aberta: [59, 130, 246], fechada: [239, 68, 68], parcial: [245, 158, 11], paga: [16, 185, 129] };
   const sc = statusColors[opts.invoiceStatus] || [150, 150, 150];
   doc.setFillColor(sc[0], sc[1], sc[2]);
   doc.setTextColor(255, 255, 255);

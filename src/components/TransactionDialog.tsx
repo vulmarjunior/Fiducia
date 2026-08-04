@@ -10,7 +10,7 @@ import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, Selec
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { MoneyInput } from './MoneyInput';
 import { CategorySelect } from './CategorySelect';
-import { calculateInvoicePeriod, getNextPeriod, dateToLocalISOString, parseLocalDate, isEffectivelyPaid, isPeriodClosed } from '../lib/utils';
+import { calculateInvoicePeriod, getNextPeriod, dateToLocalISOString, parseLocalDate, isEffectivelyPaid, isPeriodClosed, getInvoicePaymentIds, resolveCategoryId } from '../lib/utils';
 import { logActivity } from '../services/activityLogService';
 import { toast } from 'sonner';
 import { Repeat, MessageSquare, Tag, Paperclip, ThumbsUp, ThumbsDown, Plus } from 'lucide-react';
@@ -173,7 +173,7 @@ export function TransactionDialog() {
       amount: tx.amount || 0,
       date: tx.date?.split('T')[0] || currentDateStr,
       description: tx.description || '',
-      categoryId: tx.categoryId || '',
+      categoryId: resolveCategoryId(categories, tx.categoryId || ''),
       accountId: tx.accountId || '',
       destinationAccountId: tx.destinationAccountId || '',
       status: tx.status || 'pago',
@@ -1047,14 +1047,32 @@ export function TransactionDialog() {
             }
 
             if (isCreditCard) {
-              const relatedInvoice = invoices.find((i: any) => i.paymentTransactionId === editingId);
+              const relatedInvoice = invoices.find((i: any) => getInvoicePaymentIds(i).includes(editingId));
               if (relatedInvoice) {
                 const invRef = doc(db, 'invoices', relatedInvoice.id);
                 const invSnap = await transaction.get(invRef);
                 if (invSnap.exists()) {
-                  const newStatus = formData.status === 'pago' && relatedInvoice.status !== 'paga' ? 'paga'
-                    : formData.status !== 'pago' && relatedInvoice.status === 'paga' ? 'fechada' : null;
-                  if (newStatus) transaction.update(invRef, { status: newStatus });
+                  const invData = invSnap.data();
+                  const ids = getInvoicePaymentIds(invData);
+                  const oldPaid = typeof invData.paidAmount === 'number' ? invData.paidAmount : 0;
+                  const wasPago = (oldT?.status === 'pago' || oldT?.status === 'paid');
+                  const willBePago = formData.status === 'pago' || formData.status === 'paid';
+                  let newPaidAmount = oldPaid;
+                  if (!wasPago && willBePago) newPaidAmount += (formData.amount || oldT?.amount || 0);
+                  if (wasPago && !willBePago) newPaidAmount -= (oldT?.amount || formData.amount || 0);
+                  if (newPaidAmount < 0) newPaidAmount = 0;
+
+                  const invTotal = invData.totalAmount || 0;
+                  let newInvStatus: string | null = null;
+                  if (newPaidAmount >= invTotal && invTotal > 0) newInvStatus = 'paga';
+                  else if (newPaidAmount > 0 && newPaidAmount < invTotal) newInvStatus = 'parcial';
+                  else if (newPaidAmount === 0 && ids.length > 0) newInvStatus = 'fechada';
+
+                  if (newInvStatus && newInvStatus !== invData.status) {
+                    transaction.update(invRef, { status: newInvStatus, paidAmount: newPaidAmount });
+                  } else if (newPaidAmount !== oldPaid) {
+                    transaction.update(invRef, { paidAmount: newPaidAmount });
+                  }
                 }
               }
             }
@@ -1142,14 +1160,33 @@ export function TransactionDialog() {
             }
 
             if (isCreditCard) {
-              const relatedInvoice = invoices.find((i: any) => i.paymentTransactionId === editingId);
+              const relatedInvoice = invoices.find((i: any) => getInvoicePaymentIds(i).includes(editingId));
               if (relatedInvoice) {
                 const invRef = doc(db, 'invoices', relatedInvoice.id);
                 const invSnap = await transaction.get(invRef);
                 if (invSnap.exists()) {
-                  const newStatus = formData.status === 'pago' && relatedInvoice.status !== 'paga' ? 'paga'
-                    : formData.status !== 'pago' && relatedInvoice.status === 'paga' ? 'fechada' : null;
-                  if (newStatus) transaction.update(invRef, { status: newStatus });
+                  const invData = invSnap.data();
+                  const ids = getInvoicePaymentIds(invData);
+                  const selfAmount = formData.amount;
+                  const oldPaid = typeof invData.paidAmount === 'number' ? invData.paidAmount : 0;
+                  const wasPago = editingTx.status === 'pago' || editingTx.status === 'paid';
+                  const willBePago = formData.status === 'pago' || formData.status === 'paid';
+                  let newPaidAmount = oldPaid;
+                  if (!wasPago && willBePago) newPaidAmount += selfAmount;
+                  if (wasPago && !willBePago) newPaidAmount -= selfAmount;
+                  if (newPaidAmount < 0) newPaidAmount = 0;
+
+                  const invTotal = invData.totalAmount || 0;
+                  let newInvStatus: string | null = null;
+                  if (newPaidAmount >= invTotal && invTotal > 0) newInvStatus = 'paga';
+                  else if (newPaidAmount > 0 && newPaidAmount < invTotal) newInvStatus = 'parcial';
+                  else if (newPaidAmount === 0 && ids.length > 0) newInvStatus = 'fechada';
+
+                  if (newInvStatus && newInvStatus !== invData.status) {
+                    transaction.update(invRef, { status: newInvStatus, paidAmount: newPaidAmount });
+                  } else if (newPaidAmount !== oldPaid) {
+                    transaction.update(invRef, { paidAmount: newPaidAmount });
+                  }
                 }
               }
             }
@@ -1209,14 +1246,33 @@ export function TransactionDialog() {
           }
 
           if (isCreditCard) {
-            const relatedInvoice = invoices.find((i: any) => i.paymentTransactionId === editingId);
+            const relatedInvoice = invoices.find((i: any) => getInvoicePaymentIds(i).includes(editingId));
             if (relatedInvoice) {
               const invRef = doc(db, 'invoices', relatedInvoice.id);
               const invSnap = await transaction.get(invRef);
               if (invSnap.exists()) {
-                const newStatus = formData.status === 'pago' && relatedInvoice.status !== 'paga' ? 'paga'
-                  : formData.status !== 'pago' && relatedInvoice.status === 'paga' ? 'fechada' : null;
-                if (newStatus) transaction.update(invRef, { status: newStatus });
+                const invData = invSnap.data();
+                const ids = getInvoicePaymentIds(invData);
+                const selfAmount = formData.amount || oldT.amount;
+                const oldPaid = typeof invData.paidAmount === 'number' ? invData.paidAmount : 0;
+                const wasPago = (oldT.status === 'pago' || oldT.status === 'paid');
+                const willBePago = formData.status === 'pago' || formData.status === 'paid';
+                let newPaidAmount = oldPaid;
+                if (!wasPago && willBePago) newPaidAmount += selfAmount;
+                if (wasPago && !willBePago) newPaidAmount -= selfAmount;
+                if (newPaidAmount < 0) newPaidAmount = 0;
+
+                const invTotal = invData.totalAmount || 0;
+                let newInvStatus: string | null = null;
+                if (newPaidAmount >= invTotal && invTotal > 0) newInvStatus = 'paga';
+                else if (newPaidAmount > 0 && newPaidAmount < invTotal) newInvStatus = 'parcial';
+                else if (newPaidAmount === 0 && ids.length > 0) newInvStatus = 'fechada';
+
+                if (newInvStatus && newInvStatus !== invData.status) {
+                  transaction.update(invRef, { status: newInvStatus, paidAmount: newPaidAmount });
+                } else if (newPaidAmount !== oldPaid) {
+                  transaction.update(invRef, { paidAmount: newPaidAmount });
+                }
               }
             }
           }

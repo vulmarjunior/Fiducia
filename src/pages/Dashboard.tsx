@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -8,10 +8,11 @@ import { Button } from '../components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
-import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLocalDate, projectDailyBalance } from '../lib/utils';
+import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLocalDate, projectDailyBalance, getBudgetImpact } from '../lib/utils';
 import { callGroq } from '../services/groqService';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
+import { migrateCategoryIds } from '../services/categoryMigration';
  
 export function Dashboard() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -94,6 +95,18 @@ export function Dashboard() {
     };
   }, [user, isAuthReady]);
 
+  const migrationRanRef = useRef(false);
+  useEffect(() => {
+    if (!user || migrationRanRef.current || categories.length === 0 || transactions.length === 0) return;
+
+    migrationRanRef.current = true;
+    migrateCategoryIds(user.uid, categories).then(result => {
+      if (result.fixedTransactions > 0 || result.fixedBudgets > 0) {
+        console.log('Category migration:', result);
+      }
+    }).catch(() => {});
+  }, [user, categories.length, transactions.length]);
+
   const fetchAiTip = async () => {
     if (!user || transactions.length < 5 || isLoadingAi) return;
     setIsLoadingAi(true);
@@ -129,7 +142,10 @@ export function Dashboard() {
       const saldoCirculanteLocal = accounts.filter(a => !a.excludeFromCashFlow).reduce((sum, a) => sum + (a.balance || 0), 0);
       const totalPendingExpenses = transactions.filter(t => isAccountTx(t) && (t.type === 'despesa' || t.type === 'expense') && (t.status === 'pendente' || t.status === 'pending') && t.date.startsWith(currentMonthStr)).reduce((sum, t) => sum + t.amount, 0);
       const totalPendingIncome = transactions.filter(t => isAccountTx(t) && (t.type === 'receita' || t.type === 'income') && (t.status === 'pendente' || t.status === 'pending') && t.date.startsWith(currentMonthStr)).reduce((sum, t) => sum + t.amount, 0);
-      const gastosCartaoLocal = invoices.filter(i => i.status === 'aberta' || i.status === 'fechada').reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+      const gastosCartaoLocal = invoices.filter(i => i.status === 'aberta' || i.status === 'fechada' || i.status === 'parcial').reduce((sum, i) => {
+        const remaining = i.status === 'parcial' ? Math.max(0, (i.totalAmount || 0) - (i.paidAmount || 0)) : (i.totalAmount || 0);
+        return sum + remaining;
+      }, 0);
       const disponivelSeguro = saldoCirculanteLocal + totalPendingIncome - gastosCartaoLocal - totalPendingExpenses;
 
       const prompt = `Você é o assistente Fiducia, um consultor financeiro pessoal direto. Analise os dados financeiros REAIS (apenas transações efetivadas em conta corrente, sem cartão de crédito) e dê 1 insight curto (até 100 caracteres) em Português.
@@ -376,7 +392,10 @@ Regras OBRIGATÓRIAS:
       return t.date.startsWith(p.month);
     });
     const invoiceExpense = showPendingChart && p.month
-      ? invoices.filter(i => i.period === p.month && i.status !== 'paga').reduce((sum, i) => sum + (i.totalAmount || 0), 0)
+      ? invoices.filter(i => i.period === p.month && i.status !== 'paga').reduce((sum, i) => {
+          const remaining = i.status === 'parcial' ? Math.max(0, (i.totalAmount || 0) - (i.paidAmount || 0)) : (i.totalAmount || 0);
+          return sum + remaining;
+        }, 0)
       : 0;
     return {
       name: p.label.charAt(0).toUpperCase() + p.label.slice(1),
@@ -687,6 +706,9 @@ Regras OBRIGATÓRIAS:
                   const invoiceTotal = Math.max(0, expenses - payments - incomes);
                   const availableLimit = card.limit - invoiceTotal;
                   const usagePct = card.limit > 0 ? (invoiceTotal / card.limit * 100) : 0;
+                  const threshold = parseInt(localStorage.getItem('fiducia_limitAlertThreshold') || '80');
+                  const isOverThreshold = usagePct >= threshold;
+                  const barColor = usagePct >= 95 ? 'bg-fiducia-red' : isOverThreshold ? 'bg-fiducia-amber' : 'bg-fiducia-blue';
                   const [cYear, cMonth] = currentPeriod.split('-').map(Number);
                   const periodName = new Date(cYear, cMonth - 1, 1).toLocaleDateString('pt-BR', { month: 'short' });
 
@@ -699,11 +721,11 @@ Regras OBRIGATÓRIAS:
                         </span>
                       </div>
                       <div className="flex justify-between text-[11px]">
-                        <span className="text-muted-foreground">Disponível: {formatCurrency(Math.max(0, availableLimit))}</span>
+                        <span className={`${isOverThreshold ? 'text-fiducia-amber font-bold' : 'text-muted-foreground'}`}>Disponível: {formatCurrency(Math.max(0, availableLimit))}</span>
                         <span className="text-muted-foreground">{periodName}</span>
                       </div>
                       <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-fiducia-amber" style={{ width: `${Math.min(usagePct, 100)}%` }} />
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(usagePct, 100)}%` }} />
                       </div>
                     </div>
                   );
@@ -881,9 +903,10 @@ Regras OBRIGATÓRIAS:
               {budgets.slice(0, 4).map(budget => {
                 const category = categories.find(c => c.id === budget.categoryId);
                 const CategoryIcon = category ? getCategoryIcon(category.icon) : HelpCircle;
+                const paradigm = localStorage.getItem('fiducia_budgetParadigm') || 'fracionado';
                 const spent = transactions
                   .filter(t => t.categoryId === budget.categoryId && (t.type === 'despesa' || t.type === 'expense') && t.date.split('T')[0].startsWith(currentMonthStr))
-                  .reduce((sum, t) => sum + t.amount, 0);
+                  .reduce((sum, t) => sum + getBudgetImpact(t, paradigm), 0);
                 const percentage = Math.min(100, Math.round((spent / budget.amount) * 100));
                 const isOverBudget = spent > budget.amount;
 

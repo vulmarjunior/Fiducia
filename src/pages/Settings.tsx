@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Download, FileJson, Settings, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 import { logActivity } from '../services/activityLogService';
@@ -31,6 +32,22 @@ export function SettingsPage() {
   const [resetStep, setResetStep] = useState<1 | 2>(1);
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [isResettingAll, setIsResettingAll] = useState(false);
+  const [limitThreshold, setLimitThreshold] = useState(() => {
+    const stored = localStorage.getItem('fiducia_limitAlertThreshold');
+    return stored ? parseInt(stored) : 80;
+  });
+
+  const [budgetParadigm, setBudgetParadigm] = useState(() => {
+    return localStorage.getItem('fiducia_budgetParadigm') || 'fracionado';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('fiducia_limitAlertThreshold', limitThreshold.toString());
+  }, [limitThreshold]);
+
+  useEffect(() => {
+    localStorage.setItem('fiducia_budgetParadigm', budgetParadigm);
+  }, [budgetParadigm]);
 
   const handleExportData = async () => {
     if (!user) return;
@@ -176,6 +193,55 @@ export function SettingsPage() {
             <Download className="w-4 h-4 mr-2" />
             {exporting ? 'Exportando...' : 'Baixar Backup JSON'}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle size={20} className="text-fiducia-amber" />
+            Preferências
+          </CardTitle>
+          <CardDescription>
+            Ajuste o comportamento do sistema conforme sua preferência.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Alerta de Limite do Cartão</Label>
+              <span className="text-xs font-bold text-fiducia-amber">{limitThreshold}%</span>
+            </div>
+            <input
+              type="range"
+              min="50"
+              max="95"
+              step="5"
+              value={limitThreshold}
+              onChange={(e) => setLimitThreshold(parseInt(e.target.value))}
+              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-fiducia-amber"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Alerta quando o gasto da fatura aberta atingir o percentual configurado do limite do cartão.
+            </p>
+          </div>
+          <div className="space-y-2 pt-3 border-t border-border">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Paradigma de Orçamento</Label>
+            <div className="flex gap-3">
+              <label className={`flex-1 p-3 rounded-lg border-2 cursor-pointer text-center text-sm font-semibold ${budgetParadigm === 'fracionado' ? 'border-fiducia-blue bg-fiducia-blue/5 text-fiducia-blue' : 'border-border text-muted-foreground'}`}>
+                <input type="radio" className="sr-only" name="budgetParadigm" value="fracionado" checked={budgetParadigm === 'fracionado'} onChange={(e) => setBudgetParadigm(e.target.value)} />
+                Fracionado
+              </label>
+              <label className={`flex-1 p-3 rounded-lg border-2 cursor-pointer text-center text-sm font-semibold ${budgetParadigm === 'integral' ? 'border-fiducia-blue bg-fiducia-blue/5 text-fiducia-blue' : 'border-border text-muted-foreground'}`}>
+                <input type="radio" className="sr-only" name="budgetParadigm" value="integral" checked={budgetParadigm === 'integral'} onChange={(e) => setBudgetParadigm(e.target.value)} />
+                Integral
+              </label>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              <strong>Fracionado:</strong> cada parcela conta no mês em que vence.<br />
+              <strong>Integral:</strong> o valor total da compra conta na primeira parcela; parcelas seguintes não impactam.
+            </p>
+          </div>
         </CardContent>
       </Card>
 

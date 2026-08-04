@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { generateCashFlowPDF, generateCategoryPDF, generateTrendPDF, generateProjectionPDF, generateInvoiceAnalysisPDF } from '../lib/pdfTemplates';
 import { toast } from 'sonner';
-import { isEffectivelyPaid } from '../lib/utils';
+import { isEffectivelyPaid, getBudgetImpact } from '../lib/utils';
 import { fmtMonthYear } from '../lib/pdfFormatUtils';
 import { buildCashCoverageProjection } from '../lib/cashCoverage';
 import { buildInvoiceAnalysis } from '../lib/invoiceAnalysis';
@@ -247,7 +247,8 @@ export function Reports() {
     return budgets
       .filter(b => b.period === 'monthly' || !b.period)
       .map(b => {
-        const spent = transactions.filter(t => isExpense(t) && isEffectivelyPaid(t) && t.categoryId === b.categoryId && t.date.startsWith(currentMonthStr)).reduce((s, t) => s + t.amount, 0);
+        const paradigm = localStorage.getItem('fiducia_budgetParadigm') || 'fracionado';
+        const spent = transactions.filter(t => isExpense(t) && isEffectivelyPaid(t) && t.categoryId === b.categoryId && t.date.startsWith(currentMonthStr)).reduce((s, t) => s + getBudgetImpact(t, paradigm), 0);
         const cat = categories.find(c => c.id === b.categoryId);
         return { name: cat?.name || 'Geral', budget: b.amount, spent, diff: b.amount - spent, pct: b.amount > 0 ? Math.round((spent / b.amount) * 100) : 0 };
       })
@@ -1073,8 +1074,8 @@ export function Reports() {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
                                     <span className="text-[13px] font-semibold text-foreground">Fatura {card?.name || 'Cartão'}</span>
-                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${inv.status === 'fechada' ? 'bg-fiducia-red/10 text-fiducia-red' : 'bg-fiducia-amber/10 text-fiducia-amber'}`}>
-                                      {inv.status === 'fechada' ? 'Fechada' : 'Aberta'}
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${inv.status === 'fechada' ? 'bg-fiducia-red/10 text-fiducia-red' : inv.status === 'parcial' ? 'bg-fiducia-amber/10 text-fiducia-amber' : 'bg-fiducia-amber/10 text-fiducia-amber'}`}>
+                                      {inv.status === 'fechada' ? 'Fechada' : inv.status === 'parcial' ? 'Pagamento Parcial' : 'Aberta'}
                                     </span>
                                   </div>
                                   <div className="text-[11px] text-muted-foreground capitalize">{periodLabel}</div>

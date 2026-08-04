@@ -261,6 +261,10 @@ export function buildCashCoverageProjection({
     for (const period of periods) {
       const invoice = invoices.find((item: any) => item.cardId === card.id && item.period === period);
       if (invoice?.status === 'paga') continue;
+      if (invoice?.status === 'parcial') {
+        const remaining = (invoice.totalAmount || 0) - (invoice.paidAmount || 0);
+        if (remaining <= 0.01) continue;
+      }
 
       const dueDate = invoiceDueDate(period, card.dueDay);
       const originalDate = formatLocalDate(dueDate);
@@ -272,13 +276,15 @@ export function buildCashCoverageProjection({
       );
       const computedBalance = calculateCardBalance(transactions, card.id, period);
       const invoiceAmount = typeof invoice?.totalAmount === 'number' ? invoice.totalAmount : 0;
-      const amount = (periodTxns.length > 0 || invoice?.status === 'fechada')
-        ? Math.max(invoiceAmount, computedBalance)
-        : 0;
-      if (amount <= 0.01) continue;
+      const effectiveAmount = invoice?.status === 'parcial'
+        ? Math.max(0, invoiceAmount - (invoice.paidAmount || 0))
+        : (periodTxns.length > 0 || invoice?.status === 'fechada')
+          ? Math.max(invoiceAmount, computedBalance)
+          : 0;
+      if (effectiveAmount <= 0.01) continue;
 
       const closingDate = invoiceClosingDate(period, card.closingDay, card.dueDay);
-      const status = invoice?.status || (today >= closingDate ? 'fechada' : 'aberta');
+      const status = invoice?.status === 'parcial' ? 'fechada' : (invoice?.status || (today >= closingDate ? 'fechada' : 'aberta'));
       const currentPeriod = currentInvoicePeriod(today, card.closingDay, card.dueDay);
       const source: CashCoverageSource = status === 'fechada'
         ? 'invoice_closed'
@@ -291,7 +297,7 @@ export function buildCashCoverageProjection({
         date: clampEventDate(originalDate, today),
         originalDate,
         month: clampEventDate(originalDate, today).substring(0, 7),
-        amount,
+        amount: effectiveAmount,
         direction: 'out',
         source,
         certainty: status === 'fechada' ? 'confirmed' : source === 'card_future' ? 'projected' : 'expected',
