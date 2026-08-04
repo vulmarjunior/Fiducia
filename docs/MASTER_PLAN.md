@@ -64,7 +64,7 @@ npm run build      # vite build
 | Categorias / Tags | ✅ Funcional | CRUD com hierarquia de categorias |
 | Activity Log | ✅ Funcional | Histórico de operações |
 | Autenticação | ✅ Funcional | Google Auth restrito à conta verificada do proprietário |
-| PWA | ✅ Instalável | iOS meta tags, update com toast |
+| PWA | ✅ Instalável | iOS meta tags, update com toast; cache antigo pode exigir recarga forçada após deploy |
 | Android | 🧪 Diagnóstico compilado | Shell TWA/Custom Tab e captura local C6/Itaú; aguarda validação em aparelho real |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
 | Testes | ✅ Automatizados | 90 testes locais + 3 cenários com Firebase Emulator no CI |

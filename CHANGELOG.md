@@ -353,6 +353,7 @@
 - Rotas e `TransactionDialog` carregados sob demanda; pacote inicial reduzido de aproximadamente 3,74 MB para 1,23 MB antes de gzip.
 - Cache persistente multiaba do Firestore; histórico da Central de Importação limitado a 250 registros e apoiado por índice composto.
 - Checklist de primeiros passos no Dashboard, explicação detalhada de Saldo Geral, Receitas e Despesas.
+- Onboarding pode ser revisto por usuários antigos em **Configurações → Preferências** ou pelo parâmetro `/?onboarding=1`; validação em produção confirmou a funcionalidade após atualização do cache PWA.
 - Filtros de lançamentos persistidos no dispositivo e categorização em lote com proteção de período fechado, limite operacional e validação do tipo da categoria.
 - `package.json`, `package-lock.json` e `APP_VERSION` atualizados para `0.9.0`.
 
