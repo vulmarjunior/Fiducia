@@ -321,16 +321,18 @@ export function CreditCards() {
         paymentTxRef = doc(collection(db, 'transactions'));
         transaction.set(paymentTxRef, {
           userId: user.uid,
-          type: 'transfer',
+          type: 'transferencia',
           amount: paymentData.amount,
           date: paymentData.date,
           description: `Pagamento Fatura ${selectedCardForInvoice.name} - ${selectedInvoiceMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
           accountId: paymentData.accountId,
           destinationAccountId: selectedCardForInvoice.id,
-          status: 'paid',
+          categoryId: null,
+          status: 'pago',
           invoicePeriod: currentPeriod,
           tags: [],
           observation: '',
+          reconciliationStatus: 'nao_conciliado',
           createdAt: new Date().toISOString()
         });
 
