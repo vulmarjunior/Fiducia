@@ -1,12 +1,12 @@
 import type { Request, Response } from 'express';
-import firebaseConfig from '../firebase-applet-config.json';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const FIREBASE_API_KEY = 'AIzaSyAnSqlHqSaU__YtRo64zbsNZjM1iDYYxl4';
 const ALLOWED_MODELS = new Set(['llama-3.3-70b-versatile']);
 const MAX_BODY_BYTES = 80_000;
 
 async function verifyFirebaseToken(idToken: string): Promise<string | null> {
-  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${firebaseConfig.apiKey}`, {
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }),
   });
   if (!response.ok) return null;

@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.8.0` |
+| **Versão atual** | `0.8.1` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-04 (segurança da IA, testes de fluxo, edição de cartão e período compartilhado) |
+| **Última alteração em código** | 2026-08-04 (hotfix do runtime serverless do proxy Groq) |
 | **Último deploy** | 2026-08-04 — regras Firestore da v0.7.2 |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -72,9 +72,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Central de Importacao Assistida Fases 1 e 2 concluidas. Build, testes e validacao de importacao ja realizados em 2026-07-13.
+**Foco atual:** Estabilização da versão 0.8.x e evolução das funcionalidades financeiras já existentes.
 
-**Proximo passo sugerido:** Avancar para o proximo item do backlog (correcao de categorias por string, alerta de limite, estorno, pagamento parcial, paradigmas de orcamento, ou testes de integracao). Fase 3 da Central permanece para implementacao futura.
+**Próximo passo sugerido:** Priorizar estabilização, testes end-to-end opcionais e melhorias nas funcionalidades atuais. A Fase 3 da Central de Importação está fora do escopo do projeto atual.
 
 ---
 
@@ -127,7 +127,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 9 | Testes automatizados (integração + unitários) | ✅ Concluído | v0.8.0 — 66/66, incluindo fluxo integrado de pagamento, saldo e fatura |
 | 10 | Gestão de versão / releases | ✅ Concluído | v0.7.0; exibida no Login e Dashboard |
 | 11 | Central de Importacao Assistida - Fases 1 e 2 | ✅ Concluído | Entregues em v0.6.0 |
-| 12 | Central de Importacao Assistida - Fase 3 | ⚠️ Futuro | E-mail, app companion Android, Open Finance, perfis avançados |
+| 12 | Central de Importação Assistida — Fase 3 | ⏸️ Fora do escopo atual | Ideia preservada apenas para eventual reavaliação futura; sem previsão de implementação |
 | 13 | CI/CD — GitHub Actions | ✅ Concluído | v0.7.0 — `.github/workflows/ci.yml`: lint + test + build |
 | 14 | Chave Groq em proxy | ✅ Concluído | v0.8.0 — Vercel Function autenticada por Firebase ID token |
 
@@ -194,5 +194,7 @@ Itens entregues em v0.7.0 a v0.8.0 (2026-08-04):
 10. ✅ Backlog técnico 1–4 (v0.8.0) — proxy Groq autenticado, testes integrados, edição uniforme de cartão e período mensal compartilhado.
 
 Pendências para sessão futura:
-- Central de Importação Fase 3 — e-mail, app Android, Open Finance (longo prazo)
 - Ampliação opcional de testes end-to-end com Firebase Emulator
+
+Fora do escopo atual:
+- Central de Importação Fase 3 — e-mail, app Android, Open Finance e perfis avançados; sem previsão de retomada.
