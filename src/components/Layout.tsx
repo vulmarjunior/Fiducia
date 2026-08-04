@@ -1,8 +1,8 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { TransactionDialogProvider } from '../contexts/TransactionDialogContext';
+import { TransactionDialogProvider, useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { TransactionDialog } from './TransactionDialog';
-import { LayoutDashboard, Receipt, CreditCard, Wallet, LogOut, Menu, Tags, PieChart, Target, FileText, Download, Tag, ListChecks, History, Settings, Sun, Moon, Upload } from 'lucide-react';
+import { LayoutDashboard, Receipt, CreditCard, Wallet, LogOut, Menu, Tags, PieChart, Target, FileText, Download, Tag, ListChecks, History, Settings, Sun, Moon, Upload, Plus, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
 import { useState, useEffect } from 'react';
@@ -10,13 +10,31 @@ import { Logo } from './Logo';
 import { APP_VERSION } from '../lib/utils';
 
 export function Layout() {
+  return (
+    <TransactionDialogProvider>
+      <LayoutContent />
+    </TransactionDialogProvider>
+  );
+}
+
+function LayoutContent() {
   const { logout, user } = useAuth();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
+  const { open: openTransactionDialog } = useTransactionDialog();
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isMobileMenuOpen]);
 
   useEffect(() => {
     setMounted(true);
@@ -81,11 +99,11 @@ export function Layout() {
     : user?.email?.[0].toUpperCase() || 'U';
 
   return (
-    <TransactionDialogProvider>
+    <>
     <TransactionDialog />
     <div className="flex h-screen bg-background text-foreground font-sans">
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-[240px] bg-card border-r border-border flex flex-col transform transition-transform duration-200 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:relative shrink-0`}>
+      <aside id="app-navigation" aria-label="Navegação principal" className={`fixed inset-y-0 left-0 z-50 w-[240px] bg-card border-r border-border flex flex-col transform transition-transform duration-200 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:relative shrink-0`}>
         
         {/* Logo Area */}
         <div className="p-6 border-b border-border">
@@ -105,6 +123,7 @@ export function Layout() {
                     key={item.name}
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
+                    aria-current={isActive ? 'page' : undefined}
                     className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[14px] font-medium transition-all group ${
                       isActive
                         ? 'bg-primary text-primary-foreground shadow-sm'
@@ -137,6 +156,7 @@ export function Layout() {
                     key={item.name}
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
+                    aria-current={isActive ? 'page' : undefined}
                     className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[14px] font-medium transition-all group ${
                       isActive
                         ? 'bg-primary text-primary-foreground shadow-sm'
@@ -195,7 +215,7 @@ export function Layout() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
         <header className="bg-card border-b border-border h-16 flex items-center px-4 md:hidden">
-          <button onClick={() => setIsMobileMenuOpen(true)} className="text-muted-foreground hover:text-foreground">
+          <button type="button" aria-label="Abrir menu" aria-controls="app-navigation" aria-expanded={isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(true)} className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground">
             <Menu className="w-6 h-6" />
           </button>
           <div className="ml-4">
@@ -203,11 +223,28 @@ export function Layout() {
           </div>
         </header>
         
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-y-auto p-4 pb-24 sm:p-6 md:pb-6">
           <Outlet />
         </main>
       </div>
 
+      <nav aria-label="Navegação rápida" className="fixed inset-x-0 bottom-0 z-30 grid h-20 grid-cols-5 items-center border-t border-border bg-card/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        <Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium ${location.pathname === '/' ? 'text-primary' : 'text-muted-foreground'}`}>
+          <LayoutDashboard className="h-5 w-5" /><span>Início</span>
+        </Link>
+        <Link to="/transactions" aria-current={location.pathname === '/transactions' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium ${location.pathname === '/transactions' ? 'text-primary' : 'text-muted-foreground'}`}>
+          <Receipt className="h-5 w-5" /><span>Lançamentos</span>
+        </Link>
+        <button type="button" aria-label="Novo lançamento" onClick={() => openTransactionDialog()} className="mx-auto -mt-8 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background transition-transform active:scale-95">
+          <Plus className="h-6 w-6" />
+        </button>
+        <Link to="/accounts" aria-current={location.pathname === '/accounts' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium ${location.pathname === '/accounts' ? 'text-primary' : 'text-muted-foreground'}`}>
+          <Wallet className="h-5 w-5" /><span>Contas</span>
+        </Link>
+        <Link to="/cards" aria-current={location.pathname === '/cards' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium ${location.pathname === '/cards' ? 'text-primary' : 'text-muted-foreground'}`}>
+          <CreditCard className="h-5 w-5" /><span>Cartões</span>
+        </Link>
+      </nav>
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div 
@@ -216,6 +253,6 @@ export function Layout() {
         />
       )}
     </div>
-    </TransactionDialogProvider>
+    </>
   );
 }

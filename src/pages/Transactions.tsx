@@ -25,6 +25,7 @@ import { PageHelp } from '../components/PageHelp';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { generateAccountStatementPDF } from '../lib/pdfTemplates';
 import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
+import { groupTransactionsByDate, processTransactions, summarizeTransactions } from '../lib/transactionView';
 
 const TransactionObservation = ({ observation }: { observation: string }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -850,138 +851,28 @@ ${sample.map(t =>
     return () => unsub();
   }, [selectedAccountFilter, user]);
 
-  const amountMatchesSearch = (amount: number, term: string): boolean => {
-    const representations = [
-      amount.toString(),
-      amount.toFixed(2),
-      new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount),
-      new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false }).format(amount),
-    ];
-    if (representations.some(r => r.includes(term))) return true;
-    const normalizedTerm = term.replace(/\./g, '').replace(',', '.');
-    const parsedAmount = parseFloat(normalizedTerm);
-    if (!isNaN(parsedAmount) && Math.abs(amount - parsedAmount) < 0.001) return true;
-    return false;
-  };
+  const processedTransactions = React.useMemo(() => processTransactions(transactions, {
+    accountId: selectedAccountFilter,
+    accountBalance: selectedAccountBalance,
+    tagIds: selectedTagsFilter,
+    dateFilter: filterType,
+    month: selectedMonth,
+    startDate,
+    endDate,
+    searchTerm,
+    aiSearchResultIds,
+    sortOrder,
+  }), [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, selectedAccountBalance, aiSearchResultIds, sortOrder]);
 
-  const processedTransactions = React.useMemo(() => {
-    let result = [...transactions];
+  const summary = React.useMemo(
+    () => summarizeTransactions(processedTransactions, selectedAccountFilter),
+    [processedTransactions, selectedAccountFilter],
+  );
 
-    // 1. Calculate running balance if a specific account is selected
-    if (selectedAccountFilter !== 'all') {
-        // Sort ascending by date to calculate running balance correctly
-        const accountTransactions = result
-          .filter(t => t.accountId === selectedAccountFilter || t.destinationAccountId === selectedAccountFilter)
-          .sort((a, b) => {
-            const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
-            if (dateDiff !== 0) return dateDiff;
-            return new Date(a.createdAt || a.date).getTime() - new Date(b.createdAt || b.date).getTime();
-          });
-
-        // We need to calculate backwards from the current balance
-        // Wait, if we sort descending, we can start with current balance and work backwards.
-        const descendingAccountTransactions = [...accountTransactions].reverse();
-        let currentBalance = selectedAccountBalance;
-        
-        const transactionsWithBalance = descendingAccountTransactions.map(t => {
-          const tWithBalance = { ...t, runningBalance: currentBalance };
-          
-          if (isEffectivelyPaid(t)) {
-            if (t.accountId === selectedAccountFilter) {
-              if (t.type === 'receita') {
-                currentBalance -= t.amount;
-              } else if (t.type === 'despesa') {
-                currentBalance += t.amount;
-              } else if (t.type === 'transferencia') {
-                currentBalance += t.amount;
-              }
-            } else if (t.destinationAccountId === selectedAccountFilter) {
-              if (t.type === 'transferencia') {
-                currentBalance -= t.amount;
-              }
-            }
-          }
-          
-          return tWithBalance;
-        });
-        
-        // Replace the original transactions with the ones containing runningBalance
-        result = result.map(t => {
-          const withBalance = transactionsWithBalance.find(twb => twb.id === t.id);
-          return withBalance ? withBalance : t;
-        });
-    }
-
-    // 2. Apply Filters
-    return result.filter(t => {
-      // Tags filter
-      let matchesTags = true;
-      if (selectedTagsFilter.length > 0) {
-        matchesTags = !!t.tags && t.tags.length > 0 && selectedTagsFilter.some(tagId => t.tags.includes(tagId));
-      }
-      
-      // Account filter
-      let matchesAccount = true;
-      if (selectedAccountFilter !== 'all') {
-        matchesAccount = t.accountId === selectedAccountFilter || t.destinationAccountId === selectedAccountFilter;
-      }
-
-      // Date filter
-      let matchesDate = true;
-      const tDatePart = t.date.split('T')[0];
-      if (filterType === 'month') {
-        matchesDate = tDatePart.startsWith(selectedMonth);
-      } else if (filterType === 'range') {
-        matchesDate = tDatePart >= startDate && tDatePart <= endDate;
-      }
-
-      // Search filter
-      let matchesSearch = true;
-      if (aiSearchResultIds) {
-        matchesSearch = aiSearchResultIds.has(t.id);
-      } else if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        matchesSearch = 
-          (t.description && t.description.toLowerCase().includes(term)) ||
-          (t.amount != null && amountMatchesSearch(t.amount, term));
-      }
-      
-      return !t.creditCardId && matchesTags && matchesAccount && matchesDate && matchesSearch;
-    }).sort((a, b) => {
-      const mult = sortOrder === 'asc' ? -1 : 1;
-      const dateDiff = (new Date(b.date).getTime() - new Date(a.date).getTime()) * mult;
-      if (dateDiff !== 0) return dateDiff;
-      return (new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime()) * mult;
-    });
-  }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, selectedAccountBalance, accounts, creditCards, aiSearchResultIds, sortOrder]);
-
-
-  const summary = React.useMemo(() => {
-    return processedTransactions.reduce((acc, t) => {
-      if (!isEffectivelyPaid(t)) return acc;
-      if (t.type === 'receita') acc.income += t.amount;
-      if (t.type === 'despesa') acc.expense += t.amount;
-      // For transfers, if 'all' accounts, it's neutral. 
-      // If specific account, it depends if it's source or destination
-      if (t.type === 'transferencia' && selectedAccountFilter !== 'all') {
-        if (t.accountId === selectedAccountFilter) acc.expense += t.amount;
-        if (t.destinationAccountId === selectedAccountFilter) acc.income += t.amount;
-      }
-      return acc;
-    }, { income: 0, expense: 0 });
-  }, [processedTransactions, selectedAccountFilter]);
-
-  const groupedTransactions = React.useMemo(() => {
-    const groups: { [key: string]: any[] } = {};
-    processedTransactions.forEach(t => {
-      const dateKey = t.date.split('T')[0];
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(t);
-    });
-    return groups;
-  }, [processedTransactions]);
+  const groupedTransactions = React.useMemo(
+    () => groupTransactionsByDate(processedTransactions),
+    [processedTransactions],
+  );
 
   const isValidMonthFormat = (v: string) => /^\d{4}-\d{2}$/.test(v);
 
