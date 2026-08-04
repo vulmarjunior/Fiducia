@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import { readSpreadsheet, spreadsheetRowsToObjects } from './spreadsheetReader';
 import { ImportedInvoiceLine, InvoiceImportSource } from '../types';
 import { CategoryHint } from './pdfInvoiceService';
 import { extractInvoiceLinesWithGroq, extractInvoiceTextFromPdf } from './invoiceAiService';
@@ -104,13 +104,7 @@ async function parseCsv(file: File): Promise<Record<string, any>[]> {
   });
 }
 
-async function parseWorkbook(file: File): Promise<Record<string, any>[]> {
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) return [];
-  return XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' }) as Record<string, any>[];
-}
+async function parseWorkbook(file: File): Promise<Record<string, any>[]> { const workbook = await readSpreadsheet(file); return spreadsheetRowsToObjects(workbook.rows); }
 
 export async function parseInvoiceFile(params: {
   file: File;

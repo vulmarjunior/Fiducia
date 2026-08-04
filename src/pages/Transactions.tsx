@@ -25,6 +25,7 @@ import { PageHelp } from '../components/PageHelp';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { generateAccountStatementPDF } from '../lib/pdfTemplates';
 import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
+import { groupTransactionsByDate, processTransactions, summarizeTransactions } from '../lib/transactionView';
 
 const TransactionObservation = ({ observation }: { observation: string }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -99,8 +100,26 @@ const TransactionObservation = ({ observation }: { observation: string }) => {
   );
 };
 
+interface SavedTransactionFilters {
+  accountId?: string;
+  tagIds?: string[];
+  dateFilter?: 'month' | 'range' | 'all';
+  startDate?: string;
+  endDate?: string;
+  sortOrder?: 'desc' | 'asc';
+}
+
+function loadSavedTransactionFilters(): SavedTransactionFilters {
+  try {
+    return JSON.parse(localStorage.getItem('fiducia_transactionFilters') || '{}');
+  } catch {
+    return {};
+  }
+}
+
 export function Transactions() {
   const { user, isAuthReady } = useAuth();
+  const savedFilters = React.useRef(loadSavedTransactionFilters()).current;
   const [transactions, setTransactions] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [creditCards, setCreditCards] = useState<any[]>([]);
@@ -113,21 +132,24 @@ export function Transactions() {
   const { selectedMonth, setSelectedMonth } = useReportingPeriod();
   const [isClosePeriodDialogOpen, setIsClosePeriodDialogOpen] = useState(false);
   
-  const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
-  const [selectedAccountFilter, setSelectedAccountFilter] = useState<string>('all');
+  const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>(savedFilters.tagIds || []);
+  const [selectedAccountFilter, setSelectedAccountFilter] = useState<string>(savedFilters.accountId || 'all');
   
-  const [filterType, setFilterType] = useState<'month' | 'range' | 'all'>('month');
+  const [filterType, setFilterType] = useState<'month' | 'range' | 'all'>(savedFilters.dateFilter || 'month');
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
   const currentDateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
   
-  const [startDate, setStartDate] = useState(`${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`);
-  const [endDate, setEndDate] = useState(new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('en-CA'));
+  const [startDate, setStartDate] = useState(savedFilters.startDate || `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`);
+  const [endDate, setEndDate] = useState(savedFilters.endDate || new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('en-CA'));
   const [searchTerm, setSearchTerm] = useState('');
   const [aiSearchMode, setAiSearchMode] = useState(false);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [aiSearchResultIds, setAiSearchResultIds] = useState<Set<string> | null>(null);
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>(savedFilters.sortOrder || 'desc');
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
+  const [bulkCategoryId, setBulkCategoryId] = useState('');
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   const [deleteConfirmTx, setDeleteConfirmTx] = useState<any | null>(null);
   const [deleteScope, setDeleteScope] = useState('only');
@@ -145,6 +167,83 @@ export function Transactions() {
   const [importAccountId, setImportAccountId] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('fiducia_transactionFilters', JSON.stringify({
+      accountId: selectedAccountFilter,
+      tagIds: selectedTagsFilter,
+      dateFilter: filterType,
+      startDate,
+      endDate,
+      sortOrder,
+    } satisfies SavedTransactionFilters));
+  }, [selectedAccountFilter, selectedTagsFilter, filterType, startDate, endDate, sortOrder]);
+
+  const resetFilters = () => {
+    setSelectedAccountFilter('all');
+    setSelectedTagsFilter([]);
+    setFilterType('month');
+    setSearchTerm('');
+    setAiSearchResultIds(null);
+    setSortOrder('desc');
+    localStorage.removeItem('fiducia_transactionFilters');
+  };
+
+  const transactionIsClosed = (transaction: any) => isPeriodClosed(
+    transaction.date,
+    transaction.accountId,
+    creditCards,
+    invoices,
+    closedPeriods,
+    transaction.invoicePeriod,
+  ) || (transaction.type === 'transferencia' && transaction.destinationAccountId && isPeriodClosed(
+    transaction.date,
+    transaction.destinationAccountId,
+    creditCards,
+    invoices,
+    closedPeriods,
+    transaction.invoicePeriod,
+  ));
+
+  const handleBulkCategoryUpdate = async () => {
+    if (!user || !bulkCategoryId || selectedTransactionIds.size === 0 || isBulkUpdating) return;
+    if (selectedTransactionIds.size > 450) {
+      toast.error('Selecione no máximo 450 lançamentos por operação.');
+      return;
+    }
+    setIsBulkUpdating(true);
+    try {
+      const batch = writeBatch(db);
+      const selected = transactions.filter((transaction) => transaction.id && selectedTransactionIds.has(transaction.id) && !transactionIsClosed(transaction));
+      const selectedKinds = new Set(selected.map((transaction) => transaction.type === 'receita' || transaction.type === 'income' ? 'income' : 'expense'));
+      const category = categories.find((item) => item.id === bulkCategoryId);
+      if (selectedKinds.size > 1 || (category?.type && !selectedKinds.has(category.type))) {
+        toast.error('Selecione lançamentos do mesmo tipo e uma categoria compatível.');
+        return;
+      }
+      selected.forEach((transaction) => {
+        batch.update(doc(db, 'transactions', transaction.id), { categoryId: bulkCategoryId, updatedAt: new Date().toISOString() });
+      });
+      await batch.commit();
+      await Promise.all(selected.map((transaction) => logActivity({
+        userId: user.uid,
+        action: 'update',
+        entityType: 'transaction',
+        entityId: transaction.id,
+        description: `Categoria alterada em lote: ${transaction.description}`,
+        dataBefore: { categoryId: transaction.categoryId || null },
+        dataAfter: { categoryId: bulkCategoryId },
+      })));
+      toast.success(`${selected.length} lançamento(ões) atualizado(s).`);
+      setSelectedTransactionIds(new Set());
+      setBulkCategoryId('');
+    } catch (error) {
+      toast.error('Não foi possível atualizar os lançamentos selecionados.');
+      handleFirestoreError(error, OperationType.UPDATE, 'transactions/bulk-category');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
 
   const handleExportStatementPDF = async () => {
     if (isExportingPdf) return;
@@ -850,138 +949,28 @@ ${sample.map(t =>
     return () => unsub();
   }, [selectedAccountFilter, user]);
 
-  const amountMatchesSearch = (amount: number, term: string): boolean => {
-    const representations = [
-      amount.toString(),
-      amount.toFixed(2),
-      new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount),
-      new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false }).format(amount),
-    ];
-    if (representations.some(r => r.includes(term))) return true;
-    const normalizedTerm = term.replace(/\./g, '').replace(',', '.');
-    const parsedAmount = parseFloat(normalizedTerm);
-    if (!isNaN(parsedAmount) && Math.abs(amount - parsedAmount) < 0.001) return true;
-    return false;
-  };
+  const processedTransactions = React.useMemo(() => processTransactions(transactions, {
+    accountId: selectedAccountFilter,
+    accountBalance: selectedAccountBalance,
+    tagIds: selectedTagsFilter,
+    dateFilter: filterType,
+    month: selectedMonth,
+    startDate,
+    endDate,
+    searchTerm,
+    aiSearchResultIds,
+    sortOrder,
+  }), [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, selectedAccountBalance, aiSearchResultIds, sortOrder]);
 
-  const processedTransactions = React.useMemo(() => {
-    let result = [...transactions];
+  const summary = React.useMemo(
+    () => summarizeTransactions(processedTransactions, selectedAccountFilter),
+    [processedTransactions, selectedAccountFilter],
+  );
 
-    // 1. Calculate running balance if a specific account is selected
-    if (selectedAccountFilter !== 'all') {
-        // Sort ascending by date to calculate running balance correctly
-        const accountTransactions = result
-          .filter(t => t.accountId === selectedAccountFilter || t.destinationAccountId === selectedAccountFilter)
-          .sort((a, b) => {
-            const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
-            if (dateDiff !== 0) return dateDiff;
-            return new Date(a.createdAt || a.date).getTime() - new Date(b.createdAt || b.date).getTime();
-          });
-
-        // We need to calculate backwards from the current balance
-        // Wait, if we sort descending, we can start with current balance and work backwards.
-        const descendingAccountTransactions = [...accountTransactions].reverse();
-        let currentBalance = selectedAccountBalance;
-        
-        const transactionsWithBalance = descendingAccountTransactions.map(t => {
-          const tWithBalance = { ...t, runningBalance: currentBalance };
-          
-          if (isEffectivelyPaid(t)) {
-            if (t.accountId === selectedAccountFilter) {
-              if (t.type === 'receita') {
-                currentBalance -= t.amount;
-              } else if (t.type === 'despesa') {
-                currentBalance += t.amount;
-              } else if (t.type === 'transferencia') {
-                currentBalance += t.amount;
-              }
-            } else if (t.destinationAccountId === selectedAccountFilter) {
-              if (t.type === 'transferencia') {
-                currentBalance -= t.amount;
-              }
-            }
-          }
-          
-          return tWithBalance;
-        });
-        
-        // Replace the original transactions with the ones containing runningBalance
-        result = result.map(t => {
-          const withBalance = transactionsWithBalance.find(twb => twb.id === t.id);
-          return withBalance ? withBalance : t;
-        });
-    }
-
-    // 2. Apply Filters
-    return result.filter(t => {
-      // Tags filter
-      let matchesTags = true;
-      if (selectedTagsFilter.length > 0) {
-        matchesTags = !!t.tags && t.tags.length > 0 && selectedTagsFilter.some(tagId => t.tags.includes(tagId));
-      }
-      
-      // Account filter
-      let matchesAccount = true;
-      if (selectedAccountFilter !== 'all') {
-        matchesAccount = t.accountId === selectedAccountFilter || t.destinationAccountId === selectedAccountFilter;
-      }
-
-      // Date filter
-      let matchesDate = true;
-      const tDatePart = t.date.split('T')[0];
-      if (filterType === 'month') {
-        matchesDate = tDatePart.startsWith(selectedMonth);
-      } else if (filterType === 'range') {
-        matchesDate = tDatePart >= startDate && tDatePart <= endDate;
-      }
-
-      // Search filter
-      let matchesSearch = true;
-      if (aiSearchResultIds) {
-        matchesSearch = aiSearchResultIds.has(t.id);
-      } else if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        matchesSearch = 
-          (t.description && t.description.toLowerCase().includes(term)) ||
-          (t.amount != null && amountMatchesSearch(t.amount, term));
-      }
-      
-      return !t.creditCardId && matchesTags && matchesAccount && matchesDate && matchesSearch;
-    }).sort((a, b) => {
-      const mult = sortOrder === 'asc' ? -1 : 1;
-      const dateDiff = (new Date(b.date).getTime() - new Date(a.date).getTime()) * mult;
-      if (dateDiff !== 0) return dateDiff;
-      return (new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime()) * mult;
-    });
-  }, [transactions, selectedAccountFilter, selectedTagsFilter, filterType, selectedMonth, startDate, endDate, searchTerm, selectedAccountBalance, accounts, creditCards, aiSearchResultIds, sortOrder]);
-
-
-  const summary = React.useMemo(() => {
-    return processedTransactions.reduce((acc, t) => {
-      if (!isEffectivelyPaid(t)) return acc;
-      if (t.type === 'receita') acc.income += t.amount;
-      if (t.type === 'despesa') acc.expense += t.amount;
-      // For transfers, if 'all' accounts, it's neutral. 
-      // If specific account, it depends if it's source or destination
-      if (t.type === 'transferencia' && selectedAccountFilter !== 'all') {
-        if (t.accountId === selectedAccountFilter) acc.expense += t.amount;
-        if (t.destinationAccountId === selectedAccountFilter) acc.income += t.amount;
-      }
-      return acc;
-    }, { income: 0, expense: 0 });
-  }, [processedTransactions, selectedAccountFilter]);
-
-  const groupedTransactions = React.useMemo(() => {
-    const groups: { [key: string]: any[] } = {};
-    processedTransactions.forEach(t => {
-      const dateKey = t.date.split('T')[0];
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(t);
-    });
-    return groups;
-  }, [processedTransactions]);
+  const groupedTransactions = React.useMemo(
+    () => groupTransactionsByDate(processedTransactions),
+    [processedTransactions],
+  );
 
   const isValidMonthFormat = (v: string) => /^\d{4}-\d{2}$/.test(v);
 
@@ -1073,6 +1062,10 @@ ${sample.map(t =>
 
       <Card className="border-none shadow-md bg-card/50 backdrop-blur-sm">
         <CardContent className="p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">Seus filtros ficam salvos neste dispositivo.</p>
+            <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>Limpar filtros</Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
             <div className="space-y-2 md:col-span-3">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conta</Label>
@@ -1554,6 +1547,22 @@ ${sample.map(t =>
             </DialogContent>
           </Dialog>
 
+      {selectedTransactionIds.size > 0 && (
+        <div role="region" aria-label="Ações em lote" className="sticky top-2 z-20 flex flex-col gap-3 rounded-2xl border border-fiducia-blue/30 bg-card p-3 shadow-lg sm:flex-row sm:items-center">
+          <div className="min-w-fit text-sm font-semibold">{selectedTransactionIds.size} selecionado(s)</div>
+          <ShadcnSelect value={bulkCategoryId} onValueChange={setBulkCategoryId}>
+            <SelectTrigger className="h-10 sm:w-64"><SelectValue placeholder="Escolha a nova categoria" /></SelectTrigger>
+            <SelectContent>
+              {categories.map((category) => <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>)}
+            </SelectContent>
+          </ShadcnSelect>
+          <Button type="button" onClick={handleBulkCategoryUpdate} disabled={!bulkCategoryId || isBulkUpdating}>
+            {isBulkUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Aplicar categoria
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => setSelectedTransactionIds(new Set())}>Cancelar seleção</Button>
+        </div>
+      )}
       {isLoading ? (
         <Card className="border-none shadow-md overflow-hidden">
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
@@ -1567,6 +1576,15 @@ ${sample.map(t =>
           <table className="w-full text-sm text-left">
             <thead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-secondary/50 dark:bg-secondary/80">
               <tr>
+                <th className="w-12 px-3 py-3 md:py-4">
+                  <input
+                    type="checkbox"
+                    aria-label="Selecionar lançamentos visíveis"
+                    checked={processedTransactions.some((transaction) => !transactionIsClosed(transaction)) && processedTransactions.filter((transaction) => !transactionIsClosed(transaction)).every((transaction) => transaction.id && selectedTransactionIds.has(transaction.id))}
+                    onChange={(event) => setSelectedTransactionIds(event.target.checked ? new Set(processedTransactions.flatMap((transaction) => transaction.id && !transactionIsClosed(transaction) ? [transaction.id] : [])) : new Set())}
+                    className="h-4 w-4 rounded border-border"
+                  />
+                </th>
                 <th className="px-3 md:px-6 py-3 md:py-4 rounded-tl-xl">Descrição</th>
                 <th className="px-3 md:px-6 py-3 md:py-4">Categoria</th>
                 {selectedAccountFilter === 'all' && <th className="px-3 md:px-6 py-3 md:py-4">Conta</th>}
@@ -1579,7 +1597,7 @@ ${sample.map(t =>
               {Object.keys(groupedTransactions).sort((a, b) => (new Date(b).getTime() - new Date(a).getTime()) * (sortOrder === 'asc' ? -1 : 1)).map(date => (
                 <React.Fragment key={date}>
                   <tr className="bg-secondary/10">
-                    <td colSpan={selectedAccountFilter === 'all' ? 5 : 5} className="px-6 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    <td colSpan={selectedAccountFilter === 'all' ? 6 : 6} className="px-6 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                       {formatDateHeader(date)}
                     </td>
                   </tr>
@@ -1588,11 +1606,25 @@ ${sample.map(t =>
                     const isCreditCard = creditCards.some(c => c.id === t.accountId);
                     const destAccount = accounts.find(a => a.id === t.destinationAccountId);
                     const category = categories.find(c => c.id === t.categoryId);
-                    const isClosed = isPeriodClosed(t.date, t.accountId, creditCards, invoices, closedPeriods, t.invoicePeriod) || (t.type === 'transferencia' && t.destinationAccountId && isPeriodClosed(t.date, t.destinationAccountId, creditCards, invoices, closedPeriods, t.invoicePeriod));
+                    const isClosed = transactionIsClosed(t);
                     const CategoryIcon = category ? getCategoryIcon(category.icon) : HelpCircle;
 
                     return (
                       <tr key={t.id} className={`group transition-colors ${isClosed ? 'bg-secondary/20 opacity-75' : 'hover:bg-secondary/30'}`}>
+                        <td className="px-3 py-3 md:py-4">
+                          <input
+                            type="checkbox"
+                            aria-label={`Selecionar ${t.description}`}
+                            disabled={isClosed}
+                            checked={selectedTransactionIds.has(t.id)}
+                            onChange={(event) => setSelectedTransactionIds((current) => {
+                              const next = new Set(current);
+                              if (event.target.checked) next.add(t.id); else next.delete(t.id);
+                              return next;
+                            })}
+                            className="h-4 w-4 rounded border-border disabled:opacity-40"
+                          />
+                        </td>
                         <td className="px-3 md:px-6 py-3 md:py-4">
                           <div className="flex items-center space-x-3">
                             <div className={`p-2 rounded-xl shrink-0 ${t.type === 'receita' || t.type === 'income' ? 'bg-fiducia-green-bg' : t.type === 'despesa' || t.type === 'expense' ? 'bg-fiducia-red-bg' : 'bg-fiducia-blue-bg'}`}>
@@ -1738,7 +1770,7 @@ ${sample.map(t =>
               ))}
               {processedTransactions.length === 0 && (
                 <tr>
-                  <td colSpan={selectedAccountFilter === 'all' ? 6 : 5} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={selectedAccountFilter === 'all' ? 7 : 6} className="px-6 py-12 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center space-y-3">
                       <div className="p-4 rounded-full bg-secondary/30">
                         <AlignLeft className="h-8 w-8 text-muted-foreground/50" />

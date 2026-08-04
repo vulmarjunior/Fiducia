@@ -145,3 +145,12 @@ Para replicar exatamente a funcionalidade orgânica produzida aqui acima, não c
 O cliente nunca acessa a Groq diretamente e não recebe `GROQ_API_KEY`. `callGroq()` obtém o Firebase ID token do usuário e chama `/api/groq`. A Vercel Function valida o token no Firebase Authentication, restringe modelo e tamanho do payload e somente então usa a chave disponível no ambiente server-side.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+## Desempenho, Cache e Operações em Lote (v0.9.0)
+
+- As páginas são carregadas sob demanda por `React.lazy`; `TransactionDialog` também possui chunk próprio.
+- O Firestore usa cache persistente multiaba. Isso melhora retomada e funcionamento intermitente, mas não substitui as regras de segurança nem autoriza cálculos sobre subconjuntos incompletos.
+- Históricos sem impacto em cálculos financeiros podem receber limites explícitos. Consultas usadas para saldo, faturas e auditoria não devem ser limitadas sem uma estratégia agregada equivalente.
+- A categorização em lote usa `writeBatch`, limita a operação a 450 documentos, ignora períodos fechados e exige categoria compatível com o tipo dos lançamentos.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode

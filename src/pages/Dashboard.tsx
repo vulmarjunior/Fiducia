@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
 import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
 import { migrateCategoryIds } from '../services/categoryMigration';
+import { OnboardingChecklist } from '../components/OnboardingChecklist';
+import { MetricExplanationDialog } from '../components/MetricExplanationDialog';
  
 export function Dashboard() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -32,6 +34,7 @@ export function Dashboard() {
   const [periodFilter, setPeriodFilter] = useState<'week' | 'month' | 'year'>('month');
   const [extraSectionsOpen, setExtraSectionsOpen] = useState(false);
   const [showPendingChart, setShowPendingChart] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => localStorage.getItem('fiducia_onboardingDismissed') !== 'true');
   const navigate = useNavigate();
   const { selectedMonth, setSelectedMonth } = useReportingPeriod();
 
@@ -453,6 +456,19 @@ Regras OBRIGATÓRIAS:
         </div>
       </div>
 
+      {showOnboarding && (accounts.length === 0 || transactions.length === 0) && (
+        <OnboardingChecklist
+          accountCount={accounts.length}
+          transactionCount={transactions.length}
+          cardCount={creditCards.length}
+          budgetCount={budgets.length}
+          onCreateTransaction={() => openTxDialog()}
+          onDismiss={() => {
+            localStorage.setItem('fiducia_onboardingDismissed', 'true');
+            setShowOnboarding(false);
+          }}
+        />
+      )}
       {/* AI Tip Card */}
       {(aiTip || isLoadingAi) && (
         <div className="bg-gradient-to-br from-fiducia-blue/5 via-transparent to-emerald-500/5 border border-border/60 rounded-2xl p-4 mb-6 shadow-sm">
@@ -488,7 +504,16 @@ Regras OBRIGATÓRIAS:
               Ativo
             </div>
           </div>
-          <div className="text-[13px] text-muted-foreground font-medium mb-1">Saldo Geral</div>
+          <div className="mb-1 flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
+            Saldo Geral
+            <MetricExplanationDialog
+              title="Saldo Geral"
+              description="Mostra quanto existe agora nas contas cadastradas. Compras no cartão só reduzem esse saldo quando a fatura é paga."
+              formula="Saldo Geral = soma dos saldos atuais das contas"
+              lines={accounts.map((account) => ({ label: account.name, value: formatCurrency(account.balance || 0) }))}
+              note={`${accounts.length} conta(s) incluída(s). Contas marcadas fora do fluxo de caixa continuam no patrimônio total.`}
+            />
+          </div>
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(totalBalance)}</div>
         </div>
 
@@ -502,7 +527,19 @@ Regras OBRIGATÓRIAS:
               {incomeTrendPct ? `${Number(incomeTrendPct) >= 0 ? '+' : ''}${incomeTrendPct}%` : '—'}
             </div>
           </div>
-          <div className="text-[13px] text-muted-foreground font-medium mb-1">Receitas do mês</div>
+          <div className="mb-1 flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
+            Receitas do mês
+            <MetricExplanationDialog
+              title="Receitas do mês"
+              description="Considera somente receitas efetivamente recebidas em contas no mês selecionado."
+              formula="Receitas = lançamentos recebidos, sem transferências e sem compras de cartão"
+              lines={[
+                { label: 'Período', value: selectedMonth },
+                { label: 'Receitas consideradas', value: String(currentMonthTransactions.filter((transaction) => (transaction.type === 'receita' || transaction.type === 'income') && isEffectivelyPaid(transaction) && !transaction.creditCardId).length) },
+                { label: 'Total', value: formatCurrency(monthlyIncome) },
+              ]}
+            />
+          </div>
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(monthlyIncome)}</div>
         </div>
 
@@ -516,7 +553,20 @@ Regras OBRIGATÓRIAS:
               {expenseTrendPct ? `${Number(expenseTrendPct) > 0 ? '+' : ''}${expenseTrendPct}%` : '—'}
             </div>
           </div>
-          <div className="text-[13px] text-muted-foreground font-medium mb-1">Despesas do mês</div>
+          <div className="mb-1 flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
+            Despesas do mês
+            <MetricExplanationDialog
+              title="Despesas do mês"
+              description="Considera despesas pagas em conta no mês selecionado. Compras individuais de cartão são excluídas para evitar contagem dupla."
+              formula="Despesas = lançamentos pagos em conta, sem transferências e sem compras de cartão"
+              lines={[
+                { label: 'Período', value: selectedMonth },
+                { label: 'Despesas consideradas', value: String(currentMonthTransactions.filter((transaction) => (transaction.type === 'despesa' || transaction.type === 'expense') && isEffectivelyPaid(transaction) && !transaction.creditCardId).length) },
+                { label: 'Total', value: formatCurrency(monthlyExpense) },
+              ]}
+              note="O pagamento consolidado da fatura aparece como saída da conta; as compras do cartão não são somadas novamente aqui."
+            />
+          </div>
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(monthlyExpense)}</div>
         </div>
 

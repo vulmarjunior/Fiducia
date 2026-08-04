@@ -5,6 +5,28 @@
 
 ---
 
+## [0.9.0] — 2026-08-04 — Estabilização, Desempenho e Experiência Guiada
+
+**Resultado:** O Fiducia ganhou uma base mais segura e rápida, navegação mobile dedicada, orientação para novos usuários, explicações transparentes dos indicadores e operações em lote para a rotina de lançamentos.
+
+**Alterações técnicas:**
+- Dependências de produção auditadas sem vulnerabilidades conhecidas; `xlsx` foi substituído por `read-excel-file`, e formatos XLS legados passaram a ser rejeitados com orientação para XLSX/CSV.
+- Firebase Emulator integrado ao CI para validar isolamento entre usuários e o fluxo atômico de pagamento parcial e total de fatura.
+- Navegação mobile inferior com ação central de novo lançamento, semântica de página ativa, Escape no menu, controles acessíveis e suporte a movimento reduzido.
+- Lógica de filtro, ordenação, agrupamento e saldo progressivo extraída de `Transactions.tsx` para módulo puro com testes.
+- Rotas e `TransactionDialog` carregados sob demanda; pacote inicial reduzido de aproximadamente 3,74 MB para 1,23 MB antes de gzip.
+- Cache persistente multiaba do Firestore; histórico da Central de Importação limitado a 250 registros e apoiado por índice composto.
+- Checklist de primeiros passos no Dashboard, explicação detalhada de Saldo Geral, Receitas e Despesas.
+- Filtros de lançamentos persistidos no dispositivo e categorização em lote com proteção de período fechado, limite operacional e validação do tipo da categoria.
+- `package.json`, `package-lock.json` e `APP_VERSION` atualizados para `0.9.0`.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 70 testes aprovados; 2 testes de emulador condicionais ao ambiente.
+- `npm run build` — build de produção concluído.
+- `npm audit --omit=dev` — 0 vulnerabilidades em dependências de produção.
+
+---
 ## [0.8.1] — 2026-08-04 — Hotfix do Runtime do Proxy Groq
 
 **Resultado:** A função serverless da Groq inicializa corretamente no Vercel e rejeita chamadas sem autenticação antes de acessar o provedor de IA.
