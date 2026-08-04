@@ -5,7 +5,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, Sparkles, Loader2, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLocalDate, projectDailyBalance, getBudgetImpact } from '../lib/utils';
@@ -36,7 +36,22 @@ export function Dashboard() {
   const [showPendingChart, setShowPendingChart] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => localStorage.getItem('fiducia_onboardingDismissed') !== 'true');
   const navigate = useNavigate();
+  const location = useLocation();
+  const [forceOnboarding, setForceOnboarding] = useState(
+    () => new URLSearchParams(window.location.search).get('onboarding') === '1',
+  );
   const { selectedMonth, setSelectedMonth } = useReportingPeriod();
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('onboarding') !== '1') return;
+
+    localStorage.removeItem('fiducia_onboardingDismissed');
+    setShowOnboarding(true);
+    setForceOnboarding(true);
+    searchParams.delete('onboarding');
+    navigate({ pathname: '/', search: searchParams.toString() }, { replace: true });
+  }, [location.search, navigate]);
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -456,7 +471,7 @@ Regras OBRIGATÓRIAS:
         </div>
       </div>
 
-      {showOnboarding && (accounts.length === 0 || transactions.length === 0) && (
+      {showOnboarding && (forceOnboarding || accounts.length === 0 || transactions.length === 0) && (
         <OnboardingChecklist
           accountCount={accounts.length}
           transactionCount={transactions.length}
@@ -466,6 +481,7 @@ Regras OBRIGATÓRIAS:
           onDismiss={() => {
             localStorage.setItem('fiducia_onboardingDismissed', 'true');
             setShowOnboarding(false);
+            setForceOnboarding(false);
           }}
         />
       )}

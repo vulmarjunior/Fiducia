@@ -11,6 +11,7 @@ import { Download, FileJson, Settings, AlertTriangle, Trash2, Loader2 } from 'lu
 import { logActivity } from '../services/activityLogService';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
+import { useNavigate } from 'react-router-dom';
 
 const RESET_COLLECTIONS = [
   'transactions',
@@ -27,6 +28,7 @@ const RESET_COLLECTIONS = [
 
 export function SettingsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [exporting, setExporting] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetStep, setResetStep] = useState<1 | 2>(1);
@@ -207,6 +209,22 @@ export function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2 pb-3 border-b border-border">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primeiros passos</Label>
+            <p className="text-xs text-muted-foreground">
+              Abra novamente o checklist de configuração usando seus dados atuais. Nenhum lançamento será alterado.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                localStorage.removeItem('fiducia_onboardingDismissed');
+                navigate('/?onboarding=1');
+              }}
+            >
+              Rever primeiros passos
+            </Button>
+          </div>
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Alerta de Limite do Cartão</Label>
