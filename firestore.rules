@@ -196,10 +196,12 @@ service cloud.firestore {
              data.userId == request.auth.uid &&
              data.cardId is string &&
              data.period is string && data.period.matches("^\\d{4}-\\d{2}$") &&
-             data.status in ['aberta', 'fechada', 'paga'] &&
+             data.status in ['aberta', 'fechada', 'paga', 'parcial'] &&
              (!('totalAmount' in data) || data.totalAmount is number) &&
              (!('closedAt' in data) || isValidDate(data.closedAt)) &&
-             (!('paymentTransactionId' in data) || data.paymentTransactionId is string);
+             (!('paymentTransactionId' in data) || data.paymentTransactionId == null || data.paymentTransactionId is string) &&
+             (!('paymentTransactionIds' in data) || data.paymentTransactionIds is list) &&
+             (!('paidAmount' in data) || data.paidAmount is number || data.paidAmount == null);
     }
 
     function isValidReconciliationHistory(data) {
