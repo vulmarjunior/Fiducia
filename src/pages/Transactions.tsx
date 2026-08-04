@@ -346,15 +346,14 @@ export function Transactions() {
         const paymentTxRef = doc(collection(db, 'transactions'));
         const paymentTxData = {
           userId: user.uid,
-          type: 'transferencia',
+          type: 'despesa',
           amount: totalAmount,
           date: paymentDateStr,
           description: `Pagamento Fatura ${card.name} - ${closePeriodMonth}`,
           accountId: closePeriodPaymentAccountId,
-          destinationAccountId: closePeriodAccountId,
+          destinationAccountId: null,
           categoryId: null,
           status: 'pendente',
-          invoicePeriod: closePeriodMonth,
           tags: [],
           observation: '',
           reconciliationStatus: 'nao_conciliado',
