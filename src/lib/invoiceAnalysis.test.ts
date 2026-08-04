@@ -180,22 +180,30 @@ describe('buildInvoiceAnalysis', () => {
   });
 
   it('detecta faturas futuras com parcelas pendentes', () => {
+    const today = new Date();
+    const m1 = today.getMonth() + 2;
+    const m2 = today.getMonth() + 3;
+    const y1 = today.getFullYear() + Math.floor(m1 / 12);
+    const y2 = today.getFullYear() + Math.floor(m2 / 12);
+    const period1 = `${y1}-${String((m1 % 12) + 1).padStart(2, '0')}`;
+    const period2 = `${y2}-${String((m2 % 12) + 1).padStart(2, '0')}`;
+
     const result = buildInvoiceAnalysis({
       creditCards: [card1],
       transactions: [
-        { id: 'tx-1', type: 'despesa', status: 'pendente', amount: 100, date: '2026-07-25', description: 'Parcela 2/6', accountId: 'card-1', invoicePeriod: '2026-08', installmentNumber: 2, totalInstallments: 6 },
-        { id: 'tx-2', type: 'despesa', status: 'pendente', amount: 100, date: '2026-08-25', description: 'Parcela 3/6', accountId: 'card-1', invoicePeriod: '2026-09', installmentNumber: 3, totalInstallments: 6 },
+        { id: 'tx-1', type: 'despesa', status: 'pendente', amount: 100, date: `${period1}-25`, description: 'Parcela 2/6', accountId: 'card-1', invoicePeriod: period1, installmentNumber: 2, totalInstallments: 6 },
+        { id: 'tx-2', type: 'despesa', status: 'pendente', amount: 100, date: `${period2}-25`, description: 'Parcela 3/6', accountId: 'card-1', invoicePeriod: period2, installmentNumber: 3, totalInstallments: 6 },
       ],
       invoices: [],
-      startDate: new Date(2026, 5, 1),
-      endDate: new Date(2026, 9, 30),
+      startDate: new Date(today.getFullYear(), today.getMonth(), 1),
+      endDate: new Date(y2, (m2 % 12) + 1, 0),
     });
 
     expect(result.summary.totalFuture).toBe(200);
     const futureItems = result.detailList.filter(d => d.status === 'future');
     expect(futureItems).toHaveLength(2);
-    expect(futureItems[0].period).toBe('2026-08');
-    expect(futureItems[1].period).toBe('2026-09');
+    expect(futureItems[0].period).toBe(period1);
+    expect(futureItems[1].period).toBe(period2);
   });
 
   it('calcula variacao mes a mes por cartao', () => {
