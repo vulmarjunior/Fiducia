@@ -1,5 +1,5 @@
-﻿import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
+import { readSpreadsheet, spreadsheetRowsToObjects } from './spreadsheetReader';
 import { ParsedImportResult } from '../types';
 import { extractTextFromPdf } from './pdfInvoiceService';
 import { parseOfx } from './ofxService';
@@ -154,16 +154,9 @@ async function parseCsvRows(file: File): Promise<Record<string, any>[]> {
   });
 }
 
-async function readWorkbook(file: File): Promise<XLSX.WorkBook> {
-  const buffer = await file.arrayBuffer();
-  return XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
-}
+async function readWorkbook(file: File, sheetName?: string) { return readSpreadsheet(file, sheetName); }
 
-function rowsFromWorkbook(workbook: XLSX.WorkBook, sheetName?: string): Record<string, any>[] {
-  const name = sheetName || workbook.SheetNames[0];
-  if (!name) return [];
-  return XLSX.utils.sheet_to_json(workbook.Sheets[name], { defval: '' }) as Record<string, any>[];
-}
+function rowsFromWorkbook(workbook: Awaited<ReturnType<typeof readWorkbook>>): Record<string, any>[] { return spreadsheetRowsToObjects(workbook.rows); }
 
 function headersFromRows(rows: Record<string, any>[]): string[] {
   return Object.keys(rows[0] || {});
@@ -202,7 +195,7 @@ function fileKind(file: File): BankStatementFilePreview['kind'] {
   if (lowerName.endsWith('.csv')) return 'csv';
   if (lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx')) return 'xlsx';
   if (lowerName.endsWith('.pdf')) return 'pdf';
-  throw new Error('Formato de arquivo nao suportado. Use OFX, CSV, XLS, XLSX ou PDF textual.');
+  throw new Error('Formato de arquivo nao suportado. Use OFX, CSV, XLSX ou PDF textual.');
 }
 
 export async function getBankStatementFilePreview(file: File, selectedSheet?: string): Promise<BankStatementFilePreview> {
@@ -223,14 +216,14 @@ export async function getBankStatementFilePreview(file: File, selectedSheet?: st
   }
 
   if (kind === 'xlsx') {
-    const workbook = await readWorkbook(file);
-    const rows = rowsFromWorkbook(workbook, selectedSheet);
+    const workbook = await readWorkbook(file, selectedSheet);
+    const rows = rowsFromWorkbook(workbook);
     const headers = headersFromRows(rows);
     return {
       kind,
       fileName: file.name,
-      sheetNames: workbook.SheetNames,
-      selectedSheet: selectedSheet || workbook.SheetNames[0],
+      sheetNames: workbook.sheetNames,
+      selectedSheet: selectedSheet || workbook.sheetNames[0],
       headers,
       rowsPreview: rows.slice(0, 5),
       defaultMapping: buildDefaultMapping(headers),
@@ -278,7 +271,7 @@ export async function parseBankStatementFile(file: File, options: {
     ? await parseCsvRows(file)
     : kind === 'pdf'
       ? await parsePdfRows(file)
-      : rowsFromWorkbook(await readWorkbook(file), options.sheetName);
+      : rowsFromWorkbook(await readWorkbook(file, options.sheetName));
 
   const headers = headersFromRows(rows);
   const mapping = options.mapping || buildDefaultMapping(headers);
