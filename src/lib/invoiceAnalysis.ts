@@ -16,6 +16,9 @@ export interface InvoiceDetail {
   status: 'open' | 'closed' | 'paid' | 'future';
   dueDate: string;
   amount: number;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
   pctOfTotal: number;
   previousAmount: number;
   variation: number;
@@ -204,6 +207,9 @@ export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnal
             status: 'paid',
             dueDate: getDueDate(period, card.dueDay),
             amount: paidAmount,
+            totalAmount: paidAmount,
+            paidAmount,
+            remainingAmount: 0,
             pctOfTotal: 0,
             previousAmount: 0,
             variation: 0,
@@ -231,6 +237,10 @@ export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnal
         }
       }
 
+      const financialTotal = typeof invoice?.totalAmount === 'number' && invoice.totalAmount > 0 ? invoice.totalAmount : amount;
+      const financialPaid = Math.min(financialTotal, Math.max(0, invoice?.paidAmount || (status === 'paid' ? financialTotal : 0)));
+      const financialRemaining = status === 'paid' ? 0 : Math.max(0, financialTotal - financialPaid);
+
       globalGrandTotal += amount;
       detailList.push({
         cardId: card.id,
@@ -239,6 +249,9 @@ export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnal
         status,
         dueDate: getDueDate(period, card.dueDay),
         amount,
+        totalAmount: financialTotal,
+        paidAmount: financialPaid,
+        remainingAmount: financialRemaining,
         pctOfTotal: 0,
         previousAmount: 0,
         variation: 0,
@@ -267,9 +280,9 @@ export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnal
   });
 
   const summary = {
-    totalOpen: detailList.filter(d => d.status === 'open').reduce((s, d) => s + d.amount, 0),
-    totalClosed: detailList.filter(d => d.status === 'closed').reduce((s, d) => s + d.amount, 0),
-    totalPaid: detailList.filter(d => d.status === 'paid').reduce((s, d) => s + d.amount, 0),
+    totalOpen: detailList.filter(d => d.status === 'open').reduce((s, d) => s + d.remainingAmount, 0),
+    totalClosed: detailList.filter(d => d.status === 'closed').reduce((s, d) => s + d.remainingAmount, 0),
+    totalPaid: detailList.reduce((s, d) => s + d.paidAmount, 0),
     totalFuture: detailList.filter(d => d.status === 'future').reduce((s, d) => s + d.amount, 0),
     monthlyAverage: 0,
     largestInvoice: 0,

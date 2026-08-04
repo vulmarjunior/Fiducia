@@ -9,8 +9,37 @@ export interface InvoicePaymentState {
   status: InvoicePaymentStatus;
 }
 
+export interface InvoiceFinancialSummary {
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  paymentProgress: number;
+  status: 'aberta' | 'fechada' | 'parcial' | 'paga';
+}
+
 const toCents = (value: number) => Math.round(value * 100);
 const fromCents = (value: number) => value / 100;
+
+export function getInvoiceFinancialSummary(invoice: any, calculatedTotal = 0): InvoiceFinancialSummary {
+  const totalCents = Math.max(0, toCents(
+    typeof invoice?.totalAmount === 'number' && invoice.totalAmount > 0 ? invoice.totalAmount : calculatedTotal,
+  ));
+  const paidCents = Math.min(totalCents, Math.max(0, toCents(invoice?.paidAmount || 0)));
+  const remainingCents = Math.max(0, totalCents - paidCents);
+  const status = remainingCents === 0 && totalCents > 0
+    ? 'paga'
+    : paidCents > 0
+      ? 'parcial'
+      : (invoice?.status || 'aberta');
+
+  return {
+    totalAmount: fromCents(totalCents),
+    paidAmount: fromCents(paidCents),
+    remainingAmount: fromCents(remainingCents),
+    paymentProgress: totalCents > 0 ? (paidCents / totalCents) * 100 : 0,
+    status,
+  };
+}
 
 export function calculateInvoicePayment(totalAmount: number, priorPaidAmount: number, paymentAmount: number): InvoicePaymentState {
   const totalCents = toCents(totalAmount);

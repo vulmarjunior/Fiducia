@@ -5,6 +5,23 @@
 
 ---
 
+## [0.7.3] — 2026-08-04 — Visibilidade e Consistência de Pagamentos Parciais
+
+**Resultado:** O usuário passa a ver claramente quanto já pagou e quanto ainda falta pagar. O card do cartão, o detalhe da fatura e os relatórios usam o saldo remanescente, sem reapresentar a fatura anterior pelo valor integral.
+
+**Alterações técnicas:**
+- `src/lib/invoicePayment.ts` — resumo financeiro canônico com total, pago, restante, progresso e status.
+- `src/lib/invoicePayment.test.ts` — cobertura do resumo parcial, fallback calculado e limite do valor pago.
+- `src/pages/CreditCards.tsx` — card líquido, progresso do pagamento, histórico vinculado, saldo remanescente destacado e ação responsiva para pagar o restante.
+- `src/lib/invoiceAnalysis.ts`, `src/pages/Reports.tsx` — obrigações e projeções usam o valor restante; pagamentos parciais entram no total pago.
+- `package.json`, `src/lib/utils.ts` — versão `0.7.3`.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 63/63 testes passando.
+- `npm run build` — build de produção concluído.
+
+---
 ## [0.7.2] — 2026-08-04 — Correção do Pagamento Total e Parcial de Faturas
 
 **Resultado:** Pagamentos de fatura passam a preservar o total canônico da obrigação, acumular pagamentos parciais com precisão em centavos e concluir a fatura somente quando o saldo remanescente chega a zero. Cliques duplicados são bloqueados durante a gravação.
