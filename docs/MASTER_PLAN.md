@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.8.1` |
+| **Versão atual** | `0.9.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-04 (hotfix do runtime serverless do proxy Groq) |
-| **Último deploy** | 2026-08-04 — regras Firestore da v0.7.2 |
+| **Última alteração em código** | 2026-08-04 (estabilização, desempenho e experiência guiada v0.9.0) |
+| **Último deploy** | 2026-08-04 — v0.8.1; publicação da v0.9.0 em andamento |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -66,15 +66,15 @@ npm run build      # vite build
 | Autenticação | ✅ Funcional | Google Auth + modo convidado anônimo |
 | PWA | ✅ Instalável | iOS meta tags, update com toast |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
-| Testes | ⚠️ Parcial | Unitários para cartão e cobertura de caixa; sem testes de integração |
+| Testes | ✅ Automatizados | 70 testes locais + 2 cenários com Firebase Emulator no CI |
 
 ---
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Estabilização da versão 0.8.x e evolução das funcionalidades financeiras já existentes.
+**Foco atual:** Estabilização da versão 0.9.x, observabilidade e evolução das funcionalidades financeiras existentes.
 
-**Próximo passo sugerido:** Priorizar estabilização, testes end-to-end opcionais e melhorias nas funcionalidades atuais. A Fase 3 da Central de Importação está fora do escopo do projeto atual.
+**Próximo passo sugerido:** Monitorar a v0.9.0 em produção, ampliar testes de interface e otimizar o pacote compartilhado de ícones. A Fase 3 da Central de Importação permanece fora do escopo atual.
 
 ---
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-08-04 | v0.9.0 — Estabilização, desempenho e experiência guiada | Segurança / UX / Performance |
 | 2026-07-13 | v0.6.1 — Períodos civis na Projeção Futura | Relatórios / UX |
 | 2026-07-13 | v0.6.0 — Central de Importação Assistida (Fases 1 e 2) | Importação / PWA / UX |
 | 2026-07-07 | v0.5.1 — Ajustes responsivos em modais financeiros | Cartões / Transações / UX Mobile |
@@ -124,7 +125,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 6 | Estorno total / parcial de compras | ✅ Concluído | v0.7.0 — botão Undo no Transactions + dropdown Estornar no CreditCards, diálogo total/parcial |
 | 7 | Pagamento parcial de fatura | ✅ Concluído | v0.7.0 — `paymentTransactionIds[]`, `paidAmount`, status `parcial`, múltiplos pagamentos |
 | 8 | Paradigmas de orçamento (impacto fracionado vs integral) | ✅ Concluído | v0.7.0 — `getBudgetImpact()` em utils, seletor em Configurações |
-| 9 | Testes automatizados (integração + unitários) | ✅ Concluído | v0.8.0 — 66/66, incluindo fluxo integrado de pagamento, saldo e fatura |
+| 9 | Testes automatizados (integração + unitários) | ✅ Concluído | v0.9.0 — 70 testes locais + regras e pagamentos atômicos no Firebase Emulator/CI |
 | 10 | Gestão de versão / releases | ✅ Concluído | v0.7.0; exibida no Login e Dashboard |
 | 11 | Central de Importacao Assistida - Fases 1 e 2 | ✅ Concluído | Entregues em v0.6.0 |
 | 12 | Central de Importação Assistida — Fase 3 | ⏸️ Fora do escopo atual | Ideia preservada apenas para eventual reavaliação futura; sem previsão de implementação |
@@ -137,7 +138,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 
 | Risco | Severidade | Descrição |
 |-------|-----------|-----------|
-| Testes dependentes de emulador | Baixa | Fluxos de domínio cobertos; suíte end-to-end com Firebase Emulator pode ampliar a cobertura |
+| Testes dependentes de emulador | Baixa | Suíte configurada no CI com Java 21; execução local exige Java instalado |
 | Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard |
 | IA server-side | ✅ Resolvido | Chave Groq restrita à Vercel Function; bundle verificado sem segredo |
 | Single developer | Alta | Todo conhecimento está em um único desenvolvedor (documentação atenua) |
