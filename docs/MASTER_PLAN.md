@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.7.2` |
+| **Versão atual** | `0.7.3` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-04 (correção transacional do pagamento total/parcial de faturas) |
+| **Última alteração em código** | 2026-08-04 (visibilidade e consistência de pagamentos parciais em cartões e relatórios) |
 | **Último deploy** | 2026-08-04 — regras Firestore da v0.7.2 |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -124,7 +124,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 6 | Estorno total / parcial de compras | ✅ Concluído | v0.7.0 — botão Undo no Transactions + dropdown Estornar no CreditCards, diálogo total/parcial |
 | 7 | Pagamento parcial de fatura | ✅ Concluído | v0.7.0 — `paymentTransactionIds[]`, `paidAmount`, status `parcial`, múltiplos pagamentos |
 | 8 | Paradigmas de orçamento (impacto fracionado vs integral) | ✅ Concluído | v0.7.0 — `getBudgetImpact()` em utils, seletor em Configurações |
-| 9 | Testes automatizados (integração + unitários) | 🔄 Parcial | Unitários 54/54 (1 falha por data fixa); integração pendente |
+| 9 | Testes automatizados (integração + unitários) | 🔄 Parcial | Unitários 63/63; integração pendente |
 | 10 | Gestão de versão / releases | ✅ Concluído | v0.7.0; exibida no Login e Dashboard |
 | 11 | Central de Importacao Assistida - Fases 1 e 2 | ✅ Concluído | Entregues em v0.6.0 |
 | 12 | Central de Importacao Assistida - Fase 3 | ⚠️ Futuro | E-mail, app companion Android, Open Finance, perfis avançados |
@@ -181,7 +181,7 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 
 ## 10. Próximo Passo Autorizado
 
-Itens entregues em v0.7.0 a v0.7.2 (2026-08-04):
+Itens entregues em v0.7.0 a v0.7.3 (2026-08-04):
 1. ✅ Pagamento parcial de fatura — `paymentTransactionIds[]`, `paidAmount`, status `parcial`
 2. ✅ Correção de categorias por string legível — `resolveCategoryId`, migration auto-heal
 3. ✅ CI/CD — GitHub Actions (lint + test + build)
@@ -190,6 +190,7 @@ Itens entregues em v0.7.0 a v0.7.2 (2026-08-04):
 6. ✅ Paradigmas de orçamento — `getBudgetImpact`, fracionado vs integral
 7. ✅ Correção de permissão no Firestore para pagamento de fatura (v0.7.1).
 8. ✅ Correção transacional de pagamentos totais/parciais (v0.7.2) — total canônico, cálculo em centavos, proteção contra duplicidade e fechamento protegido.
+9. ✅ Experiência e consistência de pagamentos parciais (v0.7.3) — saldo líquido nos cards, progresso e histórico na fatura, saldo remanescente visível e relatórios pelo valor em aberto.
 
 Pendências para sessão futura:
 - Chave Groq em proxy — implementar Cloud Function (Firebase/Vercel), deploy pendente

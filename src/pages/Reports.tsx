@@ -1065,6 +1065,7 @@ export function Reports() {
                             const card = creditCards.find(c => c.id === inv.cardId);
                             const [y, mn] = inv.period.split('-').map(Number);
                             const periodLabel = new Date(y, mn - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                            const displayedAmount = inv.status === 'parcial' ? Math.max(0, (inv.totalAmount || 0) - (inv.paidAmount || 0)) : (inv.totalAmount || 0);
                             return (
                               <div key={inv.id} onClick={() => navigate('/cards')}
                                 className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/50 dark:bg-secondary/80 cursor-pointer transition-colors border-t border-border/20">
@@ -1081,7 +1082,8 @@ export function Reports() {
                                   <div className="text-[11px] text-muted-foreground capitalize">{periodLabel}</div>
                                 </div>
                                 <div className="text-right shrink-0">
-                                  <div className="text-[13px] font-bold font-mono text-fiducia-amber">-{fmt(inv.totalAmount || 0)}</div>
+                                  <div className="text-[13px] font-bold font-mono text-fiducia-amber">-{fmt(displayedAmount)}</div>
+                                  {inv.status === 'parcial' && <div className="text-[10px] text-fiducia-green">{fmt(inv.paidAmount || 0)} já pagos</div>}
                                   <div className="text-[11px] text-fiducia-blue hover:underline">→ Ver cartão</div>
                                 </div>
                               </div>
@@ -1153,9 +1155,9 @@ export function Reports() {
               <div className="text-[11px] text-muted-foreground mt-1">Aguardando pagamento</div>
             </div>
             <div className="bg-fiducia-green/5 border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3"><ArrowUpRight className="w-4 h-4 text-fiducia-green" /><span className="text-[10px] font-bold text-fiducia-green uppercase tracking-wider">Pagas no Período</span></div>
+              <div className="flex items-center gap-2 mb-3"><ArrowUpRight className="w-4 h-4 text-fiducia-green" /><span className="text-[10px] font-bold text-fiducia-green uppercase tracking-wider">Pagamentos Registrados</span></div>
               <div className="text-2xl font-bold font-mono text-fiducia-green">{fmt(invoiceAnalysis.summary.totalPaid)}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">Faturas quitadas</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Inclui pagamentos parciais</div>
             </div>
             <div className="bg-fiducia-blue/5 border border-border rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-fiducia-blue" /><span className="text-[10px] font-bold text-fiducia-blue uppercase tracking-wider">Comprometimento Futuro</span></div>

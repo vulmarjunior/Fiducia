@@ -28,7 +28,7 @@ import { extractTextFromPdf, parseInvoiceWithGroq, PdfTransaction } from '../ser
 import { PdfImportReviewDialog } from '../components/PdfImportReviewDialog';
 import { InvoiceReconciliationDialog } from '../components/InvoiceReconciliationDialog';
 import { generateCreditCardInvoicePDF } from '../lib/pdfTemplates';
-import { calculateInvoicePayment } from '../lib/invoicePayment';
+import { calculateInvoicePayment, getInvoiceFinancialSummary } from '../lib/invoicePayment';
 
 export function CreditCards() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -912,30 +912,32 @@ export function CreditCards() {
           const currentPeriod = calculateInvoicePeriod(new Date(), card.closingDay, card.dueDay);
           const previousPeriod = getPreviousPeriod(currentPeriod);
           
-          const prevBalance = calculatePeriodBalance(card.id, previousPeriod);
-          const currentBalance = calculatePeriodBalance(card.id, currentPeriod);
-          const netOutstanding = prevBalance + currentBalance;
+          const previousInvoice = invoices.find(i => i.cardId === card.id && i.period === previousPeriod);
+          const currentInvoice = invoices.find(i => i.cardId === card.id && i.period === currentPeriod);
+          const previousSummary = getInvoiceFinancialSummary(previousInvoice, calculatePeriodBalance(card.id, previousPeriod));
+          const calculatedCurrentTotal = previousSummary.remainingAmount + calculatePeriodBalance(card.id, currentPeriod);
+          const currentSummary = getInvoiceFinancialSummary(currentInvoice, calculatedCurrentTotal);
+          const netOutstanding = currentSummary.remainingAmount;
+          const highlightedSummary = previousSummary.remainingAmount > 0.01 ? previousSummary : currentSummary;
           
           let displayAmount: number;
           let displayLabel: string;
           let displayPeriod: string;
           let isOverdue = false;
 
-          if (prevBalance > 0.01) {
-            // Soma saldos de períodos anteriores + atual para mostrar total devido
+          if (previousSummary.remainingAmount > 0.01) {
             displayAmount = Math.max(0, netOutstanding);
-            displayLabel = "Saldo Devedor";
+            displayLabel = previousSummary.status === 'parcial' ? "Restante após pagamento" : "Saldo Devedor";
             displayPeriod = currentPeriod;
-            
             const [pYear, pMonth] = previousPeriod.split('-').map(Number);
             const dueDate = new Date(pYear, pMonth - 1, card.dueDay);
             if (dueDate < new Date()) {
               isOverdue = true;
-              displayLabel = "Fatura Atrasada";
+              displayLabel = previousSummary.status === 'parcial' ? "Restante em atraso" : "Fatura Atrasada";
             }
           } else {
-            displayAmount = currentBalance;
-            displayLabel = "Fatura Atual (Aberta)";
+            displayAmount = currentSummary.remainingAmount;
+            displayLabel = currentSummary.status === 'parcial' ? "Restante da fatura" : currentSummary.status === 'paga' ? "Fatura paga" : "Fatura Atual (Aberta)";
             displayPeriod = currentPeriod;
           }
 
@@ -975,6 +977,17 @@ export function CreditCards() {
                     <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
                       {displayLabel} • {periodName}
                     </p>
+                    {highlightedSummary.paidAmount > 0 && (
+                      <div className="mt-2 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 text-[10px]">
+                          <Badge className="bg-fiducia-amber/10 text-fiducia-amber border-fiducia-amber/20">Pagamento parcial</Badge>
+                          <span className="font-semibold text-muted-foreground">R$ {highlightedSummary.paidAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} pagos de R$ {highlightedSummary.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                          <div className="h-full rounded-full bg-fiducia-green transition-all" style={{ width: `${highlightedSummary.paymentProgress}%` }} />
+                        </div>
+                      </div>
+                    )}
                     {(() => {
                       const threshold = parseInt(localStorage.getItem('fiducia_limitAlertThreshold') || '80');
                       const usagePct = card.limit > 0 ? (totalUsage / card.limit) * 100 : 0;
@@ -1141,7 +1154,9 @@ export function CreditCards() {
             {selectedCardForInvoice && (() => {
               const currentPeriod = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
               const previousPeriod = getPreviousPeriod(currentPeriod);
-              const previousBalance = calculatePeriodBalance(selectedCardForInvoice.id, previousPeriod);
+              const previousInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === previousPeriod);
+              const previousSummary = getInvoiceFinancialSummary(previousInvoice, calculatePeriodBalance(selectedCardForInvoice.id, previousPeriod));
+              const previousBalance = previousSummary.remainingAmount;
               
               // Filter transactions by period and search term
               const filteredTransactions = transactions.filter(t => {
@@ -1166,7 +1181,7 @@ export function CreditCards() {
                 .filter(t => t.type === 'expense' || t.type === 'despesa')
                 .reduce((acc, t) => acc + t.amount, 0);
                 
-              const periodPayments = periodTransactions
+              const legacyPeriodPayments = periodTransactions
                 .filter(t => (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === selectedCardForInvoice.id)
                 .reduce((acc, t) => acc + t.amount, 0);
                 
@@ -1174,14 +1189,18 @@ export function CreditCards() {
                 .filter(t => (t.type === 'income' || t.type === 'receita') && t.accountId === selectedCardForInvoice.id)
                 .reduce((acc, t) => acc + t.amount, 0);
 
-              const totalInvoice = previousBalance + periodExpenses - periodPayments - periodIncomes;
-              
+              const calculatedInvoiceTotal = previousBalance + periodExpenses - legacyPeriodPayments - periodIncomes;
               const invoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === currentPeriod);
-              const isPaid = invoice ? invoice.status === 'paga' : (totalInvoice <= 0 && periodPayments > 0);
-              const isPartial = invoice ? invoice.status === 'parcial' : false;
+              const invoiceSummary = getInvoiceFinancialSummary(invoice, calculatedInvoiceTotal);
+              const totalInvoice = invoiceSummary.totalAmount;
+              const paidSoFar = invoiceSummary.paidAmount;
+              const remainingAmount = invoiceSummary.remainingAmount;
+              const periodPayments = Math.max(paidSoFar, legacyPeriodPayments);
+              const paymentIds = new Set<string>(invoice?.paymentTransactionIds || (invoice?.paymentTransactionId ? [invoice.paymentTransactionId] : []));
+              const paymentHistory = transactions.filter(t => paymentIds.has(t.id) && isEffectivelyPaid(t));
+              const isPaid = invoiceSummary.status === 'paga';
+              const isPartial = invoiceSummary.status === 'parcial';
               const isClosed = invoice ? isInvoiceClosed(invoice.status) : (new Date() > new Date(selectedInvoiceMonth.getFullYear(), selectedInvoiceMonth.getMonth(), selectedCardForInvoice.closingDay));
-              const paidSoFar = invoice?.paidAmount || 0;
-              const remainingAmount = totalInvoice - paidSoFar;
 
               const handleCloseInvoice = async () => {
                 if (!selectedCardForInvoice) return;
@@ -1229,7 +1248,7 @@ export function CreditCards() {
 
               return (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                     <div className="bg-card border p-4 rounded-xl shadow-sm">
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Saldo Anterior</p>
                       <p className={`text-lg font-black ${previousBalance > 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
@@ -1255,9 +1274,15 @@ export function CreditCards() {
                       </p>
                     </div>
                     <div className="bg-fiducia-blue/5 border border-fiducia-blue/20 p-4 rounded-xl shadow-sm">
-                      <p className="text-[10px] font-black text-fiducia-blue/70 uppercase tracking-widest mb-1">Valor da Fatura</p>
-                      <p className={`text-lg font-black ${totalInvoice > 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
-                        R$ {Math.abs(totalInvoice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      <p className="text-[10px] font-black text-fiducia-blue/70 uppercase tracking-widest mb-1">Valor Original</p>
+                      <p className="text-lg font-black text-fiducia-blue">
+                        R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div className={`border p-4 rounded-xl shadow-sm ${remainingAmount > 0 ? 'bg-fiducia-amber/5 border-fiducia-amber/20' : 'bg-fiducia-green/5 border-fiducia-green/20'}`}>
+                      <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${remainingAmount > 0 ? 'text-fiducia-amber' : 'text-fiducia-green'}`}>Falta Pagar</p>
+                      <p className={`text-lg font-black ${remainingAmount > 0 ? 'text-fiducia-amber' : 'text-fiducia-green'}`}>
+                        R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
@@ -1668,36 +1693,48 @@ export function CreditCards() {
                     );
                   })()}
 
-                  <div className="bg-secondary/20 p-4 rounded-xl border border-dashed flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-background p-2 rounded-lg shadow-sm border">
-                        <Calendar className="w-5 h-5 text-fiducia-blue" />
+                  {paidSoFar > 0 && (
+                    <div className="rounded-xl border border-fiducia-green/20 bg-fiducia-green/5 overflow-hidden">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-b border-fiducia-green/10">
+                        <div>
+                          <p className="text-[10px] font-black text-fiducia-green uppercase tracking-widest">Pagamentos realizados</p>
+                          <p className="text-sm font-bold text-foreground">R$ {paidSoFar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} pagos de R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        </div>
+                        <div className="w-full sm:w-48">
+                          <div className="flex justify-between text-[10px] text-muted-foreground mb-1"><span>Progresso</span><span>{invoiceSummary.paymentProgress.toFixed(0)}%</span></div>
+                          <div className="h-2 rounded-full bg-secondary overflow-hidden"><div className="h-full bg-fiducia-green rounded-full" style={{ width: `${invoiceSummary.paymentProgress}%` }} /></div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Vencimento da Fatura</p>
-                        <p className="text-sm font-bold">Dia {selectedCardForInvoice.dueDay} de {selectedInvoiceMonth.toLocaleDateString('pt-BR', { month: 'long' })}</p>
-                      </div>
+                      {paymentHistory.length > 0 && (
+                        <div className="divide-y divide-fiducia-green/10">
+                          {paymentHistory.map(payment => (
+                            <div key={payment.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs">
+                              <div><span className="font-semibold">{parseLocalDate(payment.date).toLocaleDateString('pt-BR')}</span><span className="text-muted-foreground"> · {resolveAccountName(payment.accountId, accounts, cards)}</span></div>
+                              <span className="font-mono font-black text-fiducia-green">R$ {payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {totalInvoice > 0 && !isPaid && (
-                        <Button 
-                          className="bg-fiducia-green hover:bg-fiducia-green/90 text-white dark:text-background font-bold text-xs uppercase tracking-widest h-10 px-6 shadow-md"
-                        onClick={() => {
-                          setPaymentData({
-                            accountId: '',
-                            amount: remainingAmount > 0 ? remainingAmount : totalInvoice,
-                            date: new Date().toISOString().split('T')[0]
-                          });
-                          setIsPayInvoiceDialogOpen(true);
-                        }}
-                      >
-                        {isPartial ? 'Pagar Remanescente' : 'Pagar Fatura'}
-                      </Button>
-                    )}
-                    {isPartial && (
-                      <div className="text-[10px] text-muted-foreground mt-1">
-                        Pago: R$ {paidSoFar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Restante: R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  )}
+
+                  <div className="bg-secondary/20 p-4 rounded-xl border border-dashed flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-background p-2 rounded-lg shadow-sm border"><Calendar className="w-5 h-5 text-fiducia-blue" /></div>
+                      <div><p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Vencimento da Fatura</p><p className="text-sm font-bold">Dia {selectedCardForInvoice.dueDay} de {selectedInvoiceMonth.toLocaleDateString('pt-BR', { month: 'long' })}</p></div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 lg:text-right">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{isPaid ? 'Fatura quitada' : 'Saldo remanescente'}</p>
+                        <p className={`text-xl font-black font-mono ${isPaid ? 'text-fiducia-green' : 'text-fiducia-amber'}`}>R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        {paidSoFar > 0 && <p className="text-[10px] text-muted-foreground">R$ {paidSoFar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} já pagos</p>}
                       </div>
-                    )}
+                      {totalInvoice > 0 && !isPaid && (
+                        <Button className="w-full sm:w-auto bg-fiducia-green hover:bg-fiducia-green/90 text-white dark:text-background font-bold text-xs uppercase tracking-widest h-11 px-6 shadow-md" onClick={() => { setPaymentData({ accountId: '', amount: remainingAmount, date: new Date().toISOString().split('T')[0] }); setIsPayInvoiceDialogOpen(true); }}>
+                          {isPartial ? 'Pagar restante' : 'Pagar fatura'}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
