@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.8.0` |
+| **Versão atual** | `0.8.1` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-04 (segurança da IA, testes de fluxo, edição de cartão e período compartilhado) |
+| **Última alteração em código** | 2026-08-04 (hotfix do runtime serverless do proxy Groq) |
 | **Último deploy** | 2026-08-04 — regras Firestore da v0.7.2 |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |

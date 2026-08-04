@@ -5,6 +5,19 @@
 
 ---
 
+## [0.8.1] — 2026-08-04 — Hotfix do Runtime do Proxy Groq
+
+**Resultado:** A função serverless da Groq inicializa corretamente no Vercel e rejeita chamadas sem autenticação antes de acessar o provedor de IA.
+
+**Alterações técnicas:**
+- `api/groq.ts` — removida importação JSON incompatível com o runtime serverless; configuração pública do Firebase passa a ser constante server-side.
+- `package.json`, `package-lock.json`, `src/lib/utils.ts` — versão `0.8.1`.
+
+**Validações:**
+- TypeScript, testes e build aprovados.
+- Endpoint de produção sem token deve responder HTTP 401.
+
+---
 ## [0.8.0] — 2026-08-04 — Segurança da IA e Consistência Operacional
 
 **Resultado:** As quatro pendências técnicas prioritárias foram concluídas. A chave Groq deixou o navegador, pagamentos e saldos ganharam testes integrados, lançamentos de cartão importados podem ser editados corretamente e Dashboard/Lançamentos compartilham o mesmo mês de referência.
