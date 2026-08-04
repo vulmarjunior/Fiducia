@@ -5,6 +5,29 @@
 
 ---
 
+## [0.7.2] — 2026-08-04 — Correção do Pagamento Total e Parcial de Faturas
+
+**Resultado:** Pagamentos de fatura passam a preservar o total canônico da obrigação, acumular pagamentos parciais com precisão em centavos e concluir a fatura somente quando o saldo remanescente chega a zero. Cliques duplicados são bloqueados durante a gravação.
+
+**Alterações técnicas:**
+- `src/lib/invoicePayment.ts` — motor puro para validar e calcular pagamento, saldo remanescente e status `parcial`/`paga` em centavos.
+- `src/lib/invoicePayment.test.ts` — 6 testes para pagamento total, parcial, acumulado, arredondamento, excedente e fatura já paga.
+- `src/pages/CreditCards.tsx` — usa o total persistido ou calculado da fatura, valida novamente dentro da transação Firestore e impede submissão duplicada.
+- `src/pages/Transactions.tsx` — status `parcial` passa a bloquear novo fechamento que sobrescreveria pagamentos existentes.
+- `package.json`, `src/lib/utils.ts` — versão `0.7.2`.
+
+**Correções e causa-raiz:**
+- Sem documento persistido, o fluxo usava o valor do próprio pagamento como `totalAmount`; qualquer pagamento parcial era marcado como total.
+- O fechamento de período ignorava o status `parcial` e podia substituir `paymentTransactionIds` e `paidAmount`.
+- Cálculos diretos em ponto flutuante foram substituídos por cálculo em centavos.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 60/60 testes passando.
+- `npm run build` — build de produção concluído.
+- `firebase deploy --only firestore:rules --project gen-lang-client-0172941229` — regras compiladas e publicadas.
+
+---
 ## [0.7.1] — 2026-08-04 — Correção de Permissão no Pagamento de Fatura
 
 **Resultado:** Correção do erro de permissão do Firestore (`permission-denied`) ao registrar o pagamento de fatura do cartão de crédito. A transação de transferência de pagamento de fatura agora omite o campo `categoryId` (em vez de passar a string `'Pagamento de Cartão'`) e inclui os campos de controle `tags: []` e `observation: ''`, deixando a estrutura idêntica à de transferências comuns criadas no app para compatibilidade total com as regras de validação estruturais de transações no banco remoto.

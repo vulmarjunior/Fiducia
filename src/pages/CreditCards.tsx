@@ -28,6 +28,7 @@ import { extractTextFromPdf, parseInvoiceWithGroq, PdfTransaction } from '../ser
 import { PdfImportReviewDialog } from '../components/PdfImportReviewDialog';
 import { InvoiceReconciliationDialog } from '../components/InvoiceReconciliationDialog';
 import { generateCreditCardInvoicePDF } from '../lib/pdfTemplates';
+import { calculateInvoicePayment } from '../lib/invoicePayment';
 
 export function CreditCards() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -49,6 +50,7 @@ export function CreditCards() {
   });
   const [isPayInvoiceDialogOpen, setIsPayInvoiceDialogOpen] = useState(false);
   const [paymentData, setPaymentData] = useState({ accountId: '', amount: 0, date: new Date().toISOString().split('T')[0] });
+  const [isPayingInvoice, setIsPayingInvoice] = useState(false);
   
   const [categories, setCategories] = useState<any[]>([]);
   const [closedPeriods, setClosedPeriods] = useState<any[]>([]);
@@ -264,6 +266,7 @@ export function CreditCards() {
 
 
   const handlePayInvoice = async () => {
+    if (isPayingInvoice) return;
     if (!selectedCardForInvoice || !paymentData.accountId || paymentData.amount <= 0) {
       toast.error('Preencha todos os campos corretamente');
       return;
@@ -278,6 +281,10 @@ export function CreditCards() {
     const nextPeriod = getNextPeriod(currentPeriod);
 
     const existingInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === currentPeriod);
+    const previousPeriod = getPreviousPeriod(currentPeriod);
+    const calculatedInvoiceTotal = calculatePeriodBalance(selectedCardForInvoice.id, previousPeriod)
+      + calculatePeriodBalance(selectedCardForInvoice.id, currentPeriod);
+    const canonicalInvoiceTotal = existingInvoice?.totalAmount > 0 ? existingInvoice.totalAmount : calculatedInvoiceTotal;
 
     if (existingInvoice?.paidAmount && existingInvoice?.totalAmount) {
       const remaining = existingInvoice.totalAmount - existingInvoice.paidAmount;
@@ -291,6 +298,7 @@ export function CreditCards() {
 
     let paymentTxRef: any;
     try {
+      setIsPayingInvoice(true);
       await runTransaction(db, async (transaction) => {
         const accRef = doc(db, 'accounts', paymentData.accountId);
         const accSnap = await transaction.get(accRef);
@@ -315,8 +323,11 @@ export function CreditCards() {
         const existingIds: string[] = Array.isArray(invData?.paymentTransactionIds)
           ? [...invData.paymentTransactionIds]
           : (typeof invData?.paymentTransactionId === 'string' ? [invData.paymentTransactionId] : []);
+        const persistedTotal = typeof invData?.totalAmount === 'number' && invData.totalAmount > 0
+          ? invData.totalAmount
+          : canonicalInvoiceTotal;
         const priorPaid = typeof invData?.paidAmount === 'number' ? invData.paidAmount : 0;
-        const newPaidAmount = priorPaid + paymentData.amount;
+        const paymentState = calculateInvoicePayment(persistedTotal, priorPaid, paymentData.amount);
 
         paymentTxRef = doc(collection(db, 'transactions'));
         transaction.set(paymentTxRef, {
@@ -338,15 +349,13 @@ export function CreditCards() {
         transaction.update(accRef, { balance: currentBalance - paymentData.amount });
 
         const newIds = [...existingIds, paymentTxRef.id];
-        const newStatus = newPaidAmount >= (invData?.totalAmount || paymentData.amount) ? 'paga' : 'parcial';
-
         if (invSnap?.exists()) {
           transaction.update(invDocRef, {
-            status: newStatus,
-            totalAmount: invData?.totalAmount || paymentData.amount,
+            status: paymentState.status,
+            totalAmount: paymentState.totalAmount,
             paymentTransactionIds: newIds,
             paymentTransactionId: null,
-            paidAmount: newPaidAmount,
+            paidAmount: paymentState.paidAmount,
             closedAt: new Date().toISOString(),
           });
         } else {
@@ -355,10 +364,11 @@ export function CreditCards() {
             userId: user.uid,
             cardId: selectedCardForInvoice.id,
             period: currentPeriod,
-            status: newStatus,
-            totalAmount: paymentData.amount,
+            status: paymentState.status,
+            totalAmount: paymentState.totalAmount,
             paymentTransactionIds: newIds,
-            paidAmount: newPaidAmount,
+            paymentTransactionId: null,
+            paidAmount: paymentState.paidAmount,
             closedAt: new Date().toISOString(),
           });
         }
@@ -379,8 +389,10 @@ export function CreditCards() {
       toast.success('Pagamento registrado com sucesso');
       setIsPayInvoiceDialogOpen(false);
     } catch (error) {
-      toast.error('Erro ao registrar pagamento');
+      toast.error(error instanceof Error ? error.message : 'Erro ao registrar pagamento');
       handleFirestoreError(error, OperationType.CREATE, 'transactions');
+    } finally {
+      setIsPayingInvoice(false);
     }
   };
 
@@ -1736,7 +1748,7 @@ export function CreditCards() {
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setIsPayInvoiceDialogOpen(false)}>Cancelar</Button>
-            <Button className="bg-fiducia-green hover:bg-fiducia-green/90 text-white dark:text-background font-bold" onClick={handlePayInvoice}>Confirmar Pagamento</Button>
+            <Button className="bg-fiducia-green hover:bg-fiducia-green/90 text-white dark:text-background font-bold" onClick={handlePayInvoice} disabled={isPayingInvoice}>{isPayingInvoice ? 'Registrando...' : 'Confirmar Pagamento'}</Button>
           </div>
         </DialogContent>
       </Dialog>
