@@ -1,6 +1,6 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { AlertTriangle, CheckCircle2, ClipboardPaste, CreditCard, FileText, Inbox, Link as LinkIcon, Loader2, Search, ShieldCheck, Upload, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -120,7 +120,7 @@ export function ImportCenter() {
       onSnapshot(query(collection(db, 'transactions'), where('userId', '==', user.uid)), snapshot => {
         setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction)));
       }, error => handleFirestoreError(error, OperationType.GET, 'transactions')),
-      onSnapshot(query(collection(db, 'importCandidates'), where('userId', '==', user.uid)), snapshot => {
+      onSnapshot(query(collection(db, 'importCandidates'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'), limit(250)), snapshot => {
         const rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImportCandidate));
         rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
         setCandidates(rows);

@@ -1,13 +1,15 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { TransactionDialogProvider, useTransactionDialog } from '../contexts/TransactionDialogContext';
-import { TransactionDialog } from './TransactionDialog';
+
 import { LayoutDashboard, Receipt, CreditCard, Wallet, LogOut, Menu, Tags, PieChart, Target, FileText, Download, Tag, ListChecks, History, Settings, Sun, Moon, Upload, Plus, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { Logo } from './Logo';
 import { APP_VERSION } from '../lib/utils';
+
+const TransactionDialog = lazy(() => import('./TransactionDialog').then((module) => ({ default: module.TransactionDialog })));
 
 export function Layout() {
   return (
@@ -100,7 +102,7 @@ function LayoutContent() {
 
   return (
     <>
-    <TransactionDialog />
+    <Suspense fallback={null}><TransactionDialog /></Suspense>
     <div className="flex h-screen bg-background text-foreground font-sans">
       {/* Sidebar */}
       <aside id="app-navigation" aria-label="Navegação principal" className={`fixed inset-y-0 left-0 z-50 w-[240px] bg-card border-r border-border flex flex-col transform transition-transform duration-200 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:relative shrink-0`}>
