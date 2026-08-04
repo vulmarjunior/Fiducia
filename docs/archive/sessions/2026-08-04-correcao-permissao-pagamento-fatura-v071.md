@@ -11,18 +11,20 @@ Corrigir o erro de permissão do Firestore (`permission-denied`, `Missing or ins
 
 ### Causa-raiz
 
-O `categoryId` das transações de tipo `'transferencia'` geradas nos fluxos de pagamento de fatura estava sendo salvo com o valor literal `'Pagamento de Cartão'`. No entanto, em transferências comuns, o `categoryId` é setado como `null` nas regras e no comportamento padrão do sistema. O validador remoto do Firestore do usuário (ou as regras antigas ainda ativas) rejeitava strings no `categoryId` de transferências que não fossem UUIDs ou nulas.
+O `categoryId` das transações de tipo `'transferencia'` geradas nos fluxos de pagamento de fatura estava sendo salvo com o valor literal `'Pagamento de Cartão'`. No entanto, em transferências comuns, o `categoryId` é setado como `null` (ou o campo é omitido), e o objeto contém `tags: []` e `observation: ''`. O validador remoto do Firestore do usuário rejeitava a gravação de transações do tipo `'transferencia'` que contivessem chaves inválidas (como a string com espaços `'Pagamento de Cartão'`) ou que não possuíssem campos estruturais padrão que transferências normais possuem.
 
 ### Resultado técnico
 
-- Alterado o `categoryId` de `'Pagamento de Cartão'` para `null` nas transações de tipo `'transferencia'` geradas ao registrar o pagamento de fatura.
-- Isso uniformizou o comportamento com as transferências normais do sistema e evitou a rejeição estrutural do Firestore remoto.
-- A migração retrocompatível e a detecção antiga continuam ativas para transações passadas.
+- Alterado o fluxo de gravação de transações de pagamento para que omita completamente o campo `categoryId` e inclua os campos `tags: []` e `observation: ''`.
+- Isso deixou a estrutura da transação de pagamento de fatura idêntica à de qualquer transferência criada manualmente pelo usuário, passando sem problemas pelas regras estruturais do Firestore remoto.
+- A detecção antiga continuará ativa apenas para retrocompatibilidade com transações legadas.
 
 ### Arquivos tocados
 
-- `src/pages/CreditCards.tsx` — Alterado `categoryId` de `'Pagamento de Cartão'` para `null` no `handlePayInvoice`.
-- `src/pages/Transactions.tsx` — Alterado `categoryId` de `'Pagamento de Cartão'` para `null` no fluxo de criação de pagamento de fatura ao fechar o período.
+- `src/pages/CreditCards.tsx` — Transação criada no `handlePayInvoice` agora omite `categoryId` e inclui `tags`/`observation`.
+- `src/pages/Transactions.tsx` — Transação criada ao fechar período agora omite `categoryId` e inclui `tags`/`observation`.
+- `CHANGELOG.md` — Registro detalhado da versão 0.7.1.
+- `docs/MASTER_PLAN.md` — Ajuste na versão e no item 7 do backlog ativo.
 
 ### Validações
 

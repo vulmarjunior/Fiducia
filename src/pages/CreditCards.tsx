@@ -327,9 +327,10 @@ export function CreditCards() {
           description: `Pagamento Fatura ${selectedCardForInvoice.name} - ${selectedInvoiceMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
           accountId: paymentData.accountId,
           destinationAccountId: selectedCardForInvoice.id,
-          categoryId: null,
           status: 'pago',
           invoicePeriod: currentPeriod,
+          tags: [],
+          observation: '',
           createdAt: new Date().toISOString()
         });
 

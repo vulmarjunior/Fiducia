@@ -352,9 +352,10 @@ export function Transactions() {
           description: `Pagamento Fatura ${card.name} - ${closePeriodMonth}`,
           accountId: closePeriodPaymentAccountId,
           destinationAccountId: closePeriodAccountId,
-          categoryId: null,
           status: 'pendente',
           invoicePeriod: closePeriodMonth,
+          tags: [],
+          observation: '',
           createdAt: new Date().toISOString()
         };
         batch.set(paymentTxRef, paymentTxData);

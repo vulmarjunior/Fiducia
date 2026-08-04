@@ -188,7 +188,7 @@ Itens entregues em v0.7.0 e v0.7.1 (2026-08-04):
 4. ✅ Alerta de limite disponível — slider 50-95%, badge, barra colorida
 5. ✅ Estorno total/parcial — botão Undo, diálogo total/parcial, `parentId`
 6. ✅ Paradigmas de orçamento — `getBudgetImpact`, fracionado vs integral
-7. ✅ Correção de permissão no Firestore para pagamento de fatura (v0.7.1) — `categoryId` definido como `null` nas transferências de pagamento de fatura
+7. ✅ Correção de permissão no Firestore para pagamento de fatura (v0.7.1) — `categoryId` omitido e campos `tags`/`observation` adicionados nas transferências de pagamento de fatura para compatibilidade total.
 
 Pendências para sessão futura:
 - Chave Groq em proxy — implementar Cloud Function (Firebase/Vercel), deploy pendente

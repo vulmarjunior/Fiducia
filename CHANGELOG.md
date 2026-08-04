@@ -7,11 +7,11 @@
 
 ## [0.7.1] — 2026-08-04 — Correção de Permissão no Pagamento de Fatura
 
-**Resultado:** Correção do erro de permissão do Firestore (`permission-denied`) ao registrar o pagamento de fatura do cartão de crédito. A transação de transferência de pagamento de fatura agora possui `categoryId` setado como `null` (em vez da string `'Pagamento de Cartão'`), uniformizando com a lógica de gravação de transferências do sistema e evitando conflito com as regras de validação estruturais de transações no banco remoto.
+**Resultado:** Correção do erro de permissão do Firestore (`permission-denied`) ao registrar o pagamento de fatura do cartão de crédito. A transação de transferência de pagamento de fatura agora omite o campo `categoryId` (em vez de passar a string `'Pagamento de Cartão'`) e inclui os campos de controle `tags: []` e `observation: ''`, deixando a estrutura idêntica à de transferências comuns criadas no app para compatibilidade total com as regras de validação estruturais de transações no banco remoto.
 
 ### Alterações técnicas:
-- `src/pages/CreditCards.tsx` — `handlePayInvoice` define `categoryId: null` para a transação de pagamento criada.
-- `src/pages/Transactions.tsx` — Criação da transação de pagamento ao fechar período define `categoryId: null`.
+- `src/pages/CreditCards.tsx` — `handlePayInvoice` omite `categoryId` e adiciona `tags`/`observation` para a transação de pagamento criada.
+- `src/pages/Transactions.tsx` — Criação da transação de pagamento ao fechar período omite `categoryId` e adiciona `tags`/`observation`.
 
 ## [0.7.0] — 2026-08-04 — Pagamento Parcial, Migration Categorias e Melhorias
 
