@@ -25,6 +25,7 @@
 - `npx vitest run --maxWorkers=1` — 70 testes aprovados; 2 testes de emulador condicionais ao ambiente.
 - `npm run build` — build de produção concluído.
 - `npm audit --omit=dev` — 0 vulnerabilidades em dependências de produção.
+- CI da `main` e deploy Vercel aprovados; índice composto de `importCandidates` publicado no Firestore de produção.
 
 ---
 ## [0.8.1] — 2026-08-04 — Hotfix do Runtime do Proxy Groq

@@ -14,7 +14,7 @@
 | **Versão atual** | `0.9.0` |
 | **Modelo de versionamento** | SemVer |
 | **Última alteração em código** | 2026-08-04 (estabilização, desempenho e experiência guiada v0.9.0) |
-| **Último deploy** | 2026-08-04 — v0.8.1; publicação da v0.9.0 em andamento |
+| **Último deploy** | 2026-08-04 — v0.9.0 no Vercel + índice composto no Firestore |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -195,7 +195,8 @@ Itens entregues em v0.7.0 a v0.8.0 (2026-08-04):
 10. ✅ Backlog técnico 1–4 (v0.8.0) — proxy Groq autenticado, testes integrados, edição uniforme de cartão e período mensal compartilhado.
 
 Pendências para sessão futura:
-- Ampliação opcional de testes end-to-end com Firebase Emulator
+- Testes de interface em navegador e monitoramento da v0.9.0
+- Redução adicional do chunk compartilhado de ícones
 
 Fora do escopo atual:
 - Central de Importação Fase 3 — e-mail, app Android, Open Finance e perfis avançados; sem previsão de retomada.
