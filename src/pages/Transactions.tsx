@@ -20,7 +20,7 @@ import { callGroq } from '../services/groqService';
 import { logActivity } from '../services/activityLogService';
 import Select, { MultiValue } from 'react-select';
 import { getCategoryIcon } from '../lib/categoryIcons';
-import { calculateInvoicePeriod, resolveAccountName, isEffectivelyPaid, isPeriodClosed, formatCurrency, findSeriesTransactions, getSeriesKey, getInvoicePaymentIds } from '../lib/utils';
+import { calculateInvoicePeriod, resolveAccountName, isEffectivelyPaid, isPeriodClosed, isInvoiceClosed, formatCurrency, findSeriesTransactions, getSeriesKey, getInvoicePaymentIds } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { generateAccountStatementPDF } from '../lib/pdfTemplates';
@@ -303,7 +303,7 @@ export function Transactions() {
       }
 
       const existingInvoice = invoices.find(i => i.cardId === closePeriodAccountId && i.period === closePeriodMonth);
-      if (existingInvoice && (existingInvoice.status === 'fechada' || existingInvoice.status === 'paga')) {
+      if (existingInvoice && isInvoiceClosed(existingInvoice.status)) {
         toast.error('Esta fatura já está fechada ou paga.');
         return;
       }

@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.7.1` |
+| **Versão atual** | `0.7.2` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-04 (pagamento parcial, correção de permissão firestore, migration categorias, CI/CD, alerta limite, estorno, paradigma orçamento) |
-| **Último deploy** | Não registrado formalmente |
+| **Última alteração em código** | 2026-08-04 (correção transacional do pagamento total/parcial de faturas) |
+| **Último deploy** | 2026-08-04 — regras Firestore da v0.7.2 |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -181,14 +181,15 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 
 ## 10. Próximo Passo Autorizado
 
-Itens entregues em v0.7.0 e v0.7.1 (2026-08-04):
+Itens entregues em v0.7.0 a v0.7.2 (2026-08-04):
 1. ✅ Pagamento parcial de fatura — `paymentTransactionIds[]`, `paidAmount`, status `parcial`
 2. ✅ Correção de categorias por string legível — `resolveCategoryId`, migration auto-heal
 3. ✅ CI/CD — GitHub Actions (lint + test + build)
 4. ✅ Alerta de limite disponível — slider 50-95%, badge, barra colorida
 5. ✅ Estorno total/parcial — botão Undo, diálogo total/parcial, `parentId`
 6. ✅ Paradigmas de orçamento — `getBudgetImpact`, fracionado vs integral
-7. ✅ Correção de permissão no Firestore para pagamento de fatura (v0.7.1) — `categoryId` omitido e campos `tags`/`observation` adicionados nas transferências de pagamento de fatura para compatibilidade total.
+7. ✅ Correção de permissão no Firestore para pagamento de fatura (v0.7.1).
+8. ✅ Correção transacional de pagamentos totais/parciais (v0.7.2) — total canônico, cálculo em centavos, proteção contra duplicidade e fechamento protegido.
 
 Pendências para sessão futura:
 - Chave Groq em proxy — implementar Cloud Function (Firebase/Vercel), deploy pendente
