@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, CreditCard, Landmark } from 'lucide-react';
-import type { Account, Category } from '../types';
+import type { Account, Category, CreditCard as CreditCardType } from '../types';
 import type { MonthlyStatementEntry } from '../lib/monthlyStatement';
 import { formatCurrency, parseLocalDate } from '../lib/utils';
 
@@ -7,12 +7,13 @@ interface MonthlyStatementEntriesProps {
   entries: MonthlyStatementEntry[];
   accounts: Account[];
   categories: Category[];
+  creditCards?: CreditCardType[];
   emptyMessage: string;
   onOpenTransaction?: (id: string) => void;
 }
 
-export function MonthlyStatementEntries({ entries, accounts, categories, emptyMessage, onOpenTransaction }: MonthlyStatementEntriesProps) {
-  const accountNames = new Map(accounts.map(account => [account.id, account.name]));
+export function MonthlyStatementEntries({ entries, accounts, categories, creditCards = [], emptyMessage, onOpenTransaction }: MonthlyStatementEntriesProps) {
+  const accountNames = new Map([...accounts, ...creditCards].map(account => [account.id, account.name]));
   const categoryNames = new Map(categories.map(category => [category.id, category.name]));
 
   if (entries.length === 0) {
@@ -22,12 +23,13 @@ export function MonthlyStatementEntries({ entries, accounts, categories, emptyMe
   return (
     <div className="divide-y divide-border">
       {entries.map(({ transaction, kind }) => {
-        const isIncome = kind === 'income';
+        const isIncome = kind === 'income' || kind === 'card_credit';
         const isInvoice = kind === 'invoice_payment';
-        const Icon = isIncome ? ArrowUpRight : isInvoice ? CreditCard : ArrowDownRight;
+        const isCardExpense = kind === 'card_expense';
+        const Icon = isIncome ? ArrowUpRight : isInvoice || isCardExpense ? CreditCard : ArrowDownRight;
         const accountName = transaction.accountId ? accountNames.get(transaction.accountId) : undefined;
         const categoryName = transaction.categoryId ? categoryNames.get(transaction.categoryId) : undefined;
-        const kindLabel = isIncome ? 'Receita recebida' : isInvoice ? 'Pagamento de fatura' : 'Despesa em conta';
+        const kindLabel = kind === 'card_credit' ? 'Crédito ou estorno no cartão' : isIncome ? 'Receita recebida' : isInvoice ? 'Pagamento de fatura' : isCardExpense ? 'Compra no cartão' : 'Despesa em conta';
         const content = (
           <>
             <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${isIncome ? 'bg-fiducia-green/10 text-fiducia-green' : isInvoice ? 'bg-fiducia-amber/10 text-fiducia-amber' : 'bg-fiducia-red/10 text-fiducia-red'}`}>

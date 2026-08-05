@@ -28,6 +28,7 @@ import { buildMonthlyStatement } from '../lib/monthlyStatement';
 import { MonthlyStatementEntries } from '../components/MonthlyStatementEntries';
 import { buildDailyCashFlow } from '../lib/cashFlowView';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { buildConsumptionAnalysis } from '../lib/consumptionAnalysis';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
 
@@ -39,6 +40,10 @@ const isExpense = (t: any) => t.type === 'despesa' || t.type === 'expense';
 // Safe local date helpers — evitam bug de timezone do toISOString()
 const toMonthStr = (d: Date) => `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
 const toDateStr = (d: Date) => `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+const shiftMonth = (month: string, offset: number) => {
+  const [year, monthNumber] = month.split('-').map(Number);
+  return toMonthStr(new Date(year, monthNumber - 1 + offset, 1));
+};
 
 type Tab = 'statement' | 'cashflow' | 'categories' | 'trend' | 'projection' | 'invoices' | 'ai';
 
@@ -73,8 +78,9 @@ export function Reports() {
   const [selectedCashFlowDay, setSelectedCashFlowDay] = useState<string | null>(null);
 
   // Aba 2 — Categorias
-  const [catPeriod, setCatPeriod] = useState<'month' | '3months' | '6months' | '12months' | 'year'>('month');
+  const [catPeriod, setCatPeriod] = useState<'month' | '3months' | '6months' | '12months'>('month');
   const [catType, setCatType] = useState<'expense' | 'income'>('expense');
+  const [selectedConsumptionCategory, setSelectedConsumptionCategory] = useState<string | null>(null);
 
   // Aba 4 — Projeção Futura
   const [projPeriod, setProjPeriod] = useState<'30d' | 'nextMonth' | '3months' | '6months' | '12months' | 'custom'>('3months');
@@ -231,33 +237,53 @@ export function Reports() {
 
   // ─── ABA 2: CATEGORIAS ───────────────────────────────────────────────────
   const catDateRange = useMemo(() => {
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    let start: Date;
-    switch (catPeriod) {
-      case 'month': start = new Date(now.getFullYear(), now.getMonth(), 1); break;
-      case '3months': start = new Date(now.getFullYear(), now.getMonth() - 2, 1); break;
-      case '6months': start = new Date(now.getFullYear(), now.getMonth() - 5, 1); break;
-      case '12months': start = new Date(now.getFullYear(), now.getMonth() - 11, 1); break;
-      default: start = new Date(now.getFullYear(), 0, 1);
-    }
-    return { startStr: toDateStr(start), endStr: toDateStr(end) };
-  }, [catPeriod]);
+    const count = catPeriod === 'month' ? 1 : catPeriod === '3months' ? 3 : catPeriod === '6months' ? 6 : 12;
+    const startMonth = shiftMonth(selectedMonth, -(count - 1));
+    const previousEndMonth = shiftMonth(startMonth, -1);
+    const previousStartMonth = shiftMonth(previousEndMonth, -(count - 1));
+    const [endYear, endMonth] = selectedMonth.split('-').map(Number);
+    return {
+      startMonth,
+      endMonth: selectedMonth,
+      previousStartMonth,
+      previousEndMonth,
+      startStr: `${startMonth}-01`,
+      endStr: toDateStr(new Date(endYear, endMonth, 0)),
+    };
+  }, [catPeriod, selectedMonth]);
+
+  const consumptionAnalysis = useMemo(() => buildConsumptionAnalysis(
+    transactions,
+    invoices,
+    categories,
+    creditCards.flatMap(card => card.id ? [card.id] : []),
+    catDateRange.startMonth,
+    catDateRange.endMonth,
+    catDateRange.previousStartMonth,
+    catDateRange.previousEndMonth,
+  ), [transactions, invoices, categories, creditCards, catDateRange]);
+  const selectedConsumption = selectedConsumptionCategory ? consumptionAnalysis.categories.find(category => category.id === selectedConsumptionCategory) : undefined;
+  const consumptionHighlights = useMemo(() => {
+    const increases = consumptionAnalysis.categories.filter(category => category.change > 0).sort((a, b) => b.change - a.change);
+    const reductions = consumptionAnalysis.categories.filter(category => category.change < 0).sort((a, b) => a.change - b.change);
+    return { increase: increases[0], reduction: reductions[0] };
+  }, [consumptionAnalysis]);
 
   const categoryData = useMemo(() => {
     const { startStr, endStr } = catDateRange;
-    const typeFilter = catType === 'expense' ? isExpense : isIncome;
-    const periodTx = transactions.filter(t => !isTransfer(t) && typeFilter(t) && isEffectivelyPaid(t) && t.date >= startStr && t.date <= endStr);
+    if (catType === 'expense') return consumptionAnalysis.categories.map(category => ({ ...category, pct: category.percent, pctIncome: 0 }));
+    const periodTx = transactions.filter(t => !isTransfer(t) && isIncome(t) && isEffectivelyPaid(t) && t.date >= startStr && t.date <= endStr);
     const total = periodTx.reduce((s, t) => s + t.amount, 0);
     const incomeBase = transactions.filter(t => !isCreditCardTx(t) && isIncome(t) && isEffectivelyPaid(t) && !isTransfer(t) && t.date >= startStr && t.date <= endStr).reduce((s, t) => s + t.amount, 0);
     return categories
-      .filter(c => catType === 'expense' ? (c.type === 'despesa' || c.type === 'expense') : (c.type === 'receita' || c.type === 'income'))
+      .filter(c => c.type === 'receita' || c.type === 'income')
       .map(c => {
         const val = periodTx.filter(t => t.categoryId === c.id).reduce((s, t) => s + t.amount, 0);
-        return { name: c.name, value: val, pct: total > 0 ? (val / total * 100) : 0, pctIncome: incomeBase > 0 ? (val / incomeBase * 100) : 0 };
+        return { id: c.id || c.name, name: c.name, value: val, change: 0, pct: total > 0 ? (val / total * 100) : 0, pctIncome: incomeBase > 0 ? (val / incomeBase * 100) : 0 };
       })
       .filter(c => c.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [transactions, categories, catDateRange, catType]);
+  }, [transactions, categories, catDateRange, catType, consumptionAnalysis]);
 
   // ─── ABA 3: TENDÊNCIA & ORÇAMENTOS ───────────────────────────────────────
   const trendData = useMemo(() => {
@@ -477,7 +503,7 @@ export function Reports() {
   const tabs: { id: Tab; label: string; icon: any }[] = [
     { id: 'statement', label: 'Extrato Mensal', icon: ReceiptText },
     { id: 'cashflow', label: 'Fluxo de Caixa', icon: BarChart2 },
-    { id: 'categories', label: 'Categorias', icon: Target },
+    { id: 'categories', label: 'Consumo', icon: Target },
     { id: 'trend', label: 'Tendência', icon: TrendingDown },
     { id: 'projection', label: 'Projeção Futura', icon: TrendingUp },
     { id: 'invoices', label: 'Faturas', icon: CreditCard },
@@ -498,6 +524,26 @@ export function Reports() {
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={Boolean(selectedConsumption)} onOpenChange={(open) => { if (!open) setSelectedConsumptionCategory(null); }}>
+        <DialogContent className="flex w-[calc(100vw-1rem)] max-w-none max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl sm:max-h-[88vh]">
+          <DialogHeader className="border-b border-border p-4 pr-12 sm:p-5 sm:pr-12">
+            <DialogTitle>{selectedConsumption?.name || 'Categoria'}</DialogTitle>
+            <DialogDescription>{catDateRange.startMonth === catDateRange.endMonth ? catDateRange.endMonth : `${catDateRange.startMonth} a ${catDateRange.endMonth}`} · {selectedConsumption?.entries.length || 0} lançamento(s)</DialogDescription>
+            <div className="pt-1 font-mono text-2xl font-bold text-fiducia-red">{fmt(selectedConsumption?.value || 0)}</div>
+            {selectedConsumption && <p className="text-xs text-muted-foreground">Conta {fmt(selectedConsumption.directTotal)} · Cartão {fmt(selectedConsumption.cardTotal)}</p>}
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1 sm:p-2">
+            <MonthlyStatementEntries
+              entries={(selectedConsumption?.entries || []).map(transaction => ({ transaction, kind: transaction.type === 'receita' || transaction.type === 'income' ? 'card_credit' : transaction.creditCardId || creditCards.some(card => card.id === transaction.accountId) ? 'card_expense' : 'account_expense' }))}
+              accounts={accounts}
+              creditCards={creditCards}
+              categories={categories}
+              emptyMessage="Nenhuma despesa nesta categoria."
+              onOpenTransaction={(id) => { setSelectedConsumptionCategory(null); openTxDialog({ editId: id }); }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* ── HEADER ── */}
       <div className="flex items-center gap-3">
         <h2 className="text-3xl font-bold tracking-tight text-foreground">Relatórios</h2>
@@ -507,7 +553,7 @@ export function Reports() {
           items={[
             { label: 'Extrato Mensal', desc: 'Reconcilia exatamente os cards mensais do Dashboard. Separa receitas recebidas, despesas pagas diretamente em conta e pagamentos de fatura, permitindo abrir cada lançamento que compõe os totais.' },
             { label: '1. Fluxo de Caixa', desc: 'No modo Mês, mostra a evolução diária do período selecionado e permite abrir os lançamentos de cada dia. As visões 3/6/12 meses comparam o histórico até esse mesmo mês. Pagamentos vinculados de fatura entram como saída; compras individuais do cartão não são duplicadas.' },
-            { label: '2. Categorias', desc: 'Distribuição dos gastos ou receitas por categoria. A métrica "% Renda" revela o peso real de cada categoria sobre sua receita total, diferente do "% Total" que compara apenas entre categorias. Use para descobrir onde seu dinheiro está sendo mais consumido proporcionalmente.' },
+            { label: '2. Consumo', desc: 'Mostra onde o dinheiro foi gasto sem duplicar o pagamento da fatura. Compras de cartão usam o período da fatura; despesas diretas usam a data efetiva. Cada categoria separa conta/cartão, compara com o período anterior e abre seus lançamentos.' },
             { label: '3. Tendência & Orçamento', desc: 'Curva cumulativa de despesas dia a dia dentro do mês atual, comparada com os limites de orçamento configurados. Mostra se você está gastando acima ou abaixo do planejado e projeta se ultrapassará o limite até o fim do mês.' },
             { label: '4. Projeção Futura', desc: 'Simulação de saldo futuro projetando receitas a receber, despesas a pagar e faturas de cartão mês a mês. Use o seletor de período para definir o horizonte: 30 dias (rolante a partir de hoje), Próx. mês (até o último dia do mês seguinte), 3/6/12 meses (até o último dia do mês correspondente) ou data personalizada. Os filtros de tipo e categoria permitem isolar receitas ou despesas específicas. É possível incluir ou excluir investimentos do saldo inicial.' },
             { label: '4a. Cenários da Projeção', desc: 'Conservador: inclui apenas o que é certo — faturas já fechadas e transações bancárias pendentes. Responde "meu caixa quebra mesmo sem considerar nada incerto?".\n\nRealista (recomendado): inclui também a fatura em andamento (seus gastos atuais do cartão que ainda não fecharam). É o cenário de referência para o dia a dia.\n\nProjetado: cenário completo — inclui parcelamentos de meses futuros e regras de recorrência ativas. Revela se seu padrão de consumo atual é sustentável no médio prazo.' },
@@ -708,12 +754,13 @@ export function Reports() {
         <div className="space-y-6">
           <div className="flex items-center gap-2 flex-wrap">
 <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
-              {(['month', '3months', '6months', '12months', 'year'] as const).map(p => (
+              {(['month', '3months', '6months', '12months'] as const).map(p => (
                 <FBtn key={p} active={catPeriod === p} onClick={() => setCatPeriod(p)}>
-                  {p === 'month' ? 'Mês' : p === '3months' ? '3M' : p === '6months' ? '6M' : p === '12months' ? '12M' : 'Ano'}
+                  {p === 'month' ? 'Mês' : p === '3months' ? '3M' : p === '6months' ? '6M' : '12M'}
                 </FBtn>
               ))}
             </div>
+            <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} aria-label="Mês final da análise de consumo" className="h-8 rounded-xl border border-border bg-background px-2 text-xs font-semibold" />
             <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
               <FBtn active={catType === 'expense'} onClick={() => setCatType('expense')}>Despesas</FBtn>
               <FBtn active={catType === 'income'} onClick={() => setCatType('income')}>Receitas</FBtn>
@@ -724,11 +771,28 @@ export function Reports() {
             </Button>
           </div>
 
+          {catType === 'expense' && (
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Consumo total</span><strong className="mt-2 block font-mono text-lg text-fiducia-red">{fmt(consumptionAnalysis.total)}</strong></div>
+              <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Direto em conta</span><strong className="mt-2 block font-mono text-lg text-foreground">{fmt(consumptionAnalysis.directTotal)}</strong></div>
+              <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Compras no cartão</span><strong className="mt-2 block font-mono text-lg text-fiducia-amber">{fmt(consumptionAnalysis.cardTotal)}</strong></div>
+              <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Variação anterior</span><strong className={`mt-2 block font-mono text-lg ${consumptionAnalysis.change <= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>{consumptionAnalysis.change >= 0 ? '+' : ''}{fmt(consumptionAnalysis.change)}{consumptionAnalysis.changePercent !== null && <small className="ml-1 text-xs">({consumptionAnalysis.changePercent >= 0 ? '+' : ''}{consumptionAnalysis.changePercent.toFixed(1)}%)</small>}</strong></div>
+            </div>
+          )}
+
+          {catType === 'expense' && (consumptionHighlights.increase || consumptionHighlights.reduction || consumptionAnalysis.uncategorizedTotal > 0) && (
+            <div className="flex flex-col gap-2 rounded-2xl border border-border bg-secondary/30 p-4 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+              {consumptionHighlights.increase && <span><strong className="text-fiducia-red">Maior aumento:</strong> {consumptionHighlights.increase.name} (+{fmt(consumptionHighlights.increase.change)})</span>}
+              {consumptionHighlights.reduction && <span><strong className="text-fiducia-green">Maior redução:</strong> {consumptionHighlights.reduction.name} ({fmt(consumptionHighlights.reduction.change)})</span>}
+              {consumptionAnalysis.uncategorizedTotal > 0 && <button type="button" onClick={() => setSelectedConsumptionCategory('uncategorized')} className="text-left font-semibold text-fiducia-amber underline underline-offset-2">Sem categoria: {fmt(consumptionAnalysis.uncategorizedTotal)}</button>}
+            </div>
+          )}
+
           <div className="grid md:grid-cols-[1fr_300px] gap-6 items-start">
             <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
               <div className="flex items-center gap-2 p-5 border-b border-border">
                 <Target className="w-4 h-4 text-fiducia-amber" />
-                <h3 className="text-[15px] font-bold text-foreground">{catType === 'expense' ? 'Despesas por Categoria' : 'Receitas por Categoria'}</h3>
+                <h3 className="text-[15px] font-bold text-foreground">{catType === 'expense' ? 'Consumo por Categoria' : 'Receitas por Categoria'}</h3>
               </div>
               <div className="p-4">
                 {categoryData.length > 0 ? (
@@ -737,10 +801,10 @@ export function Reports() {
                       <span className="col-span-5">Categoria</span>
                       <span className="col-span-3 text-right">Valor</span>
                       <span className="col-span-2 text-right">% Total</span>
-                      <span className="col-span-2 text-right">% Renda</span>
+                      <span className="col-span-2 text-right">{catType === 'expense' ? 'Variação' : '% Renda'}</span>
                     </div>
                     {categoryData.map((item, i) => (
-                      <div key={item.name} className="grid grid-cols-12 text-xs px-2 py-2.5 rounded-lg hover:bg-muted/30 items-center transition-colors">
+                      <button key={item.name} type="button" disabled={catType !== 'expense'} onClick={() => setSelectedConsumptionCategory(item.id)} className="grid w-full grid-cols-12 text-xs px-2 py-2.5 rounded-lg hover:bg-muted/30 items-center transition-colors text-left disabled:cursor-default">
                         <span className="col-span-5 truncate font-medium flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                           {item.name}
@@ -752,8 +816,8 @@ export function Reports() {
                             <div className="h-full rounded-full" style={{ width: `${Math.min(item.pct, 100)}%`, backgroundColor: COLORS[i % COLORS.length] }} />
                           </div>
                         </span>
-                        <span className="col-span-2 text-right font-mono text-muted-foreground text-[10px]">{item.value > 0 ? `${item.pctIncome.toFixed(1)}%` : '—'}</span>
-                      </div>
+                        <span className={`col-span-2 text-right font-mono text-[10px] ${catType === 'expense' && item.change > 0 ? 'text-fiducia-red' : 'text-muted-foreground'}`}>{catType === 'expense' ? `${item.change >= 0 ? '+' : ''}${fmt(item.change)}` : item.value > 0 ? `${item.pctIncome.toFixed(1)}%` : '—'}</span>
+                      </button>
                     ))}
                   </div>
                 ) : (

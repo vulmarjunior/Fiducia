@@ -2,7 +2,7 @@ import type { Invoice, Transaction } from '../types';
 import { getInvoicePaymentTransactionIds } from './invoicePayment';
 import { isEffectivelyPaid } from './utils';
 
-export type MonthlyStatementEntryKind = 'income' | 'account_expense' | 'invoice_payment';
+export type MonthlyStatementEntryKind = 'income' | 'account_expense' | 'card_expense' | 'card_credit' | 'invoice_payment';
 
 export interface MonthlyStatementEntry {
   transaction: Transaction;

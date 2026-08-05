@@ -5,6 +5,30 @@
 
 ---
 
+## [0.12.0] — 2026-08-05 — Consumo Investigável
+
+**Resultado:** A antiga visão Categorias passa a ser Consumo e explica onde o dinheiro foi gasto, quanto ocorreu diretamente em conta ou no cartão e o que mudou em relação ao período anterior. Cada categoria abre os lançamentos que compõem o valor.
+
+**Alterações técnicas:**
+- `src/lib/consumptionAnalysis.ts` — motor de consumo por competência: despesas diretas pela data efetiva, cartão por `invoicePeriod`, exclusão de pagamentos de fatura e compensação de créditos/estornos.
+- `src/pages/Reports.tsx` — KPIs de consumo, conta, cartão e variação; maiores aumentos/reduções; alerta de itens sem categoria; tabela e modal investigáveis.
+- Períodos Mês/3M/6M/12M acompanham o mês global selecionado e são comparados com uma janela anterior equivalente.
+- `src/components/MonthlyStatementEntries.tsx` — suporte visual a compras e créditos de cartão, incluindo identificação do cartão.
+- `src/lib/consumptionAnalysis.test.ts` — regressões para dupla contagem, compras pendentes em fatura, estornos, variação e ausência de categoria.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.12.0`.
+
+**Segurança operacional:**
+- Mudança somente de leitura; nenhum documento do Firestore foi alterado ou migrado.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 82 testes aprovados; 2 cenários de emulador ignorados sem host local.
+- `npm run build` — build de produção concluído.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.11.0] — 2026-08-05 — Fluxo de Caixa Mensal Investigável
 
 **Resultado:** O Fluxo de Caixa passa a abrir no modo Mês, acompanha o período selecionado no Dashboard e permite investigar os lançamentos de cada dia. As visões de 3, 6 e 12 meses permanecem disponíveis como comparações históricas secundárias.
