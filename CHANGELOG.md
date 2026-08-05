@@ -5,6 +5,30 @@
 
 ---
 
+## [0.11.0] — 2026-08-05 — Fluxo de Caixa Mensal Investigável
+
+**Resultado:** O Fluxo de Caixa passa a abrir no modo Mês, acompanha o período selecionado no Dashboard e permite investigar os lançamentos de cada dia. As visões de 3, 6 e 12 meses permanecem disponíveis como comparações históricas secundárias.
+
+**Alterações técnicas:**
+- `src/lib/cashFlowView.ts` — composição diária reconciliada ao Extrato Mensal, com pagamentos vinculados de fatura, pendências opcionais e acumulação monetária em centavos.
+- `src/pages/Reports.tsx` — modo Mês padrão, seletor mensal compartilhado, gráfico diário de entradas/saídas/acumulado e lista de dias clicável com modal responsivo.
+- Períodos históricos agora terminam no mês global selecionado, em vez de sempre usarem o mês civil atual.
+- `src/lib/pdfTemplates.ts` — exportação reconhece corretamente o período Mês.
+- `src/lib/cashFlowView.test.ts` — regressões para reconciliação diária, fatura vinculada, pendências, compras de cartão e precisão monetária.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.11.0`.
+
+**Segurança operacional:**
+- Mudança exclusivamente de leitura e navegação; nenhum documento do Firestore foi alterado ou migrado.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 80 testes aprovados; 2 cenários de emulador ignorados sem host local.
+- `npm run build` — build de produção concluído.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.10.0] — 2026-08-05 — Extrato Mensal Investigável
 
 **Resultado:** Os cards “Receitas do mês” e “Despesas do mês” agora abrem a composição completa em uma experiência responsiva. Relatórios ganha a aba “Extrato Mensal”, reconciliada com os mesmos totais do Dashboard e com separação entre despesas em conta e pagamentos de fatura.

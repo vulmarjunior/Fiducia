@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.10.0` |
+| **Versão atual** | `0.11.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-05 (Extrato Mensal investigável v0.10.0) |
+| **Última alteração em código** | 2026-08-05 (Fluxo de Caixa mensal investigável v0.11.0) |
 | **Último deploy** | 2026-08-05 — v0.10.0 no Vercel (`READY`) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -57,7 +57,7 @@ npm run build      # vite build
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
 | Conciliação | ✅ Funcional | OFX/CSV, auto-match, AI match, AI análise de divergências |
-| Relatórios | ✅ Funcional | Extrato Mensal reconciliado ao Dashboard, regime duplo, projeção de caixa e análise de faturas |
+| Relatórios | ✅ Funcional | Extrato Mensal e Fluxo de Caixa diário reconciliados ao Dashboard, projeção de caixa e análise de faturas |
 | Auditoria | ✅ Funcional | Diagnóstico, correção de saldo, reabertura de períodos |
 | Orçamentos | ✅ Funcional | Metas por categoria, tabela Orçado x Realizado |
 | Metas | ✅ Funcional | Metas financeiras com progresso |
@@ -66,7 +66,7 @@ npm run build      # vite build
 | Autenticação | ✅ Funcional | Google Auth + modo convidado anônimo |
 | PWA | ✅ Instalável | iOS meta tags, update com toast |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
-| Testes | ✅ Automatizados | 78 testes locais + 2 cenários com Firebase Emulator no CI |
+| Testes | ✅ Automatizados | 80 testes locais + 2 cenários com Firebase Emulator no CI |
 
 ---
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-08-05 | v0.11.0 — Fluxo de Caixa mensal investigável | Relatórios / Dashboard / Mobile |
 | 2026-08-05 | v0.10.0 — Extrato Mensal investigável | Dashboard / Relatórios / Mobile |
 | 2026-08-05 | v0.9.3 — Faturas quitadas em Contas a Pagar | Dashboard / Cartões / Consistência |
 | 2026-08-05 | v0.9.2 — Comprometimento Futuro recolhível | Cartões / UX / Mobile |

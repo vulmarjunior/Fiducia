@@ -62,7 +62,7 @@ export async function generateCashFlowPDF(opts: {
   const doc = await createPdf();
   const autoTable = await getAutoTable();
 
-  const periodLabel = opts.cashflowPeriod === '3months' ? '3 Meses' : opts.cashflowPeriod === '6months' ? '6 Meses' : opts.cashflowPeriod === '12months' ? '12 Meses' : 'Ano atual';
+  const periodLabel = opts.cashflowPeriod === 'month' ? 'Mês' : opts.cashflowPeriod === '3months' ? '3 Meses' : opts.cashflowPeriod === '6months' ? '6 Meses' : '12 Meses';
   const periodRange = opts.cashFlowData.length > 0
     ? `${fmtMonthYear(opts.cashFlowData[0].month)} — ${fmtMonthYear(opts.cashFlowData[opts.cashFlowData.length - 1].month)}`
     : '';

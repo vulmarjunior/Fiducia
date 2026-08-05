@@ -26,6 +26,8 @@ import { Button } from '../components/ui/button';
 import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
 import { buildMonthlyStatement } from '../lib/monthlyStatement';
 import { MonthlyStatementEntries } from '../components/MonthlyStatementEntries';
+import { buildDailyCashFlow } from '../lib/cashFlowView';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
 
@@ -33,7 +35,6 @@ const isTransfer = (t: any) => t.type === 'transferencia' || t.type === 'transfe
 const isCreditCardTx = (t: any) => !!t.creditCardId;
 const isIncome = (t: any) => t.type === 'receita' || t.type === 'income';
 const isExpense = (t: any) => t.type === 'despesa' || t.type === 'expense';
-const isPending = (t: any) => t.status === 'pendente' || t.status === 'pending';
 
 // Safe local date helpers — evitam bug de timezone do toISOString()
 const toMonthStr = (d: Date) => `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -67,8 +68,9 @@ export function Reports() {
   }, [location.state, setSelectedMonth]);
 
   // Aba 1 — Fluxo de Caixa
-  const [cashflowPeriod, setCashflowPeriod] = useState<'3months' | '6months' | '12months' | 'year'>('6months');
+  const [cashflowPeriod, setCashflowPeriod] = useState<'month' | '3months' | '6months' | '12months'>('month');
   const [showPending, setShowPending] = useState(false);
+  const [selectedCashFlowDay, setSelectedCashFlowDay] = useState<string | null>(null);
 
   // Aba 2 — Categorias
   const [catPeriod, setCatPeriod] = useState<'month' | '3months' | '6months' | '12months' | 'year'>('month');
@@ -195,24 +197,28 @@ export function Reports() {
 
   // ─── ABA 1: FLUXO DE CAIXA ───────────────────────────────────────────────
   const cashFlowMonths = useMemo(() => {
-    const count = cashflowPeriod === 'year' || cashflowPeriod === '12months' ? 12 : cashflowPeriod === '6months' ? 6 : 3;
+    const count = cashflowPeriod === 'month' ? 1 : cashflowPeriod === '12months' ? 12 : cashflowPeriod === '6months' ? 6 : 3;
+    const [selectedYear, selectedMonthNumber] = selectedMonth.split('-').map(Number);
     return Array.from({ length: count }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - count + i + 1, 1);
+      const d = new Date(selectedYear, selectedMonthNumber - count + i, 1);
       return { month: toMonthStr(d), label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') };
     });
-  }, [cashflowPeriod]);
+  }, [cashflowPeriod, selectedMonth]);
 
   const cashFlowData = useMemo(() => {
     return cashFlowMonths.map(m => {
-      const mTx = transactions.filter(t =>
-        t.date.startsWith(m.month) && !isCreditCardTx(t) && !isTransfer(t) &&
-        (isEffectivelyPaid(t) || (showPending && isPending(t)))
-      );
-      const receitas = mTx.filter(t => isIncome(t)).reduce((s, t) => s + t.amount, 0);
-      const despesas = mTx.filter(t => isExpense(t)).reduce((s, t) => s + t.amount, 0);
+      const days = buildDailyCashFlow(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), m.month, showPending);
+      const receitas = days.reduce((sum, day) => sum + day.Receitas, 0);
+      const despesas = days.reduce((sum, day) => sum + day.Despesas, 0);
       return { name: m.label.charAt(0).toUpperCase() + m.label.slice(1), month: m.month, Receitas: receitas, Despesas: despesas, Saldo: receitas - despesas };
     });
-  }, [transactions, cashFlowMonths, showPending]);
+  }, [transactions, invoices, creditCards, cashFlowMonths, showPending]);
+
+  const dailyCashFlow = useMemo(
+    () => buildDailyCashFlow(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), selectedMonth, showPending),
+    [transactions, invoices, creditCards, selectedMonth, showPending],
+  );
+  const selectedDayData = selectedCashFlowDay ? dailyCashFlow.find(day => day.date === selectedCashFlowDay) : undefined;
 
   const cashTotals = useMemo(() => {
     const totalR = cashFlowData.reduce((s, m) => s + m.Receitas, 0);
@@ -480,6 +486,18 @@ export function Reports() {
 
   return (
     <div className="space-y-6 pb-20">
+      <Dialog open={Boolean(selectedDayData)} onOpenChange={(open) => { if (!open) setSelectedCashFlowDay(null); }}>
+        <DialogContent className="flex w-[calc(100vw-1rem)] max-w-none max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl sm:max-h-[88vh]">
+          <DialogHeader className="border-b border-border p-4 pr-12 sm:p-5 sm:pr-12">
+            <DialogTitle>Movimento do dia</DialogTitle>
+            <DialogDescription>{selectedDayData ? new Date(`${selectedDayData.date}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) : ''}</DialogDescription>
+            {selectedDayData && <div className={`pt-1 font-mono text-2xl font-bold ${selectedDayData.Saldo >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>{fmt(selectedDayData.Saldo)}</div>}
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1 sm:p-2">
+            <MonthlyStatementEntries entries={selectedDayData?.entries || []} accounts={accounts} categories={categories} emptyMessage="Nenhum movimento neste dia." onOpenTransaction={(id) => { setSelectedCashFlowDay(null); openTxDialog({ editId: id }); }} />
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* ── HEADER ── */}
       <div className="flex items-center gap-3">
         <h2 className="text-3xl font-bold tracking-tight text-foreground">Relatórios</h2>
@@ -488,7 +506,7 @@ export function Reports() {
           description="Analise suas finanças sob diferentes perspectivas. Abaixo está a metodologia utilizada em cada relatório:"
           items={[
             { label: 'Extrato Mensal', desc: 'Reconcilia exatamente os cards mensais do Dashboard. Separa receitas recebidas, despesas pagas diretamente em conta e pagamentos de fatura, permitindo abrir cada lançamento que compõe os totais.' },
-            { label: '1. Fluxo de Caixa', desc: 'Receitas vs despesas realizadas na conta corrente (sem cartão e sem transferências) nos últimos meses. O botão "Só Realizados"/"Incluindo Pendentes" controla se lançamentos com status pendente entram no cálculo. A Taxa de Poupança mostra quantos % da sua receita líquida sobra após as despesas no período.' },
+            { label: '1. Fluxo de Caixa', desc: 'No modo Mês, mostra a evolução diária do período selecionado e permite abrir os lançamentos de cada dia. As visões 3/6/12 meses comparam o histórico até esse mesmo mês. Pagamentos vinculados de fatura entram como saída; compras individuais do cartão não são duplicadas.' },
             { label: '2. Categorias', desc: 'Distribuição dos gastos ou receitas por categoria. A métrica "% Renda" revela o peso real de cada categoria sobre sua receita total, diferente do "% Total" que compara apenas entre categorias. Use para descobrir onde seu dinheiro está sendo mais consumido proporcionalmente.' },
             { label: '3. Tendência & Orçamento', desc: 'Curva cumulativa de despesas dia a dia dentro do mês atual, comparada com os limites de orçamento configurados. Mostra se você está gastando acima ou abaixo do planejado e projeta se ultrapassará o limite até o fim do mês.' },
             { label: '4. Projeção Futura', desc: 'Simulação de saldo futuro projetando receitas a receber, despesas a pagar e faturas de cartão mês a mês. Use o seletor de período para definir o horizonte: 30 dias (rolante a partir de hoje), Próx. mês (até o último dia do mês seguinte), 3/6/12 meses (até o último dia do mês correspondente) ou data personalizada. Os filtros de tipo e categoria permitem isolar receitas ou despesas específicas. É possível incluir ou excluir investimentos do saldo inicial.' },
@@ -557,12 +575,13 @@ export function Reports() {
         <div className="space-y-6">
           <div className="flex items-center gap-2 flex-wrap">
 <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
-              {(['3months', '6months', '12months', 'year'] as const).map(p => (
+              {(['month', '3months', '6months', '12months'] as const).map(p => (
                 <FBtn key={p} active={cashflowPeriod === p} onClick={() => setCashflowPeriod(p)}>
-                  {p === '3months' ? '3 Meses' : p === '6months' ? '6 Meses' : p === '12months' ? '12 Meses' : 'Ano'}
+                  {p === 'month' ? 'Mês' : p === '3months' ? '3 Meses' : p === '6months' ? '6 Meses' : '12 Meses'}
                 </FBtn>
               ))}
             </div>
+            {cashflowPeriod === 'month' && <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} aria-label="Mês do fluxo de caixa" className="h-8 rounded-xl border border-border bg-background px-2 text-xs font-semibold" />}
             <button onClick={() => setShowPending(!showPending)}
               className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border transition-all ${showPending ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400' : 'bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50'}`}>
               {showPending ? 'Incluindo Pendentes' : 'Só Realizados'}
@@ -590,14 +609,33 @@ export function Reports() {
             ))}
           </div>
 
+          {cashflowPeriod === 'month' && (
+            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+              <div className="flex items-center gap-2 p-5 border-b border-border">
+                <Calendar className="w-4 h-4 text-fiducia-blue" />
+                <div><h3 className="text-[15px] font-bold text-foreground">Movimento por dia</h3><p className="text-[12px] text-muted-foreground">Toque em um dia para conferir os lançamentos</p></div>
+              </div>
+              <div className="divide-y divide-border">
+                {dailyCashFlow.filter(day => day.entries.length > 0).map(day => (
+                  <button key={day.date} type="button" onClick={() => setSelectedCashFlowDay(day.date)} className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 p-4 text-left transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <span className="flex h-10 w-10 flex-col items-center justify-center rounded-xl bg-secondary text-foreground"><strong className="text-sm leading-none">{day.name}</strong><small className="mt-0.5 text-[9px] uppercase text-muted-foreground">dia</small></span>
+                    <span className="min-w-0"><strong className="block text-xs text-foreground">{day.entries.length} lançamento(s)</strong><small className="block truncate text-[11px] text-muted-foreground">Entradas {fmt(day.Receitas)} · Saídas {fmt(day.Despesas)}</small></span>
+                    <strong className={`font-mono text-sm ${day.Saldo >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>{day.Saldo >= 0 ? '+' : ''}{fmt(day.Saldo)}</strong>
+                  </button>
+                ))}
+                {dailyCashFlow.every(day => day.entries.length === 0) && <p className="p-10 text-center text-sm text-muted-foreground">Nenhum movimento encontrado neste mês.</p>}
+              </div>
+            </div>
+          )}
+
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="flex items-center justify-between p-5 border-b border-border">
               <div>
                 <div className="flex items-center gap-2">
                   <BarChart2 className="w-4 h-4 text-fiducia-blue" />
-                  <h3 className="text-[15px] font-bold text-foreground">Receitas vs Despesas</h3>
+                  <h3 className="text-[15px] font-bold text-foreground">{cashflowPeriod === 'month' ? 'Evolução diária do caixa' : 'Receitas vs Despesas'}</h3>
                 </div>
-                <p className="text-[12px] text-muted-foreground mt-0.5">Evolução mensal — somente conta corrente, sem cartão</p>
+                <p className="text-[12px] text-muted-foreground mt-0.5">{cashflowPeriod === 'month' ? 'Entradas, saídas e resultado acumulado no mês selecionado' : 'Comparação mensal ancorada no período selecionado'}</p>
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-green" />Receitas</div>
@@ -606,19 +644,31 @@ export function Reports() {
             </div>
             <div className="p-5">
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={cashFlowData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 500 }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
-                  <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                  <Bar dataKey="Receitas" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                {cashflowPeriod === 'month' ? (
+                  <ComposedChart data={dailyCashFlow} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} interval={4} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
+                    <Tooltip formatter={(v: number) => fmt(v)} labelFormatter={label => `Dia ${label}`} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="Receitas" fill="#22c55e" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Despesas" fill="#ef4444" radius={[3, 3, 0, 0]} />
+                    <Line type="monotone" dataKey="Acumulado" stroke="#3b82f6" strokeWidth={2.5} dot={false} />
+                  </ComposedChart>
+                ) : (
+                  <BarChart data={cashFlowData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 500 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
+                    <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="Receitas" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+          {cashflowPeriod !== 'month' && <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="flex items-center gap-2 p-5 border-b border-border">
               <Calendar className="w-4 h-4 text-fiducia-blue" />
               <h3 className="text-[15px] font-bold text-foreground">Resumo por Mês</h3>
@@ -647,7 +697,7 @@ export function Reports() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </div>}
         </div>
       )}
 
