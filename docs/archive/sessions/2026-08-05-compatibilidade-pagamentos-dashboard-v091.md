@@ -34,7 +34,9 @@ Corrigir de forma conservadora o card “Despesas do mês”, que ignorava pagam
 - `npx vitest run --maxWorkers=1` — 74 testes aprovados; 2 testes de emulador ignorados sem host local.
 - `npm run build` — aprovado.
 
-## Pendência operacional
+## Publicação e validação em produção
 
-- Publicar a v0.9.1 e confirmar no Dashboard de produção o total de R$ 16.071,31 para agosto de 2026.
-- Confirmar que a fatura C6 de setembro exibe apenas as compras do próprio período, sem transportar R$ 8.452,63 de agosto.
+- Commit `d423282` publicado na `main` e implantado no Vercel com estado `READY`.
+- Dashboard de agosto de 2026 validado com despesas de R$ 16.071,31.
+- C6 Carbon de setembro de 2026 validado em R$ 3.375,18, sem transportar os R$ 8.452,63 pagos em agosto.
+- Versão `0.9.1` confirmada visualmente no ambiente publicado.

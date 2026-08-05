@@ -14,7 +14,7 @@
 | **Versão atual** | `0.9.1` |
 | **Modelo de versionamento** | SemVer |
 | **Última alteração em código** | 2026-08-05 (compatibilidade de pagamentos e quitação de faturas legadas v0.9.1) |
-| **Último deploy** | 2026-08-04 — v0.9.0 no Vercel + índice composto no Firestore |
+| **Último deploy** | 2026-08-05 — v0.9.1 no Vercel (produção validada) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -74,7 +74,7 @@ npm run build      # vite build
 
 **Foco atual:** Estabilização da versão 0.9.x, observabilidade e evolução das funcionalidades financeiras existentes.
 
-**Próximo passo sugerido:** Monitorar a v0.9.0 em produção, ampliar testes de interface e otimizar o pacote compartilhado de ícones. A Fase 3 da Central de Importação permanece fora do escopo atual.
+**Próximo passo sugerido:** Monitorar a v0.9.1 em produção, ampliar testes de interface e otimizar o pacote compartilhado de ícones. A Fase 3 da Central de Importação permanece fora do escopo atual.
 
 ---
 
@@ -197,8 +197,7 @@ Itens entregues em v0.7.0 a v0.8.0 (2026-08-04):
 11. ✅ Compatibilidade de pagamentos e faturas legadas (v0.9.1) — IDs oficiais entram no regime de caixa e faturas com status `paga` não transportam saldo por ausência de `paidAmount`, sem migração do Firestore.
 
 Pendências para sessão futura:
-- Publicar e validar visualmente a v0.9.1 no ambiente de produção
-- Testes de interface em navegador e monitoramento da v0.9.0
+- Testes de interface em navegador e monitoramento da v0.9.1
 - Redução adicional do chunk compartilhado de ícones
 
 Fora do escopo atual:

@@ -23,6 +23,8 @@
 - `npm run lint` — sem erros.
 - `npx vitest run --maxWorkers=1` — 74 testes aprovados; 2 testes de emulador ignorados sem host local.
 - `npm run build` — build de produção concluído.
+- Deploy de produção no Vercel concluído com estado `READY` para o commit `d423282`.
+- Validação visual autenticada: Dashboard de agosto em R$ 16.071,31 e C6 Carbon de setembro em R$ 3.375,18, sem saldo legado transportado.
 
 ---
 
