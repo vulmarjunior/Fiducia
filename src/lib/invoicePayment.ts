@@ -20,11 +20,29 @@ export interface InvoiceFinancialSummary {
 const toCents = (value: number) => Math.round(value * 100);
 const fromCents = (value: number) => value / 100;
 
+export function getInvoicePaymentTransactionIds(invoices: any[]): Set<string> {
+  const ids = new Set<string>();
+
+  for (const invoice of invoices) {
+    if (Array.isArray(invoice?.paymentTransactionIds)) {
+      for (const id of invoice.paymentTransactionIds) {
+        if (typeof id === 'string' && id) ids.add(id);
+      }
+    }
+    if (typeof invoice?.paymentTransactionId === 'string' && invoice.paymentTransactionId) {
+      ids.add(invoice.paymentTransactionId);
+    }
+  }
+
+  return ids;
+}
+
 export function getInvoiceFinancialSummary(invoice: any, calculatedTotal = 0): InvoiceFinancialSummary {
   const totalCents = Math.max(0, toCents(
     typeof invoice?.totalAmount === 'number' && invoice.totalAmount > 0 ? invoice.totalAmount : calculatedTotal,
   ));
-  const paidCents = Math.min(totalCents, Math.max(0, toCents(invoice?.paidAmount || 0)));
+  const persistedPaidCents = Math.min(totalCents, Math.max(0, toCents(invoice?.paidAmount || 0)));
+  const paidCents = invoice?.status === 'paga' && totalCents > 0 ? totalCents : persistedPaidCents;
   const remainingCents = Math.max(0, totalCents - paidCents);
   const status = remainingCents === 0 && totalCents > 0
     ? 'paga'

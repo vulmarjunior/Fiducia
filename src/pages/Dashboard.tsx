@@ -16,6 +16,7 @@ import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
 import { migrateCategoryIds } from '../services/categoryMigration';
 import { OnboardingChecklist } from '../components/OnboardingChecklist';
 import { MetricExplanationDialog } from '../components/MetricExplanationDialog';
+import { getInvoicePaymentTransactionIds } from '../lib/invoicePayment';
  
 export function Dashboard() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -215,6 +216,17 @@ Regras OBRIGATÓRIAS:
     }
     return t.date.split('T')[0].startsWith(currentMonthStr);
   });
+
+  const invoicePaymentTransactionIds = getInvoicePaymentTransactionIds(invoices);
+  const isMonthlyPaidExpense = (transaction: any, month: string) => {
+    if (!transaction.date?.split('T')[0].startsWith(month) || !isEffectivelyPaid(transaction)) return false;
+    if (invoicePaymentTransactionIds.has(transaction.id)) return true;
+    return (transaction.type === 'despesa' || transaction.type === 'expense') &&
+      !transaction.creditCardId &&
+      !creditCards.some(card => card.id === transaction.accountId) &&
+      transaction.type !== 'transferencia' &&
+      transaction.type !== 'transfer';
+  };
   
   
   const monthlyIncome = currentMonthTransactions.filter(t =>
@@ -222,11 +234,8 @@ Regras OBRIGATÓRIAS:
     !t.creditCardId && !creditCards.some(c => c.id === t.accountId) &&
     t.type !== 'transferencia' && t.type !== 'transfer'
   ).reduce((sum, t) => sum + t.amount, 0);
-  const monthlyExpense = currentMonthTransactions.filter(t =>
-    (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t) &&
-    !t.creditCardId && !creditCards.some(c => c.id === t.accountId) &&
-    t.type !== 'transferencia' && t.type !== 'transfer'
-  ).reduce((sum, t) => sum + t.amount, 0);
+  const monthlyExpenseTransactions = transactions.filter(t => isMonthlyPaidExpense(t, currentMonthStr));
+  const monthlyExpense = monthlyExpenseTransactions.reduce((sum, t) => sum + t.amount, 0);
   const monthlyBalance = monthlyIncome - monthlyExpense;
 
   const cashCoverage = useMemo(
@@ -244,9 +253,9 @@ Regras OBRIGATÓRIAS:
     }
     return t.date.startsWith(prevMonthStr);
   });
-  // Bug fix: usar mesmos filtros de !creditCardId/!transferência que monthlyIncome/monthlyExpense
+  // Comparativos usam a mesma regra de caixa do mês selecionado, incluindo pagamentos vinculados de fatura.
   const prevIncome = prevMonthTransactions.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0);
-  const prevExpense = prevMonthTransactions.filter(t => (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0);
+  const prevExpense = transactions.filter(t => isMonthlyPaidExpense(t, prevMonthStr)).reduce((sum, t) => sum + t.amount, 0);
   const incomeTrendPct = prevIncome > 0 ? ((monthlyIncome - prevIncome) / prevIncome * 100).toFixed(1) : null;
   const expenseTrendPct = prevExpense > 0 ? ((monthlyExpense - prevExpense) / prevExpense * 100).toFixed(1) : null;
 
@@ -573,11 +582,11 @@ Regras OBRIGATÓRIAS:
             Despesas do mês
             <MetricExplanationDialog
               title="Despesas do mês"
-              description="Considera despesas pagas em conta no mês selecionado. Compras individuais de cartão são excluídas para evitar contagem dupla."
-              formula="Despesas = lançamentos pagos em conta, sem transferências e sem compras de cartão"
+              description="Considera despesas pagas em conta e pagamentos vinculados de fatura no mês selecionado. Compras individuais de cartão são excluídas para evitar contagem dupla."
+              formula="Despesas = lançamentos pagos em conta + pagamentos de fatura vinculados, sem compras individuais de cartão"
               lines={[
                 { label: 'Período', value: selectedMonth },
-                { label: 'Despesas consideradas', value: String(currentMonthTransactions.filter((transaction) => (transaction.type === 'despesa' || transaction.type === 'expense') && isEffectivelyPaid(transaction) && !transaction.creditCardId).length) },
+                { label: 'Despesas consideradas', value: String(monthlyExpenseTransactions.length) },
                 { label: 'Total', value: formatCurrency(monthlyExpense) },
               ]}
               note="O pagamento consolidado da fatura aparece como saída da conta; as compras do cartão não são somadas novamente aqui."

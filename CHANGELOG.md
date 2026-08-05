@@ -5,6 +5,27 @@
 
 ---
 
+## [0.9.1] — 2026-08-05 — Compatibilidade de Pagamentos Legados no Dashboard
+
+**Resultado:** O card “Despesas do mês” passa a considerar pagamentos de fatura vinculados oficialmente, inclusive registros legados salvos como transferência. Faturas legadas marcadas como pagas deixam de carregar um falso saldo remanescente para o mês seguinte. Nenhum documento do Firebase é alterado.
+
+**Alterações técnicas:**
+- `src/lib/invoicePayment.ts` — identificação canônica dos IDs presentes em `paymentTransactionIds[]` e no campo legado `paymentTransactionId`; status `paga` passa a ser a fonte de verdade para quitação total quando `paidAmount` está ausente ou zerado em dados legados.
+- `src/pages/Dashboard.tsx` — cálculo mensal inclui pagamentos vinculados pela data efetiva do lançamento e mantém compras individuais de cartão excluídas.
+- `src/lib/invoicePayment.test.ts` — testes para vínculos atuais, legado singular, rejeição de inferência por descrição e bloqueio do transporte indevido de saldo para o mês seguinte.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.9.1`.
+
+**Segurança operacional:**
+- Nenhum documento do Firestore foi alterado ou migrado.
+- A compatibilidade de pagamentos ficou restrita ao card do Dashboard; a compatibilidade de quitação atua somente na leitura do resumo financeiro das faturas.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 74 testes aprovados; 2 testes de emulador ignorados sem host local.
+- `npm run build` — build de produção concluído.
+
+---
+
 ## [0.9.0] — 2026-08-04 — Estabilização, Desempenho e Experiência Guiada
 
 **Resultado:** O Fiducia ganhou uma base mais segura e rápida, navegação mobile dedicada, orientação para novos usuários, explicações transparentes dos indicadores e operações em lote para a rotina de lançamentos.

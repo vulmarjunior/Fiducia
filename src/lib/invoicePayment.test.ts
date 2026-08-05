@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { calculateInvoicePayment, getInvoiceFinancialSummary } from './invoicePayment';
+import { calculateInvoicePayment, getInvoiceFinancialSummary, getInvoicePaymentTransactionIds } from './invoicePayment';
+
+describe('getInvoicePaymentTransactionIds', () => {
+  it('reconhece IDs dos pagamentos atuais e do campo legado', () => {
+    const ids = getInvoicePaymentTransactionIds([
+      { paymentTransactionIds: ['payment-current', 'payment-partial'] },
+      { paymentTransactionId: 'payment-legacy' },
+    ]);
+
+    expect([...ids]).toEqual(['payment-current', 'payment-partial', 'payment-legacy']);
+  });
+
+  it('ignora valores ausentes ou inválidos sem inferir pela descrição', () => {
+    const ids = getInvoicePaymentTransactionIds([
+      { paymentTransactionIds: [null, '', 123] },
+      { description: 'Pagamento Fatura sem vínculo oficial' },
+      null,
+    ]);
+
+    expect(ids.size).toBe(0);
+  });
+});
 
 describe('calculateInvoicePayment', () => {
   it('registra pagamento total', () => {
@@ -32,5 +53,16 @@ describe('getInvoiceFinancialSummary', () => {
   });
   it('limita pagamentos inconsistentes ao total da fatura', () => {
     expect(getInvoiceFinancialSummary({ totalAmount: 100, paidAmount: 120 })).toMatchObject({ paidAmount: 100, remainingAmount: 0, status: 'paga' });
+  });
+  it('trata fatura legada paga sem paidAmount como totalmente quitada', () => {
+    expect(getInvoiceFinancialSummary({ totalAmount: 8452.63, status: 'paga' })).toEqual({
+      totalAmount: 8452.63, paidAmount: 8452.63, remainingAmount: 0, paymentProgress: 100, status: 'paga',
+    });
+  });
+  it('não carrega fatura paga legada para o total do mês seguinte', () => {
+    const previous = getInvoiceFinancialSummary({ totalAmount: 8452.63, paidAmount: 0, status: 'paga' });
+    const current = getInvoiceFinancialSummary(null, previous.remainingAmount + 3375.18);
+
+    expect(current).toMatchObject({ totalAmount: 3375.18, remainingAmount: 3375.18, status: 'aberta' });
   });
 });

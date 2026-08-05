@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.9.0` |
+| **Versão atual** | `0.9.1` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-04 (estabilização, desempenho e experiência guiada v0.9.0) |
+| **Última alteração em código** | 2026-08-05 (compatibilidade de pagamentos e quitação de faturas legadas v0.9.1) |
 | **Último deploy** | 2026-08-04 — v0.9.0 no Vercel + índice composto no Firestore |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -66,7 +66,7 @@ npm run build      # vite build
 | Autenticação | ✅ Funcional | Google Auth + modo convidado anônimo |
 | PWA | ✅ Instalável | iOS meta tags, update com toast |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
-| Testes | ✅ Automatizados | 70 testes locais + 2 cenários com Firebase Emulator no CI |
+| Testes | ✅ Automatizados | 74 testes locais + 2 cenários com Firebase Emulator no CI |
 
 ---
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-08-05 | v0.9.1 — Pagamentos legados no Dashboard e quitação sem saldo transportado | Dashboard / Cartões / Compatibilidade |
 | 2026-08-04 | v0.9.0 — Estabilização, desempenho e experiência guiada | Segurança / UX / Performance |
 | 2026-07-13 | v0.6.1 — Períodos civis na Projeção Futura | Relatórios / UX |
 | 2026-07-13 | v0.6.0 — Central de Importação Assistida (Fases 1 e 2) | Importação / PWA / UX |
@@ -125,7 +126,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 6 | Estorno total / parcial de compras | ✅ Concluído | v0.7.0 — botão Undo no Transactions + dropdown Estornar no CreditCards, diálogo total/parcial |
 | 7 | Pagamento parcial de fatura | ✅ Concluído | v0.7.0 — `paymentTransactionIds[]`, `paidAmount`, status `parcial`, múltiplos pagamentos |
 | 8 | Paradigmas de orçamento (impacto fracionado vs integral) | ✅ Concluído | v0.7.0 — `getBudgetImpact()` em utils, seletor em Configurações |
-| 9 | Testes automatizados (integração + unitários) | ✅ Concluído | v0.9.0 — 70 testes locais + regras e pagamentos atômicos no Firebase Emulator/CI |
+| 9 | Testes automatizados (integração + unitários) | ✅ Concluído | 74 testes locais + regras e pagamentos atômicos no Firebase Emulator/CI |
 | 10 | Gestão de versão / releases | ✅ Concluído | v0.7.0; exibida no Login e Dashboard |
 | 11 | Central de Importacao Assistida - Fases 1 e 2 | ✅ Concluído | Entregues em v0.6.0 |
 | 12 | Central de Importação Assistida — Fase 3 | ⏸️ Fora do escopo atual | Ideia preservada apenas para eventual reavaliação futura; sem previsão de implementação |
@@ -193,8 +194,10 @@ Itens entregues em v0.7.0 a v0.8.0 (2026-08-04):
 8. ✅ Correção transacional de pagamentos totais/parciais (v0.7.2) — total canônico, cálculo em centavos, proteção contra duplicidade e fechamento protegido.
 9. ✅ Experiência e consistência de pagamentos parciais (v0.7.3) — saldo líquido nos cards, progresso e histórico na fatura, saldo remanescente visível e relatórios pelo valor em aberto.
 10. ✅ Backlog técnico 1–4 (v0.8.0) — proxy Groq autenticado, testes integrados, edição uniforme de cartão e período mensal compartilhado.
+11. ✅ Compatibilidade de pagamentos e faturas legadas (v0.9.1) — IDs oficiais entram no regime de caixa e faturas com status `paga` não transportam saldo por ausência de `paidAmount`, sem migração do Firestore.
 
 Pendências para sessão futura:
+- Publicar e validar visualmente a v0.9.1 no ambiente de produção
 - Testes de interface em navegador e monitoramento da v0.9.0
 - Redução adicional do chunk compartilhado de ícones
 
