@@ -8,7 +8,10 @@ export type CashCoverageSource =
 
 export type CashCoverageCertainty = 'confirmed' | 'expected' | 'projected';
 
-export type CashCoverageScenario = 'conservative' | 'realistic' | 'projected';
+export const CASH_SAFETY_RESERVE_KEY = 'fiducia_cashSafetyReserve';
+
+export const calculateCashMargin = (minimumBalance: number, safetyReserve: number) =>
+  minimumBalance - Math.max(0, Number.isFinite(safetyReserve) ? safetyReserve : 0);
 
 export interface CashCoverageEvent {
   id: string;
@@ -69,6 +72,7 @@ export interface CashCoverageProjection {
   totalFutureCard: number;
   coverageBalance: number;
   daysAtRisk: number;
+  excludedOverdueIncome: number;
   events: CashCoverageEvent[];
   dailyProjection: CashCoverageDay[];
   monthlyProjection: CashCoverageMonth[];
@@ -79,7 +83,7 @@ export interface CashCoverageOptions {
   endDate?: Date | string;
   days?: number;
   includeSavings?: boolean;
-  scenario?: CashCoverageScenario;
+  includeRecurrences?: boolean;
 }
 
 const isIncome = (t: any) => t.type === 'receita' || t.type === 'income';
@@ -213,9 +217,10 @@ export function buildCashCoverageProjection({
     .filter((account: any) => options.includeSavings || !account.excludeFromCashFlow)
     .reduce((sum: number, account: any) => sum + (account.balance || 0), 0);
 
-  const scenario = options.scenario || 'realistic';
+  const includeRecurrences = options.includeRecurrences ?? false;
 
   const events: CashCoverageEvent[] = [];
+  let excludedOverdueIncome = 0;
 
   for (const tx of transactions) {
     if (!isPending(tx) || isTransfer(tx) || isCardTransaction(tx, creditCards)) continue;
@@ -224,8 +229,12 @@ export function buildCashCoverageProjection({
     const originalDate = (tx.date || '').split('T')[0];
     if (!originalDate || originalDate > endStr) continue;
 
-    const date = clampEventDate(originalDate, today);
     const direction = isIncome(tx) ? 'in' : 'out';
+    if (direction === 'in' && originalDate < todayStr) {
+      excludedOverdueIncome += tx.amount || 0;
+      continue;
+    }
+    const date = clampEventDate(originalDate, today);
     events.push({
       id: `tx-${tx.id || originalDate}-${direction}`,
       date,
@@ -336,11 +345,14 @@ export function buildCashCoverageProjection({
             ? currentInvoicePeriod(cursor, ruleCard.closingDay, ruleCard.dueDay)
             : undefined;
 
-          events.push({
+          const eventDate = isCardRule && invoicePeriod
+            ? formatLocalDate(invoiceDueDate(invoicePeriod, ruleCard.dueDay))
+            : cursorStr;
+          if (eventDate <= endStr) events.push({
             id: `recur-${rule.id}-${cursorStr}`,
-            date: cursorStr,
+            date: eventDate,
             originalDate: cursorStr,
-            month: cursorStr.substring(0, 7),
+            month: eventDate.substring(0, 7),
             amount: rule.amount || 0,
             direction,
             source: 'recurrence',
@@ -368,12 +380,7 @@ export function buildCashCoverageProjection({
 
   events.sort((a, b) => a.date.localeCompare(b.date) || a.label.localeCompare(b.label));
 
-  let scenarioEvents = events;
-  if (scenario === 'conservative') {
-    scenarioEvents = events.filter(e => e.certainty === 'confirmed');
-  } else if (scenario === 'realistic') {
-    scenarioEvents = events.filter(e => e.certainty !== 'projected');
-  }
+  const scenarioEvents = events.filter(event => includeRecurrences || event.source !== 'recurrence');
 
   const dailyProjection: CashCoverageDay[] = [];
   let currentBalance = startingBalance;
@@ -419,10 +426,10 @@ export function buildCashCoverageProjection({
     const month = monthKey(cursor);
     const monthEvents = scenarioEvents.filter(event => event.month === month);
     const incomeEvents = monthEvents.filter(event => event.direction === 'in');
-    const expenseEvents = monthEvents.filter(event => event.direction === 'out' && event.source === 'bank_expense');
+    const expenseEvents = monthEvents.filter(event => event.direction === 'out' && (event.source === 'bank_expense' || (event.source === 'recurrence' && !event.cardId)));
     const invoiceEvents = monthEvents.filter(event =>
       event.direction === 'out' &&
-      ['invoice_closed', 'invoice_open', 'card_future'].includes(event.source)
+      (['invoice_closed', 'invoice_open', 'card_future'].includes(event.source) || (event.source === 'recurrence' && Boolean(event.cardId)))
     );
     const incomeTotal = incomeEvents.reduce((sum, event) => sum + event.amount, 0);
     const expenseTotal = expenseEvents.reduce((sum, event) => sum + event.amount, 0);
@@ -449,7 +456,7 @@ export function buildCashCoverageProjection({
     .filter(event => event.direction === 'in')
     .reduce((sum, event) => sum + event.amount, 0);
   const totalBankExpenses = scenarioEvents
-    .filter(event => event.source === 'bank_expense')
+    .filter(event => event.source === 'bank_expense' || (event.source === 'recurrence' && !event.cardId))
     .reduce((sum, event) => sum + event.amount, 0);
   const totalClosedInvoices = scenarioEvents
     .filter(event => event.source === 'invoice_closed')
@@ -458,7 +465,7 @@ export function buildCashCoverageProjection({
     .filter(event => event.source === 'invoice_open')
     .reduce((sum, event) => sum + event.amount, 0);
   const totalFutureCard = scenarioEvents
-    .filter(event => event.source === 'card_future')
+    .filter(event => event.source === 'card_future' || (event.source === 'recurrence' && Boolean(event.cardId)))
     .reduce((sum, event) => sum + event.amount, 0);
   const totalInvoices = totalClosedInvoices + totalOpenInvoices + totalFutureCard;
   const totalObligations = totalBankExpenses + totalInvoices;
@@ -471,6 +478,7 @@ export function buildCashCoverageProjection({
     firstRiskDate,
     isAtRisk: minimumBalance < 0,
     daysAtRisk,
+    excludedOverdueIncome,
     totalIncome,
     totalObligations,
     totalBankExpenses,

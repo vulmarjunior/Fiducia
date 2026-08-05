@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { buildCashCoverageProjection } from './cashCoverage';
+import { buildCashCoverageProjection, calculateCashMargin } from './cashCoverage';
 
 const startDate = '2026-06-23';
 
 describe('buildCashCoverageProjection', () => {
+  it('calcula margem para novos compromissos protegendo a reserva', () => {
+    expect(calculateCashMargin(1850, 1000)).toBe(850);
+    expect(calculateCashMargin(500, 1000)).toBe(-500);
+  });
   it('detecta risco diário mesmo quando o período termina coberto', () => {
     const projection = buildCashCoverageProjection({
       accounts: [{ id: 'acc-1', balance: 1000 }],
@@ -140,5 +144,50 @@ describe('buildCashCoverageProjection', () => {
       status: 'overdue',
     });
     expect(projection.dailyProjection[0].endingBalance).toBe(800);
+  });
+
+  it('nao usa receita vencida como caixa disponivel imediato', () => {
+    const projection = buildCashCoverageProjection({
+      accounts: [{ id: 'acc-1', balance: 500 }],
+      creditCards: [],
+      invoices: [],
+      transactions: [{ id: 'late-income', type: 'receita', status: 'pendente', amount: 900, date: '2026-06-20', accountId: 'acc-1' }],
+      options: { startDate, endDate: '2026-06-30' },
+    });
+
+    expect(projection.totalIncome).toBe(0);
+    expect(projection.excludedOverdueIncome).toBe(900);
+    expect(projection.endingBalance).toBe(500);
+  });
+
+  it('mantem recorrencias opcionais consistentes nos totais, meses e saldo diario', () => {
+    const projection = buildCashCoverageProjection({
+      accounts: [{ id: 'acc-1', balance: 2000 }],
+      creditCards: [],
+      invoices: [],
+      transactions: [],
+      recurrenceRules: [{ id: 'rule-1', status: 'active', type: 'expense', amount: 300, startDate: '2026-06-25', frequency: 'mensal', accountId: 'acc-1', description: 'Academia' }],
+      options: { startDate, endDate: '2026-07-31', includeRecurrences: true },
+    });
+
+    expect(projection.totalObligations).toBe(600);
+    expect(projection.monthlyProjection.reduce((sum, month) => sum + month.expenseTotal + month.invoiceTotal, 0)).toBe(600);
+    expect(projection.coverageBalance).toBe(1400);
+    expect(projection.endingBalance).toBe(projection.coverageBalance);
+  });
+
+  it('leva recorrencia de cartao ao vencimento da fatura', () => {
+    const projection = buildCashCoverageProjection({
+      accounts: [{ id: 'acc-1', balance: 2000 }],
+      creditCards: [{ id: 'card-1', name: 'Visa', closingDay: 20, dueDay: 10 }],
+      invoices: [],
+      transactions: [],
+      recurrenceRules: [{ id: 'rule-card', status: 'active', type: 'expense', amount: 100, startDate: '2026-06-25', frequency: 'mensal', accountId: 'card-1', description: 'Assinatura' }],
+      options: { startDate, endDate: '2026-08-31', includeRecurrences: true },
+    });
+
+    expect(projection.events[0]).toMatchObject({ source: 'recurrence', originalDate: '2026-06-25', date: '2026-08-10' });
+    expect(projection.totalFutureCard).toBe(100);
+    expect(projection.monthlyProjection.find(month => month.month === '2026-08')?.invoiceTotal).toBe(100);
   });
 });

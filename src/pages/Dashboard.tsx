@@ -20,6 +20,7 @@ import { getInvoiceFinancialSummary, getInvoicePaymentTransactionIds } from '../
 import { buildMonthlyStatement } from '../lib/monthlyStatement';
 import { MonthlyStatementEntries } from '../components/MonthlyStatementEntries';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { calculateCashMargin, CASH_SAFETY_RESERVE_KEY } from '../lib/cashCoverage';
  
 export function Dashboard() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -235,6 +236,8 @@ Regras OBRIGATÓRIAS:
     () => projectDailyBalance(accounts, transactions, creditCards, invoices, 90, recurrenceRules),
     [accounts, transactions, creditCards, invoices, recurrenceRules]
   );
+  const cashSafetyReserve = Math.max(0, Number(localStorage.getItem(CASH_SAFETY_RESERVE_KEY)) || 0);
+  const cashMargin = calculateCashMargin(cashCoverage.minimumBalance, cashSafetyReserve);
 
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -488,9 +491,9 @@ Regras OBRIGATÓRIAS:
           </div>
           <PageHelp
             title="Dashboard"
-            description="Sua visão geral financeira: saldo total, receitas e despesas do mês, Cobertura de Caixa (projeção 90 dias), gráfico de fluxo de caixa e lançamentos recentes."
+            description="Sua visão geral financeira: saldo total, receitas e despesas do mês, Margem de Caixa para decisões nos próximos 90 dias, gráfico de fluxo e lançamentos recentes."
             items={[
-              { label: "Cobertura de Caixa", desc: "Simula o saldo diário pelos próximos 90 dias aplicando receitas, despesas pendentes e vencimentos de faturas na ordem cronológica. Detecta risco de descoberto por descasamento de datas." },
+              { label: "Margem de Caixa", desc: "Calcula quanto pode ser assumido em novos compromissos sem consumir a reserva protegida, usando o menor saldo previsto nos próximos 90 dias." },
               { label: "Gráfico de Caixa", desc: "Mapeia a evolução real. Ele ignora transferências entre contas e não duplica despesas individuais do cartão de crédito (considera apenas o vencimento consolidado das faturas)." },
               { label: "Resolução de Timezone", desc: "Todas as datas do gráfico consideram o fuso horário local, garantindo que lançamentos de fim de mês caiam no período correto." },
               { label: "Dica IA", desc: "Análise autônoma com base nos seus gastos reais em conta corrente (ignora cartão para evitar distorções)." },
@@ -620,43 +623,57 @@ Regras OBRIGATÓRIAS:
         {/* Cobertura de Caixa */}
         <div
           className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
-          onClick={() => navigate('/reports')}
+          onClick={() => navigate('/reports', { state: { tab: 'projection' } })}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              navigate('/reports', { state: { tab: 'projection' } });
+            }
+          }}
         >
           <div className="flex items-center justify-between mb-4">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${cashCoverage.isAtRisk ? 'bg-fiducia-red/10 text-fiducia-red' : 'bg-fiducia-purple/10 text-fiducia-purple'}`}>
-              {cashCoverage.isAtRisk ? <ShieldAlert className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${cashMargin < 0 ? 'bg-fiducia-red/10 text-fiducia-red' : 'bg-fiducia-purple/10 text-fiducia-purple'}`}>
+              {cashMargin < 0 ? <ShieldAlert className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
             </div>
             <div className="relative group/tip">
               <Info className="w-4 h-4 text-muted-foreground cursor-help" />
               <div className="absolute right-0 top-6 w-60 max-w-[calc(100vw-3rem)] sm:w-72 p-3 bg-popover border border-border rounded-xl shadow-lg text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-10">
-                <strong className="block mb-1">Cobertura de Caixa</strong>
-                Simula o saldo diário pelos próximos 90 dias, aplicando receitas, despesas pendentes e vencimentos de faturas de cartão <strong>na ordem cronológica</strong>.
+                <strong className="block mb-1">Margem de Caixa</strong>
+                Mostra quanto pode ser assumido em novos compromissos sem reduzir o menor saldo previsto abaixo da reserva protegida.
                 <br /><br />
-                Diferente do antigo "Disponível Seguro" (que somava tudo no mês), esta métrica detecta riscos de descoberto por descasamento entre datas de entrada e saída.
+                Inclui contas pendentes, faturas abertas e fechadas e parcelas futuras já registradas. Recorrências ainda não geradas ficam fora do card.
                 <br /><br />
                 Clique para ver a projeção completa nos Relatórios.
               </div>
             </div>
           </div>
-          <div className="text-[13px] text-muted-foreground font-medium mb-1">Cobertura de Caixa (90 dias)</div>
-          <div className={`text-[24px] font-bold tracking-tight font-mono ${cashCoverage.isAtRisk ? 'text-fiducia-red' : 'text-fiducia-purple'}`}>
-            {formatCurrency(cashCoverage.minimumBalance)}
+          <div className="text-[13px] text-muted-foreground font-medium mb-1">Margem de Caixa (90 dias)</div>
+          <div className={`text-[24px] font-bold tracking-tight font-mono ${cashMargin < 0 ? 'text-fiducia-red' : 'text-fiducia-purple'}`}>
+            {formatCurrency(cashMargin)}
           </div>
           <div className="mt-2 text-[12px] text-muted-foreground leading-relaxed">
-            {cashCoverage.isAtRisk
-              ? <>⚠️ Saldo negativo em {cashCoverage.minimumBalanceDate.split('-').reverse().join('/')} — suas receitas podem não chegar a tempo de cobrir as despesas.</>
-              : <>✅ Saldo mínimo de {formatCurrency(cashCoverage.minimumBalance)} em {cashCoverage.minimumBalanceDate.split('-').reverse().join('/')} — sem risco de descoberto.</>
+            {cashMargin < 0
+              ? <>⚠️ A projeção consome {formatCurrency(Math.abs(cashMargin))} além da reserva protegida.</>
+              : <>Disponível para novos compromissos sem consumir a reserva protegida.</>
             }
           </div>
           <div className="mt-3 pt-3 border-t border-border space-y-1.5">
             <div className="flex items-center justify-between text-[12px]">
               <span className="flex items-center gap-1.5 text-fiducia-blue">
                 <span className="w-2 h-2 rounded-full bg-fiducia-blue shrink-0" />
-                Saldo Inicial
+                Menor saldo previsto
               </span>
-              <span className="font-mono font-semibold text-fiducia-blue">{formatCurrency(cashCoverage.startingBalance)}</span>
+              <span className="font-mono font-semibold text-fiducia-blue">{formatCurrency(cashCoverage.minimumBalance)}</span>
+            </div>
+            <div className="flex items-center justify-between text-[12px]">
+              <span className="text-muted-foreground">Reserva protegida</span>
+              <span className="font-mono font-semibold">{formatCurrency(cashSafetyReserve)}</span>
             </div>
           </div>
+          <div className="mt-2 text-[11px] text-muted-foreground">Ponto mais apertado: {cashCoverage.minimumBalanceDate.split('-').reverse().join('/')}</div>
+          {cashCoverage.excludedOverdueIncome > 0 && <div className="mt-2 text-[11px] text-fiducia-amber">Receitas vencidas não foram consideradas como disponíveis.</div>}
           {cashCoverage.daysAtRisk > 0 && (
             <div className="mt-2 text-[12px] text-fiducia-red leading-relaxed">
               ⚠️ {cashCoverage.daysAtRisk} dia{cashCoverage.daysAtRisk > 1 ? 's' : ''} com saldo negativo nos próximos 90 dias

@@ -5,6 +5,31 @@
 
 ---
 
+## [0.14.0] — 2026-08-05 — Margem de Caixa Decisória
+
+**Resultado:** Cobertura de Caixa passa a ser Margem de Caixa e responde quanto pode ser assumido em novos compromissos sem consumir a reserva protegida. A Projeção Futura deixa de exigir a escolha entre cenários e usa uma única composição auditável.
+
+**Alterações técnicas:**
+- `src/lib/cashCoverage.ts` — compromissos registrados, faturas abertas/fechadas e parcelas futuras entram na projeção padrão; recorrências ainda não geradas ficam opcionais.
+- Recorrências passam a compor de forma consistente saldo diário, totais e projeção mensal; recorrências de cartão afetam o caixa no vencimento da fatura.
+- Receitas vencidas ainda não recebidas deixam de aumentar silenciosamente a cobertura e são informadas separadamente.
+- `src/pages/Dashboard.tsx` — card Margem de Caixa em 90 dias, reserva protegida, menor saldo/data e navegação direta para a aba Futuro.
+- `src/pages/Reports.tsx` — horizontes de 30/60/90/180/365 dias ou data final; opções explícitas para recorrências e reservas; remoção dos cenários e filtros que não recalculavam os KPIs.
+- `src/lib/cashCoverage.test.ts` — regressões de margem, receitas vencidas, recorrências, vencimento do cartão e igualdade entre totais e saldo final.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.14.0`.
+
+**Segurança operacional:**
+- Nenhuma escrita ou migração no Firestore; a reserva protegida é uma preferência local do navegador.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 88 testes aprovados; 2 cenários de emulador ignorados sem host local.
+- `npm run build` — build de produção concluído.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.13.0] — 2026-08-05 — Relatórios Organizados e Exportáveis
 
 **Resultado:** Relatórios passa a ter abas legíveis no celular, nomes mais diretos e exportação CSV do Extrato Mensal. A visão Orçamento agora acompanha o mês selecionado, inclusive para consultas históricas.

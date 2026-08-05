@@ -69,9 +69,15 @@ A tela de Relatórios trabalha sob o **Regime de Competência**. Aqui o que impo
 
 ---
 
-## 3. Cobertura de Caixa e Previsão de Obrigações (v0.2.0)
+## 3. Margem de Caixa e Previsão de Obrigações (v0.14.0)
 
-A partir da versão `0.2.0`, a previsão de caixa passa a usar um motor único em `src/lib/cashCoverage.ts`. O objetivo é responder se o caixa atual somado aos valores a receber cobre as obrigações assumidas e projetadas ao longo do tempo.
+A previsão usa um motor único em `src/lib/cashCoverage.ts`. Na versão `0.14.0`, o objetivo decisório passa a ser responder quanto pode ser assumido em novos compromissos sem reduzir o menor saldo previsto abaixo da reserva protegida.
+
+```text
+margem_de_caixa = menor_saldo_projetado - reserva_protegida
+```
+
+O Dashboard usa 90 dias. Relatórios permite 30, 60, 90, 180, 365 dias ou uma data final.
 
 ### Fontes consideradas
 
@@ -83,6 +89,7 @@ A partir da versão `0.2.0`, a previsão de caixa passa a usar um motor único e
 | Fatura fechada | Obrigação confirmada de cartão | Vencimento da fatura |
 | Fatura aberta | Obrigação esperada de cartão | Vencimento provável da fatura |
 | Períodos futuros de cartão | Comprometimento projetado | Vencimento da fatura futura |
+| Recorrências ainda não geradas | Estimativa opcional | Data prevista; no cartão, vencimento da fatura |
 
 Contas marcadas com `excludeFromCashFlow` ficam fora do caixa inicial, salvo quando a opção de incluir investimentos/reservas estiver ativa.
 
@@ -94,7 +101,7 @@ O motor transforma cada compromisso em um evento financeiro datado e calcula:
 saldo_dia = saldo_dia_anterior + entradas_do_dia - saidas_do_dia
 ```
 
-Itens atrasados são aplicados na data atual para evitar que o passado distorça a projeção, mas preservam a data original para exibição de alerta.
+Despesas atrasadas são aplicadas na data atual e preservam a data original para alerta. Receitas vencidas ainda não recebidas não aumentam a cobertura: ficam excluídas e são informadas separadamente.
 
 ### Indicadores gerados
 
@@ -110,10 +117,14 @@ Itens atrasados são aplicados na data atual para evitar que o passado distorça
 | `totalClosedInvoices` | Faturas fechadas ainda não pagas |
 | `totalOpenInvoices` | Faturas abertas do período corrente |
 | `totalFutureCard` | Compromissos de cartão em períodos futuros |
+| `excludedOverdueIncome` | Receitas vencidas excluídas da cobertura disponível |
+| Margem de Caixa | `minimumBalance - reserva protegida` |
 
 ### Interpretação
 
-Uma cobertura final positiva não elimina risco. Se `minimumBalance` ficar negativo em algum dia, o sistema deve alertar descasamento de datas: o usuário pode ter dinheiro suficiente no período, mas não no dia em que a obrigação vence.
+Um saldo final positivo não elimina risco. A decisão usa o menor saldo diário, não apenas o saldo no fim do período. Margem negativa significa que a projeção consome a reserva protegida; saldo mínimo negativo indica descoberto projetado.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
 
 ---
 

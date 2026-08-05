@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { buildCashCoverageProjection } from './cashCoverage';
 
-export const APP_VERSION = '0.13.0';
+export const APP_VERSION = '0.14.0';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -176,7 +176,7 @@ export function projectDailyBalance(
     creditCards,
     invoices,
     recurrenceRules,
-    options: { days, scenario: 'conservative' },
+    options: { days, includeRecurrences: false },
   });
 
   return {

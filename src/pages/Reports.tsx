@@ -17,7 +17,7 @@ import { generateCashFlowPDF, generateCategoryPDF, generateTrendPDF, generatePro
 import { toast } from 'sonner';
 import { isEffectivelyPaid, getBudgetImpact } from '../lib/utils';
 import { fmtMonthYear } from '../lib/pdfFormatUtils';
-import { buildCashCoverageProjection } from '../lib/cashCoverage';
+import { buildCashCoverageProjection, calculateCashMargin, CASH_SAFETY_RESERVE_KEY } from '../lib/cashCoverage';
 import { buildInvoiceAnalysis } from '../lib/invoiceAnalysis';
 import { buildFinancialInsightContext, buildGroqFinancialAnalysisPrompt } from '../lib/financialInsight';
 import { PageHelp } from '../components/PageHelp';
@@ -84,12 +84,11 @@ export function Reports() {
   const [selectedConsumptionCategory, setSelectedConsumptionCategory] = useState<string | null>(null);
 
   // Aba 4 — Projeção Futura
-  const [projPeriod, setProjPeriod] = useState<'30d' | 'nextMonth' | '3months' | '6months' | '12months' | 'custom'>('3months');
+  const [projPeriod, setProjPeriod] = useState<'30d' | '60d' | '90d' | '180d' | '365d' | 'custom'>('90d');
   const [projCustomEnd, setProjCustomEnd] = useState('');
   const [includeSavings, setIncludeSavings] = useState(false);
-  const [projType, setProjType] = useState<'all' | 'income' | 'expense'>('all');
-  const [projCategory, setProjCategory] = useState<string>('all');
-  const [projScenario, setProjScenario] = useState<'conservative' | 'realistic' | 'projected'>('realistic');
+  const [includeRecurrences, setIncludeRecurrences] = useState(false);
+  const [safetyReserve, setSafetyReserve] = useState(() => Math.max(0, Number(localStorage.getItem(CASH_SAFETY_RESERVE_KEY)) || 0));
   const [showDailyView, setShowDailyView] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
 
@@ -143,7 +142,7 @@ export function Reports() {
     if (isExportingPdf) return;
     setIsExportingPdf(true);
     try {
-      await generateProjectionPDF({ filteredProjData, projKPIs, projPeriod, includeSavings, projCategory, categories, accounts, creditCards, projEndDate, projCustomEnd });
+      await generateProjectionPDF({ filteredProjData, projKPIs, projPeriod, includeSavings, projCategory: 'all', categories, accounts, creditCards, projEndDate, projCustomEnd });
     } catch (err) {
       console.error('PDF export error:', err);
       toast.error('Erro ao gerar PDF');
@@ -325,20 +324,16 @@ export function Reports() {
 
   // ─── ABA 4: PROJEÇÃO FUTURA ───────────────────────────────────────────────
   const projEndDate = useMemo(() => {
-    if (projPeriod === '30d') {
-      const d = new Date(now);
-      d.setDate(d.getDate() + 30);
-      return d;
-    }
-    if (projPeriod === 'nextMonth') {
-      return new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
-    }
     if (projPeriod === 'custom') {
       if (projCustomEnd) return new Date(projCustomEnd + 'T23:59:59');
-      return new Date(now.getFullYear(), now.getMonth() + 3, 0, 23, 59, 59);
+      const fallback = new Date(now);
+      fallback.setDate(fallback.getDate() + 89);
+      return fallback;
     }
-    const months = projPeriod === '3months' ? 3 : projPeriod === '6months' ? 6 : 12;
-    return new Date(now.getFullYear(), now.getMonth() + months + 1, 0, 23, 59, 59);
+    const days = Number.parseInt(projPeriod, 10);
+    const end = new Date(now);
+    end.setDate(end.getDate() + days - 1);
+    return end;
   }, [projPeriod, projCustomEnd]);
 
   const projEndMonthStr = toMonthStr(projEndDate);
@@ -353,14 +348,14 @@ export function Reports() {
       startDate: now,
       endDate: projEndDate,
       includeSavings,
-      scenario: projScenario,
+      includeRecurrences,
     },
-  }), [accounts, transactions, creditCards, invoices, recurrenceRules, includeSavings, projEndDate, projScenario]);
+  }), [accounts, transactions, creditCards, invoices, recurrenceRules, includeSavings, includeRecurrences, projEndDate]);
 
   const projectionData = useMemo(() => cashCoverageProjection.monthlyProjection.map(m => ({
     ...m,
-    incomeTxList: m.incomeEvents.map(event => event.raw).filter(Boolean),
-    expenseTxList: m.expenseEvents.map(event => event.raw).filter(Boolean),
+    incomeTxList: m.incomeEvents.map(event => event.raw || ({ id: event.id, date: event.date, amount: event.amount, description: event.label, categoryId: event.categoryId, accountId: event.accountId, projected: true })),
+    expenseTxList: m.expenseEvents.map(event => event.raw || ({ id: event.id, date: event.date, amount: event.amount, description: event.label, categoryId: event.categoryId, accountId: event.accountId, projected: true })),
     invoiceList: m.invoiceEvents.map(event => ({
       id: event.invoiceId || event.id,
       cardId: event.cardId,
@@ -387,7 +382,10 @@ export function Reports() {
     closedInvoices: cashCoverageProjection.totalClosedInvoices,
     openInvoices: cashCoverageProjection.totalOpenInvoices,
     futureCard: cashCoverageProjection.totalFutureCard,
-  }), [cashCoverageProjection]);
+    excludedOverdueIncome: cashCoverageProjection.excludedOverdueIncome,
+    safetyReserve,
+    cashMargin: calculateCashMargin(cashCoverageProjection.minimumBalance, safetyReserve),
+  }), [cashCoverageProjection, safetyReserve]);
 
   const projChartData = useMemo(() =>
     projectionData.map(m => ({
@@ -397,19 +395,7 @@ export function Reports() {
       Acumulado: m.accum,
     })), [projectionData]);
 
-  const filteredProjData = useMemo(() => {
-    return projectionData.map(m => {
-      let { incomeTxList, expenseTxList, invoiceList } = m;
-      if (projCategory !== 'all') {
-        incomeTxList = incomeTxList.filter(t => t.categoryId === projCategory);
-        expenseTxList = expenseTxList.filter(t => t.categoryId === projCategory);
-        invoiceList = [];
-      }
-      if (projType === 'income') { expenseTxList = []; invoiceList = []; }
-      else if (projType === 'expense') { incomeTxList = []; }
-      return { ...m, incomeTxList, expenseTxList, invoiceList };
-    }).filter(m => m.incomeTxList.length > 0 || m.expenseTxList.length > 0 || m.invoiceList.length > 0 || projType === 'all');
-  }, [projectionData, projType, projCategory]);
+  const filteredProjData = projectionData;
 
   const toggleMonth = (month: string) => {
     setExpandedMonths(prev => {
@@ -568,8 +554,8 @@ export function Reports() {
             { label: '1. Fluxo de Caixa', desc: 'No modo Mês, mostra a evolução diária do período selecionado e permite abrir os lançamentos de cada dia. As visões 3/6/12 meses comparam o histórico até esse mesmo mês. Pagamentos vinculados de fatura entram como saída; compras individuais do cartão não são duplicadas.' },
             { label: '2. Consumo', desc: 'Mostra onde o dinheiro foi gasto sem duplicar o pagamento da fatura. Compras de cartão usam o período da fatura; despesas diretas usam a data efetiva. Cada categoria separa conta/cartão, compara com o período anterior e abre seus lançamentos.' },
             { label: '3. Orçamento', desc: 'Curva cumulativa das despesas e comparação com os limites configurados para o mês selecionado. Permite consultar tanto o período atual quanto meses anteriores.' },
-            { label: '4. Projeção Futura', desc: 'Simulação de saldo futuro projetando receitas a receber, despesas a pagar e faturas de cartão mês a mês. Use o seletor de período para definir o horizonte: 30 dias (rolante a partir de hoje), Próx. mês (até o último dia do mês seguinte), 3/6/12 meses (até o último dia do mês correspondente) ou data personalizada. Os filtros de tipo e categoria permitem isolar receitas ou despesas específicas. É possível incluir ou excluir investimentos do saldo inicial.' },
-            { label: '4a. Cenários da Projeção', desc: 'Conservador: inclui apenas o que é certo — faturas já fechadas e transações bancárias pendentes. Responde "meu caixa quebra mesmo sem considerar nada incerto?".\n\nRealista (recomendado): inclui também a fatura em andamento (seus gastos atuais do cartão que ainda não fecharam). É o cenário de referência para o dia a dia.\n\nProjetado: cenário completo — inclui parcelamentos de meses futuros e regras de recorrência ativas. Revela se seu padrão de consumo atual é sustentável no médio prazo.' },
+            { label: '4. Projeção Futura', desc: 'Simula o saldo diário usando compromissos registrados, faturas abertas e fechadas e parcelas futuras. O horizonte pode ser 30, 60, 90, 180 ou 365 dias, ou uma data escolhida. Recorrências ainda não geradas e reservas financeiras são opções explícitas.' },
+            { label: '4a. Margem de Caixa', desc: 'Mostra quanto pode ser assumido em novos compromissos sem reduzir o menor saldo projetado abaixo da reserva de segurança. Compromissos registrados entram sempre; recorrências ainda não geradas e reservas financeiras são opções explícitas.' },
             { label: '5. Faturas de Cartão', desc: 'Análise detalhada das faturas ao longo do tempo: evolução mensal dos valores, participação de cada cartão no total e distribuição por status. Aberta = em andamento (você ainda está gastando). Fechada = valor definido, aguardando vencimento. Paga = já quitada. Futura = períodos posteriores com parcelamentos já contratados que ainda vão vencer.' },
             { label: '6. Análise IA', desc: 'O assistente Fiducia processa seus últimos meses de fluxo de caixa e lançamentos recentes para gerar uma nota de saúde financeira com recomendações personalizadas. A análise considera padrões de gasto, consistência de receitas, evolução do saldo e riscos identificados na projeção de caixa.' },
           ]}
@@ -981,10 +967,9 @@ export function Reports() {
             <div className="space-y-3">
             <div className="flex flex-nowrap gap-2 items-center overflow-x-auto pb-1">
               <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5 shrink-0">
-                {(['30d', 'nextMonth', '3months', '6months', '12months'] as const).map(p => (
+                {(['30d', '60d', '90d', '180d', '365d'] as const).map(p => (
                   <FBtn key={p} active={projPeriod === p} onClick={() => setProjPeriod(p)}>
-                    <span className="hidden sm:inline">{p === '30d' ? '30 dias' : p === 'nextMonth' ? 'Próx. mês' : p === '3months' ? '3 meses' : p === '6months' ? '6 meses' : '12 meses'}</span>
-                    <span className="sm:hidden">{p === '30d' ? '30d' : p === 'nextMonth' ? 'Próx.' : p === '3months' ? '3m' : p === '6months' ? '6m' : '12m'}</span>
+                    {p.replace('d', ' dias')}
                   </FBtn>
                 ))}
                 <FBtn active={projPeriod === 'custom'} onClick={() => setProjPeriod('custom')}>
@@ -996,31 +981,31 @@ export function Reports() {
                 <input type="date" value={projCustomEnd} onChange={e => setProjCustomEnd(e.target.value)}
                   className="h-8 bg-background border border-border rounded-xl px-3 text-xs shrink-0" />
               )}
-              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5 shrink-0">
-                {([['all', 'Todos'], ['income', 'Receitas'], ['expense', 'Despesas']] as const).map(([v, l]) => (
-                  <FBtn key={v} active={projType === v} onClick={() => setProjType(v)}>{l}</FBtn>
-                ))}
-              </div>
-              <select value={projCategory} onChange={e => setProjCategory(e.target.value)}
-                className="h-8 bg-background border border-border rounded-xl px-3 text-xs text-foreground shrink-0 max-w-[140px]">
-                <option value="all">Todas as categorias</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap hidden sm:inline">Incluir investimentos:</span>
+                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Reservas:</span>
                 <button onClick={() => setIncludeSavings(!includeSavings)}
+                  type="button" aria-label="Incluir reservas e investimentos" aria-pressed={includeSavings}
                   className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${includeSavings ? 'bg-fiducia-blue' : 'bg-secondary border border-border'}`}>
                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${includeSavings ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </button>
               </div>
             </div>
             <div className="flex flex-nowrap gap-3 items-center overflow-x-auto pb-1 pt-3 border-t border-border/50">
-              <span className="text-[11px] text-muted-foreground font-medium shrink-0">Cenário:</span>
-              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5 shrink-0">
-                {([['conservative', 'Conservador'], ['realistic', 'Realista'], ['projected', 'Projetado']] as const).map(([v, l]) => (
-                  <FBtn key={v} active={projScenario === v} onClick={() => setProjScenario(v)}>{l}</FBtn>
-                ))}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Recorrências futuras:</span>
+                <button onClick={() => setIncludeRecurrences(!includeRecurrences)} type="button" aria-label="Incluir recorrências futuras ainda não geradas" aria-pressed={includeRecurrences}
+                  className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${includeRecurrences ? 'bg-fiducia-blue' : 'bg-secondary border border-border'}`}>
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${includeRecurrences ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
               </div>
+              <label className="flex items-center gap-2 text-[11px] text-muted-foreground font-medium shrink-0">
+                Reserva protegida
+                <input type="number" min="0" step="100" value={safetyReserve} onChange={event => {
+                  const value = Math.max(0, Number(event.target.value) || 0);
+                  setSafetyReserve(value);
+                  localStorage.setItem(CASH_SAFETY_RESERVE_KEY, String(value));
+                }} className="h-8 w-28 rounded-xl border border-border bg-background px-2 font-mono text-xs text-foreground" />
+              </label>
               <Button variant="outline" size="sm" className="h-8 gap-1.5 shrink-0" onClick={handleExportProjectionPDF} disabled={isExportingPdf}>
                 <FileDown className="h-3.5 w-3.5" />
                 {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
@@ -1028,24 +1013,23 @@ export function Reports() {
             </div>
             </div>
           </div>
-          <div className={`border rounded-2xl p-5 shadow-sm ${projKPIs.isAtRisk ? 'bg-fiducia-red/5 border-fiducia-red/20' : 'bg-fiducia-green/5 border-fiducia-green/20'}`}>
+          <div className={`border rounded-2xl p-5 shadow-sm ${projKPIs.cashMargin < 0 ? 'bg-fiducia-red/5 border-fiducia-red/20' : 'bg-fiducia-green/5 border-fiducia-green/20'}`}>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
-                <div className={`text-[11px] font-bold uppercase tracking-wider ${projKPIs.isAtRisk ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
-                  {projKPIs.isAtRisk ? 'Risco de caixa detectado' : 'Cobertura positiva no periodo'}
+                <div className={`text-[11px] font-bold uppercase tracking-wider ${projKPIs.cashMargin < 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
+                  {projKPIs.cashMargin < 0 ? 'Margem de caixa insuficiente' : 'Margem disponível para novos compromissos'}
                 </div>
-                <div className="text-[15px] font-semibold text-foreground mt-1">
-                  {projKPIs.isAtRisk
-                    ? `O saldo fica negativo em ${projKPIs.firstRiskDate?.split('-').reverse().join('/')}.`
-                    : `Caixa e recebiveis cobrem as obrigacoes ate ${toDateStr(projEndDate).split('-').reverse().join('/')}.`}
+                <div className={`mt-1 font-mono text-3xl font-bold ${projKPIs.cashMargin >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                  {fmt(projKPIs.cashMargin)}
                 </div>
                 <div className="text-[12px] text-muted-foreground mt-1">
-                  Caixa inicial + a receber - obrigacoes = {fmt(projKPIs.coverageBalance)}. Menor saldo projetado: {fmt(projKPIs.minimumBalance)} em {projKPIs.minimumBalanceDate.split('-').reverse().join('/')}.
+                  Menor saldo previsto: {fmt(projKPIs.minimumBalance)} em {projKPIs.minimumBalanceDate.split('-').reverse().join('/')} · reserva protegida: {fmt(projKPIs.safetyReserve)}.
                   {projKPIs.daysAtRisk > 0 && (
                     <span className="block mt-1 text-fiducia-red font-semibold">
                       ⚠️ {projKPIs.daysAtRisk} dia{projKPIs.daysAtRisk > 1 ? 's' : ''} com saldo negativo no periodo
                     </span>
                   )}
+                  {projKPIs.excludedOverdueIncome > 0 && <span className="block mt-1 text-fiducia-amber font-semibold">Receitas vencidas não recebidas, no total de {fmt(projKPIs.excludedOverdueIncome)}, não foram usadas como cobertura.</span>}
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-right">
@@ -1086,7 +1070,7 @@ export function Reports() {
             <div className="bg-amber-50 dark:bg-amber-950/20 border border-border rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3"><CreditCard className="w-4 h-4 text-fiducia-amber" /><span className="text-[10px] font-bold text-fiducia-amber uppercase tracking-wider">Faturas Cartão</span></div>
               <div className="text-2xl font-bold font-mono text-fiducia-amber">-{fmt(projKPIs.totalInvoice)}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">Faturas abertas e fechadas</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Abertas, fechadas e parcelas futuras</div>
             </div>
             <div className={`border border-border rounded-2xl p-5 ${projKPIs.finalAccum >= 0 ? 'bg-fiducia-blue/5' : 'bg-fiducia-red/5'}`}>
               <div className="flex items-center gap-2 mb-3">
@@ -1194,14 +1178,15 @@ export function Reports() {
                             const cat = categories.find(c => c.id === t.categoryId);
                             const acc = accounts.find(a => a.id === t.accountId);
                             return (
-                              <div key={t.id} onClick={() => openTxDialog({ editId: t.id })}
-                                className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/50 dark:bg-secondary/80 cursor-pointer transition-colors border-t border-border/20">
+                              <div key={t.id} onClick={() => { if (!t.projected) openTxDialog({ editId: t.id }); }}
+                                className={`flex items-center gap-3 px-5 py-3 transition-colors border-t border-border/20 ${t.projected ? '' : 'hover:bg-secondary/50 dark:bg-secondary/80 cursor-pointer'}`}>
                                 <div className="w-8 h-8 rounded-lg bg-fiducia-green/10 flex items-center justify-center shrink-0">
                                   <ArrowUpRight className="w-4 h-4 text-fiducia-green" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-[13px] font-semibold text-foreground truncate">{t.description || 'Sem descrição'}</div>
                                   <div className="text-[11px] text-muted-foreground">{[cat?.name, acc?.name].filter(Boolean).join(' · ')}</div>
+                                  {t.projected && <div className="text-[10px] font-semibold text-fiducia-blue">Recorrência estimada</div>}
                                 </div>
                                 <div className="text-right shrink-0">
                                   <div className="text-[13px] font-bold font-mono text-fiducia-green">+{fmt(t.amount)}</div>
@@ -1224,8 +1209,8 @@ export function Reports() {
                             const acc = accounts.find(a => a.id === t.accountId);
                             const isPast = t.date.substring(0, 10) < todayStr;
                             return (
-                              <div key={t.id} onClick={() => openTxDialog({ editId: t.id })}
-                                className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/50 dark:bg-secondary/80 cursor-pointer transition-colors border-t border-border/20">
+                              <div key={t.id} onClick={() => { if (!t.projected) openTxDialog({ editId: t.id }); }}
+                                className={`flex items-center gap-3 px-5 py-3 transition-colors border-t border-border/20 ${t.projected ? '' : 'hover:bg-secondary/50 dark:bg-secondary/80 cursor-pointer'}`}>
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isPast ? 'bg-fiducia-red/20' : 'bg-fiducia-red/10'}`}>
                                   <ArrowDownRight className="w-4 h-4 text-fiducia-red" />
                                 </div>
@@ -1235,6 +1220,7 @@ export function Reports() {
                                     {isPast && <span className="text-[9px] font-bold bg-fiducia-red text-white dark:text-background px-1.5 py-0.5 rounded-full shrink-0">Atrasada</span>}
                                   </div>
                                   <div className="text-[11px] text-muted-foreground">{[cat?.name, acc?.name].filter(Boolean).join(' · ')}</div>
+                                  {t.projected && <div className="text-[10px] font-semibold text-fiducia-blue">Recorrência estimada</div>}
                                 </div>
                                 <div className="text-right shrink-0">
                                   <div className="text-[13px] font-bold font-mono text-fiducia-red">-{fmt(t.amount)}</div>

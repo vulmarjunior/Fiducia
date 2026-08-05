@@ -463,7 +463,9 @@ export async function generateProjectionPDF(opts: {
   const doc = await createPdf('l');
   const autoTable = await getAutoTable();
 
-  const periodLabel = opts.projPeriod === '1month' ? '1 Mês' : opts.projPeriod === '3months' ? '3 Meses' : opts.projPeriod === '6months' ? '6 Meses' : opts.projPeriod === '12months' ? '12 Meses' : opts.projCustomEnd ? `Até ${fmtDatePDF(opts.projCustomEnd)}` : 'Personalizado';
+  const periodLabel = /^\d+d$/.test(opts.projPeriod)
+    ? `${opts.projPeriod.replace('d', '')} dias`
+    : opts.projCustomEnd ? `Até ${fmtDatePDF(opts.projCustomEnd)}` : 'Personalizado';
 
   let y = MARGIN_LEFT + 2;
   doc.setFont('helvetica', 'bold');
