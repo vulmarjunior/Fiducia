@@ -5,6 +5,27 @@
 
 ---
 
+## [0.9.3] — 2026-08-05 — Faturas Quitadas em Contas a Pagar
+
+**Resultado:** O card “Contas a Pagar” deixa de contabilizar faturas já quitadas e passa a exibir apenas o saldo oficial de faturas parcialmente pagas.
+
+**Alterações técnicas:**
+- `src/pages/Dashboard.tsx` — composição das faturas pendentes reutiliza `getInvoiceFinancialSummary()`, considerando `status`, `paidAmount` e compatibilidade legada.
+- O cálculo por compras, transferências e créditos permanece como fallback quando ainda não existe documento em `invoices`.
+- `src/lib/invoicePayment.test.ts` — regressões para fatura atual quitada por múltiplos pagamentos e saldo parcial oficial.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.9.3`.
+
+**Segurança operacional:**
+- Mudança somente de leitura no Dashboard; nenhum documento do Firestore foi alterado ou migrado.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run src/lib/invoicePayment.test.ts --maxWorkers=1` — 15 testes aprovados.
+- `npx vitest run --maxWorkers=1` — 76 testes aprovados; 2 testes de emulador ignorados sem host local.
+- `npm run build` — build de produção concluído.
+
+---
+
 ## [0.9.2] — 2026-08-05 — Comprometimento Futuro Recolhível
 
 **Resultado:** O modal de fatura mantém visível o resumo do comprometimento futuro, mas inicia os detalhes mensais recolhidos para reduzir a rolagem e priorizar as informações da fatura selecionada.

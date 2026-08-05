@@ -59,6 +59,26 @@ describe('getInvoiceFinancialSummary', () => {
       totalAmount: 8452.63, paidAmount: 8452.63, remainingAmount: 0, paymentProgress: 100, status: 'paga',
     });
   });
+  it('remove de contas a pagar uma fatura atual quitada por pagamentos vinculados', () => {
+    const summary = getInvoiceFinancialSummary({
+      totalAmount: 15237.36,
+      paidAmount: 15237.36,
+      status: 'paga',
+      paymentTransactionIds: ['payment-1', 'payment-2'],
+    }, 15237.36);
+
+    expect(summary).toMatchObject({ paidAmount: 15237.36, remainingAmount: 0, status: 'paga' });
+  });
+  it('mantém em contas a pagar somente o saldo parcial oficial', () => {
+    const summary = getInvoiceFinancialSummary({
+      totalAmount: 15237.36,
+      paidAmount: 7618.68,
+      status: 'parcial',
+      paymentTransactionIds: ['payment-1'],
+    }, 15237.36);
+
+    expect(summary).toMatchObject({ paidAmount: 7618.68, remainingAmount: 7618.68, status: 'parcial' });
+  });
   it('não carrega fatura paga legada para o total do mês seguinte', () => {
     const previous = getInvoiceFinancialSummary({ totalAmount: 8452.63, paidAmount: 0, status: 'paga' });
     const current = getInvoiceFinancialSummary(null, previous.remainingAmount + 3375.18);

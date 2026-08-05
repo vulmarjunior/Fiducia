@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.9.2` |
+| **Versão atual** | `0.9.3` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-05 (Comprometimento Futuro recolhível no modal de fatura v0.9.2) |
+| **Última alteração em código** | 2026-08-05 (faturas quitadas removidas de Contas a Pagar v0.9.3) |
 | **Último deploy** | 2026-08-05 — v0.9.1 no Vercel (produção validada) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-08-05 | v0.9.3 — Faturas quitadas em Contas a Pagar | Dashboard / Cartões / Consistência |
 | 2026-08-05 | v0.9.2 — Comprometimento Futuro recolhível | Cartões / UX / Mobile |
 | 2026-08-05 | v0.9.1 — Pagamentos legados no Dashboard e quitação sem saldo transportado | Dashboard / Cartões / Compatibilidade |
 | 2026-08-04 | v0.9.0 — Estabilização, desempenho e experiência guiada | Segurança / UX / Performance |

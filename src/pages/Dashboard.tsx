@@ -16,7 +16,7 @@ import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
 import { migrateCategoryIds } from '../services/categoryMigration';
 import { OnboardingChecklist } from '../components/OnboardingChecklist';
 import { MetricExplanationDialog } from '../components/MetricExplanationDialog';
-import { getInvoicePaymentTransactionIds } from '../lib/invoicePayment';
+import { getInvoiceFinancialSummary, getInvoicePaymentTransactionIds } from '../lib/invoicePayment';
  
 export function Dashboard() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -317,7 +317,10 @@ Regras OBRIGATÓRIAS:
       const payments = periodTx.filter(t => (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === card.id).reduce((acc, t) => acc + t.amount, 0);
       const incomes = periodTx.filter(t => (t.type === 'income' || t.type === 'receita') && t.accountId === card.id).reduce((acc, t) => acc + t.amount, 0);
       
-      const balance = expenses - payments - incomes;
+      const calculatedBalance = expenses - payments - incomes;
+      const invoice = invoices.find(i => i.cardId === card.id && i.period === period);
+      const financialSummary = getInvoiceFinancialSummary(invoice, calculatedBalance);
+      const balance = financialSummary.remainingAmount;
       
       if (balance > 0.01) {
         const [pYear, pMonth] = period.split('-').map(Number);
