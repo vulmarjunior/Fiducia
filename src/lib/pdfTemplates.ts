@@ -130,10 +130,9 @@ export async function generateCashFlowPDF(opts: {
 
   // KPIs
   const kpis = [
-    { label: 'Receitas no Período', value: opts.cashTotals.totalR },
-    { label: 'Despesas no Período', value: opts.cashTotals.totalD },
-    { label: 'Economia do Mês', value: opts.cashTotals.savings },
-    { label: 'Taxa de Poupança', display: `${opts.cashTotals.rate.toFixed(1)}%` },
+    { label: 'Entradas no Período', value: opts.cashTotals.totalR },
+    { label: 'Saídas no Período', value: opts.cashTotals.totalD },
+    { label: 'Resultado de Caixa', value: opts.cashTotals.totalR - opts.cashTotals.totalD },
   ];
 
   doc.setFont('helvetica', 'bold');
@@ -142,7 +141,7 @@ export async function generateCashFlowPDF(opts: {
   doc.text('Resumo', MARGIN_LEFT, y);
   y += 4;
 
-  const kpiW = CONTENT_WIDTH / 4;
+  const kpiW = CONTENT_WIDTH / kpis.length;
   let kx = MARGIN_LEFT;
   kpis.forEach((kpi) => {
     doc.setFillColor(248, 250, 252);
@@ -154,7 +153,7 @@ export async function generateCashFlowPDF(opts: {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(40, 40, 40);
-    doc.text(kpi.display || fmtMoneyPDF(kpi.value!), kx + 2, y + 7.5);
+    doc.text(fmtMoneyPDF(kpi.value), kx + 2, y + 7.5);
     kx += kpiW;
   });
   y += 12;
@@ -680,16 +679,15 @@ export async function generateInvoiceAnalysisPDF(opts: {
 
   // KPIs
   const landscapeW = 297 - MARGIN_LEFT * 2;
+  const summary = analysis.summary || analysis;
   const kpiData = [
-    { label: 'Total Faturas', value: analysis.grandTotal },
-    { label: 'Abertas', value: analysis.totalOpen },
-    { label: 'Fechadas', value: analysis.totalClosed },
-    { label: 'Pagas', value: analysis.totalPaid },
-    { label: 'Média Mensal', value: analysis.monthlyAverage },
-    { label: 'Cartões', display: String(analysis.cardsCount || 0) },
+    { label: 'A Pagar Agora', value: summary.totalClosed },
+    { label: 'Em Andamento', value: summary.totalOpen },
+    { label: 'Próximos 90 Dias', value: summary.totalFuture },
+    { label: 'Média Histórica Paga', value: summary.monthlyAverage },
   ];
 
-  const kpiW = landscapeW / 6;
+  const kpiW = landscapeW / kpiData.length;
   let kx = MARGIN_LEFT;
   kpiData.forEach((ki) => {
     doc.setFillColor(248, 250, 252);
@@ -701,7 +699,7 @@ export async function generateInvoiceAnalysisPDF(opts: {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(40, 40, 40);
-    doc.text(ki.display || fmtMoneyPDF(ki.value), kx + 2, y + 7.5);
+    doc.text(fmtMoneyPDF(ki.value), kx + 2, y + 7.5);
     kx += kpiW;
   });
   y += 13;

@@ -24,12 +24,9 @@ A tela inicial prioriza o acompanhamento em **Regime de Caixa** e a saúde da su
 - **O que é**: O dinheiro que *efetivamente* saiu da sua conta neste mês.
 - **Como é calculado**: Soma de todas as transações do tipo "Despesa" cuja data pertença ao mês corrente **E** que também estejam com status **"Pago"** ou **"Realizado"**. Assim como as receitas, faturas ou despesas apenas agendadas/pendentes não inflam este número.
 
-### 🛡️ Disponível Seguro (Métrica Principal)
-- **O que é**: A métrica exclusiva do Fiducia que protege você da falsa sensação de riqueza. Responde à pergunta: *"Quanto dinheiro me sobra agora se eu descontar todos os meus compromissos pendentes?"*
-- **Como é calculado**: `Saldo Circulante` − `Faturas de Cartão` − `Contas Pendentes`
-  1. **Saldo Circulante**: Soma do saldo apenas das contas que **não estão** marcadas como "Excluir do fluxo de caixa" (ignora suas reservas e investimentos).
-  2. **Faturas de Cartão**: Soma do valor total das faturas de cartão de crédito nos status "Aberta" (compras deste mês) e "Fechada" (vencendo em breve). Faturas "Pagas" não são deduzidas, pois o dinheiro já foi abatido da sua conta corrente.
-  3. **Contas Pendentes**: Soma das despesas no débito/dinheiro/pix (sem cartão de crédito) que estão "Pendentes" e cujo vencimento é até a data de hoje (atrasadas ou vencendo hoje).
+### 🛡️ Margem de Caixa (Métrica Principal)
+- **O que é**: Quanto pode ser assumido em novos compromissos sem reduzir o menor saldo previsto abaixo da reserva protegida.
+- **Como é calculado**: `menor saldo diário projetado − reserva protegida`. A regra completa está na seção 3.
 
 ### 📊 Gráfico Fluxo de Caixa (Dashboard)
 - **O que é**: A visualização de tendência (em formato de "montanha" / gráfico de área) de como o dinheiro real transita.
@@ -47,21 +44,26 @@ A tela de Relatórios trabalha sob o **Regime de Competência**. Aqui o que impo
 > [!NOTE]
 > Segundo a documentação de arquitetura, o cálculo conceitual ideal abate as dívidas de cartão de crédito. Atualmente o sistema usa a visão otimista (igual ao "Saldo Geral") como reflexo do dinheiro absoluto sob custódia.
 
-### 💡 Economia do Mês
-- **O que é**: O saldo do balanço de competência do mês corrente.
-- **Como é calculado**: `Receitas Totais do Mês` − `Despesas Totais do Mês`. Diferente do Dashboard, aqui entram **todas** as transações do mês vigente, independentemente se já foram pagas ou se ainda estão pendentes. O foco é avaliar se o seu *orçamento* mensal foi superavitário ou deficitário.
-
-### 🎯 Taxa de Poupança
-- **O que é**: Qual a porcentagem de tudo que você ganhou neste mês que conseguiu ser salva/poupada.
-- **Como é calculado**: `(Economia do Mês / Receitas Totais do Mês) * 100`. Se a "Economia do Mês" for negativa (gastou mais do que ganhou), a taxa será menor que zero ou zero.
+### 💡 Resultado de Caixa
+- **O que é**: Entradas recebidas menos saídas pagas no período. Não representa o saldo das contas.
+- **Como é calculado**: O modo mensal começa em zero e acumula `entradas − saídas` por dia. Em 3/6/12 meses, os cards exibem médias mensais e o resultado do último mês, evitando misturar horizontes.
 
 ### 💸 Gastos Totais (Mês)
 - **O que é**: O impacto integral do consumo que você gerou neste mês.
 - **Como é calculado**: Soma estrita de todas as transações do tipo "Despesa" que carregam a data de competência (data da compra/vencimento) dentro do mês e ano atuais. Novamente, engloba itens pendentes.
 
-### 📊 Fluxo de Caixa Mensal (Gráfico de Barras)
-- **O que é**: O comparativo histórico dos últimos 6 meses.
-- **Como é calculado**: Para cada um dos 6 meses anteriores, agrupa-se todas as Receitas (barra verde) e todas as Despesas (barra vermelha) lançadas naquele período. Baseia-se integralmente no `invoicePeriod` ou prefixo da data para alocação de meses.
+### 📊 Fluxo de Caixa Mensal
+- **O que é**: Comparativo em regime de caixa do mês selecionado ou das janelas de 3/6/12 meses.
+- **Como é calculado**: Pagamentos de fatura entram como saída; compras individuais do cartão não são duplicadas. Colunas mostram entradas/saídas desde zero e o resultado acumulado aparece separadamente.
+
+### 💳 Saúde das Faturas (v0.15.0)
+- **A pagar agora**: saldo remanescente de faturas fechadas.
+- **Em andamento**: saldo líquido de faturas abertas, ainda sujeito a mudança.
+- **Próximos 90 dias**: parcelas futuras já contratadas com vencimento dentro do horizonte.
+- **Média histórica paga**: total de faturas efetivamente pagas dividido pelos meses pagos do histórico escolhido.
+- Créditos e estornos reduzem os valores por padrão; pagamentos históricos não são exibidos como dívida atual.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
 
 ### 📉 Tendência de Gastos (Evolução Diária)
 - **O que é**: Um gráfico que mostra a "queima" do seu orçamento ao longo dos dias do mês atual.

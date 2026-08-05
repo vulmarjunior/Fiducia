@@ -5,6 +5,33 @@
 
 ---
 
+## [0.15.0] — 2026-08-05 — Fluxo e Faturas sem Alarmismo
+
+**Resultado:** Fluxo de Caixa deixa claro que seu resultado acumulado não é saldo bancário e passa a exibir cards coerentes com o horizonte escolhido. Faturas separa obrigações atuais, consumo em andamento, próximos 90 dias e histórico pago.
+
+**Alterações técnicas:**
+- `src/pages/Reports.tsx` — cards mensais de entradas, saídas, resultado e dia mais pesado; em 3/6/12 meses, médias mensais e resultado do último mês.
+- Colunas de entradas/saídas começam em zero e o resultado acumulado passa a um gráfico separado, com linha de referência e aviso explícito de que não representa saldo de conta.
+- Faturas usa valores líquidos de créditos/estornos por padrão e remove filtros que não atualizavam toda a tela.
+- KPIs de Faturas reorganizados em A pagar agora, Em andamento, Próximos 90 dias e Média histórica paga; pagamentos passados e recordes deixam de aparecer como alertas.
+- `src/lib/invoiceAnalysis.ts` — média somente de faturas pagas, futuro limitado a 90 dias, próximo vencimento e comparação mês a mês com o período imediatamente anterior.
+- Gráficos de Faturas separam histórico até o mês atual e parcelas futuras dos próximos 90 dias.
+- `src/lib/pdfTemplates.ts` — PDFs acompanham a nova semântica decisória.
+- `src/lib/invoiceAnalysis.test.ts` — regressões para valores líquidos, média paga e limite futuro.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.15.0`.
+
+**Segurança operacional:**
+- Mudanças exclusivamente de leitura e apresentação; nenhum documento do Firestore foi alterado.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 90 testes aprovados; 2 cenários de emulador ignorados sem host local.
+- `npm run build` — build de produção concluído.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.14.0] — 2026-08-05 — Margem de Caixa Decisória
 
 **Resultado:** Cobertura de Caixa passa a ser Margem de Caixa e responde quanto pode ser assumido em novos compromissos sem consumir a reserva protegida. A Projeção Futura deixa de exigir a escolha entre cenários e usa uma única composição auditável.

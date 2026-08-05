@@ -103,11 +103,12 @@ describe('buildInvoiceAnalysis', () => {
         { id: 'tx-3', type: 'despesa', status: 'realizado', amount: 300, date: '2026-07-25', description: 'C', accountId: 'card-1', invoicePeriod: '2026-08' },
       ],
       invoices: [],
+      referenceDate: new Date(2026, 7, 5),
       startDate: new Date(2026, 4, 1),
       endDate: new Date(2026, 8, 31),
     });
 
-    expect(result.summary.monthlyAverage).toBe(200);
+    expect(result.summary.monthlyAverage).toBe(150);
     expect(result.summary.largestInvoice).toBe(300);
   });
 
@@ -199,11 +200,45 @@ describe('buildInvoiceAnalysis', () => {
       endDate: new Date(y2, (m2 % 12) + 1, 0),
     });
 
-    expect(result.summary.totalFuture).toBe(200);
+    expect(result.summary.totalFuture).toBe(100);
     const futureItems = result.detailList.filter(d => d.status === 'future');
     expect(futureItems).toHaveLength(2);
     expect(futureItems[0].period).toBe(period1);
     expect(futureItems[1].period).toBe(period2);
+  });
+
+  it('limita o comprometimento futuro aos proximos 90 dias', () => {
+    const result = buildInvoiceAnalysis({
+      creditCards: [card1],
+      transactions: [
+        { id: 'near', type: 'despesa', status: 'pendente', amount: 100, date: '2026-09-01', accountId: 'card-1', invoicePeriod: '2026-09' },
+        { id: 'far', type: 'despesa', status: 'pendente', amount: 500, date: '2027-01-01', accountId: 'card-1', invoicePeriod: '2027-01' },
+      ],
+      invoices: [],
+      referenceDate: new Date(2026, 7, 5),
+      startDate: new Date(2026, 7, 1),
+      endDate: new Date(2027, 0, 31),
+    });
+
+    expect(result.summary.totalFuture).toBe(100);
+  });
+
+  it('usa valores liquidos e calcula media apenas com faturas pagas', () => {
+    const result = buildInvoiceAnalysis({
+      creditCards: [card1],
+      transactions: [
+        { id: 'purchase', type: 'despesa', status: 'realizado', amount: 500, date: '2026-05-01', accountId: 'card-1', invoicePeriod: '2026-05' },
+        { id: 'refund', type: 'receita', status: 'realizado', amount: 100, date: '2026-05-02', accountId: 'card-1', invoicePeriod: '2026-05' },
+      ],
+      invoices: [{ id: 'paid', cardId: 'card-1', period: '2026-05', status: 'paga', totalAmount: 400 }],
+      referenceDate: BASE_DATE,
+      startDate: new Date(2026, 4, 1),
+      endDate: new Date(2026, 5, 30),
+    });
+
+    expect(result.detailList[0].amount).toBe(400);
+    expect(result.summary.totalPaid).toBe(400);
+    expect(result.summary.monthlyAverage).toBe(400);
   });
 
   it('calcula variacao mes a mes por cartao', () => {

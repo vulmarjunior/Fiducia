@@ -7,6 +7,7 @@ export interface InvoiceAnalysisParams {
   selectedCardId?: string;
   statusFilter?: 'all' | 'open' | 'closed' | 'paid' | 'future';
   includeCredits?: boolean;
+  referenceDate?: Date;
 }
 
 export interface InvoiceDetail {
@@ -33,6 +34,8 @@ export interface InvoiceAnalysisResult {
     monthlyAverage: number;
     largestInvoice: number;
     cardsCount: number;
+    nextDueDate: string | null;
+    currentCommitted: number;
   };
   monthlyData: Array<{
     month: string;
@@ -59,7 +62,6 @@ const COLORS = ['#22c55e', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4'
 
 const isExpense = (t: any) => t.type === 'despesa' || t.type === 'expense';
 const isIncome = (t: any) => t.type === 'receita' || t.type === 'income';
-const isTransfer = (t: any) => t.type === 'transferencia' || t.type === 'transfer';
 const isPending = (t: any) => t.status === 'pendente' || t.status === 'pending';
 
 const isCardTx = (t: any, cardId: string) =>
@@ -126,13 +128,10 @@ const computeInvoiceAmount = (
     .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
   if (!includeCredits) return expenses;
 
-  const payments = periodTx
-    .filter((t: any) => isTransfer(t) && t.destinationAccountId === cardId)
-    .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
   const credits = periodTx
     .filter((t: any) => isIncome(t) && (t.accountId === cardId || t.creditCardId === cardId))
     .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-  return Math.max(0, expenses - payments - credits);
+  return Math.max(0, expenses - credits);
 };
 
 export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnalysisResult {
@@ -144,10 +143,11 @@ export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnal
     endDate,
     selectedCardId = 'all',
     statusFilter = 'all',
-    includeCredits = false,
+    includeCredits = true,
+    referenceDate,
   } = params;
 
-  const today = new Date();
+  const today = referenceDate ? new Date(referenceDate) : new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = monthKey(today);
 
@@ -263,11 +263,9 @@ export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnal
 
   for (const item of detailList) {
     item.pctOfTotal = globalGrandTotal > 0 ? (item.amount / globalGrandTotal) * 100 : 0;
-    const prev = detailList.find(
-      d => d.cardId === item.cardId
-        && d.period < item.period
-        && d.status !== 'future'
-    );
+    const prev = detailList
+      .filter(d => d.cardId === item.cardId && d.period < item.period && d.status !== 'future')
+      .at(-1);
     if (prev) {
       item.previousAmount = prev.amount;
       item.variation = prev.amount > 0 ? ((item.amount - prev.amount) / prev.amount) * 100 : 0;
@@ -279,19 +277,29 @@ export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnal
     return d.status === statusFilter;
   });
 
+  const futureCutoff = new Date(today);
+  futureCutoff.setDate(futureCutoff.getDate() + 90);
+  const futureCutoffStr = `${futureCutoff.getFullYear()}-${String(futureCutoff.getMonth() + 1).padStart(2, '0')}-${String(futureCutoff.getDate()).padStart(2, '0')}`;
+  const currentItems = detailList.filter(d => d.status === 'open' || d.status === 'closed');
+  const paidItems = detailList.filter(d => d.status === 'paid' && d.paidAmount > 0);
+  const upcomingItems = detailList.filter(d => d.status === 'future' && d.dueDate <= futureCutoffStr);
+  const nextDueDate = currentItems.map(item => item.dueDate).sort()[0] || null;
+
   const summary = {
     totalOpen: detailList.filter(d => d.status === 'open').reduce((s, d) => s + d.remainingAmount, 0),
     totalClosed: detailList.filter(d => d.status === 'closed').reduce((s, d) => s + d.remainingAmount, 0),
-    totalPaid: detailList.reduce((s, d) => s + d.paidAmount, 0),
-    totalFuture: detailList.filter(d => d.status === 'future').reduce((s, d) => s + d.amount, 0),
+    totalPaid: paidItems.reduce((s, d) => s + d.paidAmount, 0),
+    totalFuture: upcomingItems.reduce((s, d) => s + d.amount, 0),
     monthlyAverage: 0,
     largestInvoice: 0,
     cardsCount: cards.length,
+    nextDueDate,
+    currentCommitted: currentItems.reduce((sum, item) => sum + item.remainingAmount, 0),
   };
 
-  const monthsWithData = new Set(detailList.filter(d => d.status !== 'future').map(d => d.period));
+  const monthsWithData = new Set(paidItems.map(d => d.period));
   summary.monthlyAverage = monthsWithData.size > 0
-    ? (summary.totalOpen + summary.totalClosed + summary.totalPaid) / monthsWithData.size
+    ? summary.totalPaid / monthsWithData.size
     : 0;
   summary.largestInvoice = detailList.reduce((max, d) => Math.max(max, d.amount), 0);
 
@@ -313,16 +321,17 @@ export function buildInvoiceAnalysis(params: InvoiceAnalysisParams): InvoiceAnal
     return { month, label: monthLabel(month), cards: cardsData, total };
   });
 
+  const breakdownGrandTotal = detailList.filter(item => item.status !== 'future').reduce((sum, item) => sum + item.amount, 0);
   const cardBreakdown = cards.map(card => {
     const total = detailList
-      .filter(d => d.cardId === card.id)
+      .filter(d => d.cardId === card.id && d.status !== 'future')
       .reduce((s, d) => s + d.amount, 0);
     return {
       cardId: card.id,
       name: card.name,
       total,
       color: cardColorMap[card.id],
-      pct: globalGrandTotal > 0 ? (total / globalGrandTotal) * 100 : 0,
+      pct: breakdownGrandTotal > 0 ? (total / breakdownGrandTotal) * 100 : 0,
     };
   }).filter(c => c.total > 0);
 

@@ -6,7 +6,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, ComposedChart, Line,
+  PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, ComposedChart, Line, ReferenceLine,
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Target, Sparkles, Loader2, Brain,
@@ -165,11 +165,8 @@ export function Reports() {
   };
 
   // Aba 6 — Faturas de Cartão
-  const [invPeriod, setInvPeriod] = useState<'3months' | '6months' | '12months' | 'custom'>('6months');
-  const [invCustomEnd, setInvCustomEnd] = useState('');
+  const [invPeriod, setInvPeriod] = useState<'3months' | '6months' | '12months'>('6months');
   const [invSelectedCard, setInvSelectedCard] = useState<string>('all');
-  const [invStatusFilter, setInvStatusFilter] = useState<'all' | 'open' | 'closed' | 'paid' | 'future'>('all');
-  const [invIncludeCredits, setInvIncludeCredits] = useState(false);
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -244,6 +241,29 @@ export function Reports() {
     const rate = last.Receitas > 0 ? (savings / last.Receitas * 100) : 0;
     return { totalR, totalD, savings, rate };
   }, [cashFlowData]);
+
+  const cashKpis = useMemo(() => {
+    const months = Math.max(1, cashFlowData.length);
+    const latest = cashFlowData.at(-1) || { name: '—', Receitas: 0, Despesas: 0, Saldo: 0 };
+    if (cashflowPeriod === 'month') {
+      const heaviestDay = dailyCashFlow.reduce((max, day) => day.Despesas > max.Despesas ? day : max, dailyCashFlow[0] || { name: '—', Despesas: 0 });
+      return [
+        { label: 'Entradas recebidas', value: cashTotals.totalR, color: 'text-fiducia-green', bg: 'bg-fiducia-green/5', Icon: ArrowUpRight },
+        { label: 'Saídas pagas', value: cashTotals.totalD, color: 'text-fiducia-red', bg: 'bg-fiducia-red/5', Icon: ArrowDownRight },
+        { label: 'Resultado de caixa', value: latest.Saldo, color: latest.Saldo >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red', bg: 'bg-fiducia-blue/5', Icon: TrendingUp },
+        { label: 'Dia com mais saídas', value: heaviestDay.Despesas, detail: heaviestDay.Despesas > 0 ? `Dia ${heaviestDay.name}` : 'Sem saídas', color: 'text-fiducia-amber', bg: 'bg-fiducia-amber/5', Icon: Calendar },
+      ];
+    }
+    const averageIncome = cashTotals.totalR / months;
+    const averageExpense = cashTotals.totalD / months;
+    const averageResult = (cashTotals.totalR - cashTotals.totalD) / months;
+    return [
+      { label: 'Média mensal de entradas', value: averageIncome, color: 'text-fiducia-green', bg: 'bg-fiducia-green/5', Icon: ArrowUpRight },
+      { label: 'Média mensal de saídas', value: averageExpense, color: 'text-fiducia-red', bg: 'bg-fiducia-red/5', Icon: ArrowDownRight },
+      { label: 'Resultado médio mensal', value: averageResult, color: averageResult >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red', bg: 'bg-fiducia-blue/5', Icon: TrendingUp },
+      { label: 'Resultado do último mês', value: latest.Saldo, detail: latest.name, color: latest.Saldo >= 0 ? 'text-fiducia-green' : 'text-fiducia-red', bg: 'bg-secondary/40', Icon: Calendar },
+    ];
+  }, [cashFlowData, cashTotals, cashflowPeriod, dailyCashFlow]);
 
   // ─── ABA 2: CATEGORIAS ───────────────────────────────────────────────────
   const catDateRange = useMemo(() => {
@@ -409,16 +429,12 @@ export function Reports() {
   const invDateRange = useMemo(() => {
     let start: Date;
     let end: Date;
-    if (invPeriod === 'custom' && invCustomEnd) {
-      end = new Date(invCustomEnd + 'T23:59:59');
-      start = new Date(end.getFullYear(), end.getMonth() - 12, 1);
-    } else {
-      const months = invPeriod === '3months' ? 3 : invPeriod === '6months' ? 6 : 12;
-      start = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
-      end = new Date(now.getFullYear(), now.getMonth() + 4, 0);
-    }
+    const months = invPeriod === '3months' ? 3 : invPeriod === '6months' ? 6 : 12;
+    start = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+    end = new Date(now);
+    end.setDate(end.getDate() + 90);
     return { start, end };
-  }, [invPeriod, invCustomEnd]);
+  }, [invPeriod]);
 
   const invoiceAnalysis = useMemo(() => buildInvoiceAnalysis({
     creditCards,
@@ -427,24 +443,25 @@ export function Reports() {
     startDate: invDateRange.start,
     endDate: invDateRange.end,
     selectedCardId: invSelectedCard,
-    statusFilter: invStatusFilter,
-    includeCredits: invIncludeCredits,
-  }), [creditCards, transactions, invoices, invDateRange, invSelectedCard, invStatusFilter, invIncludeCredits]);
+    statusFilter: 'all',
+    includeCredits: true,
+    referenceDate: now,
+  }), [creditCards, transactions, invoices, invDateRange, invSelectedCard]);
 
   const invChartBars = useMemo(() => {
     const cardSet = new Set<string>();
-    invoiceAnalysis.monthlyData.forEach(m => {
+    invoiceAnalysis.monthlyData.filter(month => month.month <= currentMonthStr).forEach(m => {
       Object.keys(m.cards).forEach(id => cardSet.add(id));
     });
     return Array.from(cardSet).map(id => {
       const card = creditCards.find(c => c.id === id);
       return { id, name: card?.name || id };
     });
-  }, [invoiceAnalysis.monthlyData, creditCards]);
+  }, [invoiceAnalysis.monthlyData, creditCards, currentMonthStr]);
 
   const invChartData = useMemo(() =>
     invoiceAnalysis.monthlyData
-      .filter(m => m.total > 0)
+      .filter(m => m.total > 0 && m.month <= currentMonthStr)
       .map(m => {
         const data: any = { name: m.label.split(' de ')[0], month: m.month };
         Object.entries(m.cards).forEach(([cardId, cardData]) => {
@@ -453,11 +470,14 @@ export function Reports() {
         return data;
       }), [invoiceAnalysis.monthlyData]);
 
-  const invTrendData = useMemo(() =>
-    invoiceAnalysis.trend.map(t => ({
-      ...t,
-      name: t.label.split(' de ')[0],
-    })), [invoiceAnalysis.trend]);
+  const invFutureData = useMemo(() =>
+    Array.from(invoiceAnalysis.detailList
+      .filter(item => item.status === 'future' && item.dueDate <= toDateStr(invDateRange.end))
+      .reduce((months, item) => months.set(item.period, (months.get(item.period) || 0) + item.amount), new Map<string, number>()))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, total]) => ({ name: fmtMonthYear(month).split(' de ')[0], total })),
+    [invoiceAnalysis.detailList, invDateRange.end],
+  );
 
   // ─── ABA 6: IA ────────────────────────────────────────────────────────────
   const [financialContext, setFinancialContext] = useState<any>(null);
@@ -551,12 +571,12 @@ export function Reports() {
           description="Analise suas finanças sob diferentes perspectivas. Abaixo está a metodologia utilizada em cada relatório:"
           items={[
             { label: 'Extrato Mensal', desc: 'Reconcilia exatamente os cards mensais do Dashboard. Separa receitas recebidas, despesas pagas diretamente em conta e pagamentos de fatura, permitindo abrir cada lançamento que compõe os totais.' },
-            { label: '1. Fluxo de Caixa', desc: 'No modo Mês, mostra a evolução diária do período selecionado e permite abrir os lançamentos de cada dia. As visões 3/6/12 meses comparam o histórico até esse mesmo mês. Pagamentos vinculados de fatura entram como saída; compras individuais do cartão não são duplicadas.' },
+            { label: '1. Fluxo de Caixa', desc: 'Mostra entradas, saídas e o resultado do período. O resultado acumulado começa em zero e não representa saldo bancário. No modo Mês, cada dia abre os lançamentos; em 3/6/12 meses, os cards exibem médias coerentes e o resultado do último mês.' },
             { label: '2. Consumo', desc: 'Mostra onde o dinheiro foi gasto sem duplicar o pagamento da fatura. Compras de cartão usam o período da fatura; despesas diretas usam a data efetiva. Cada categoria separa conta/cartão, compara com o período anterior e abre seus lançamentos.' },
             { label: '3. Orçamento', desc: 'Curva cumulativa das despesas e comparação com os limites configurados para o mês selecionado. Permite consultar tanto o período atual quanto meses anteriores.' },
             { label: '4. Projeção Futura', desc: 'Simula o saldo diário usando compromissos registrados, faturas abertas e fechadas e parcelas futuras. O horizonte pode ser 30, 60, 90, 180 ou 365 dias, ou uma data escolhida. Recorrências ainda não geradas e reservas financeiras são opções explícitas.' },
             { label: '4a. Margem de Caixa', desc: 'Mostra quanto pode ser assumido em novos compromissos sem reduzir o menor saldo projetado abaixo da reserva de segurança. Compromissos registrados entram sempre; recorrências ainda não geradas e reservas financeiras são opções explícitas.' },
-            { label: '5. Faturas de Cartão', desc: 'Análise detalhada das faturas ao longo do tempo: evolução mensal dos valores, participação de cada cartão no total e distribuição por status. Aberta = em andamento (você ainda está gastando). Fechada = valor definido, aguardando vencimento. Paga = já quitada. Futura = períodos posteriores com parcelamentos já contratados que ainda vão vencer.' },
+            { label: '5. Faturas de Cartão', desc: 'Separa situação atual, parcelas dos próximos 90 dias e histórico pago. Valores são líquidos de créditos e estornos. Faturas fechadas mostram o que precisa ser pago agora; abertas mostram consumo em andamento; histórico não é tratado como dívida.' },
             { label: '6. Análise IA', desc: 'O assistente Fiducia processa seus últimos meses de fluxo de caixa e lançamentos recentes para gerar uma nota de saúde financeira com recomendações personalizadas. A análise considera padrões de gasto, consistência de receitas, evolução do saldo e riscos identificados na projeção de caixa.' },
           ]}
         />
@@ -641,18 +661,14 @@ export function Reports() {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: 'Receitas no Período', value: cashTotals.totalR, color: 'text-fiducia-green', bg: 'bg-fiducia-green/5', Icon: ArrowUpRight },
-              { label: 'Despesas no Período', value: cashTotals.totalD, color: 'text-fiducia-red', bg: 'bg-fiducia-red/5', Icon: ArrowDownRight },
-              { label: 'Economia do Mês', value: cashTotals.savings, color: cashTotals.savings >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red', bg: 'bg-fiducia-blue/5', Icon: TrendingUp },
-              { label: 'Taxa de Poupança', value: null, custom: `${cashTotals.rate.toFixed(1)}%`, color: 'text-fiducia-amber', bg: 'bg-fiducia-amber/5', Icon: Target },
-            ].map((k, i) => (
+            {cashKpis.map((k, i) => (
               <div key={i} className={`${k.bg} border border-border rounded-2xl p-5`}>
                 <div className="flex items-center gap-2 mb-3">
                   <k.Icon className={`w-4 h-4 ${k.color}`} />
                   <span className={`text-[10px] font-bold ${k.color} uppercase tracking-wider`}>{k.label}</span>
                 </div>
-                <div className={`text-2xl font-bold font-mono ${k.color}`}>{k.custom ?? fmt(k.value!)}</div>
+                <div className={`text-2xl font-bold font-mono ${k.color}`}>{fmt(k.value)}</div>
+                {'detail' in k && k.detail && <div className="mt-1 text-[11px] text-muted-foreground capitalize">{k.detail}</div>}
               </div>
             ))}
           </div>
@@ -681,9 +697,9 @@ export function Reports() {
               <div>
                 <div className="flex items-center gap-2">
                   <BarChart2 className="w-4 h-4 text-fiducia-blue" />
-                  <h3 className="text-[15px] font-bold text-foreground">{cashflowPeriod === 'month' ? 'Evolução diária do caixa' : 'Receitas vs Despesas'}</h3>
+                  <h3 className="text-[15px] font-bold text-foreground">{cashflowPeriod === 'month' ? 'Movimentos diários' : 'Entradas vs Saídas'}</h3>
                 </div>
-                <p className="text-[12px] text-muted-foreground mt-0.5">{cashflowPeriod === 'month' ? 'Entradas, saídas e resultado acumulado no mês selecionado' : 'Comparação mensal ancorada no período selecionado'}</p>
+                <p className="text-[12px] text-muted-foreground mt-0.5">{cashflowPeriod === 'month' ? 'Valores efetivamente recebidos e pagos em cada dia' : 'Comparação mensal ancorada no período selecionado'}</p>
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-green" />Receitas</div>
@@ -691,18 +707,19 @@ export function Reports() {
               </div>
             </div>
             <div className="p-5">
-              <ResponsiveContainer width="100%" height={300}>
-                {cashflowPeriod === 'month' ? (
-                  <ComposedChart data={dailyCashFlow} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+              {cashflowPeriod === 'month' ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={dailyCashFlow} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} interval={4} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
+                    <YAxis domain={[0, 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
                     <Tooltip formatter={(v: number) => fmt(v)} labelFormatter={label => `Dia ${label}`} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                     <Bar dataKey="Receitas" fill="#22c55e" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="Despesas" fill="#ef4444" radius={[3, 3, 0, 0]} />
-                    <Line type="monotone" dataKey="Acumulado" stroke="#3b82f6" strokeWidth={2.5} dot={false} />
-                  </ComposedChart>
-                ) : (
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={cashFlowData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 500 }} dy={10} />
@@ -711,10 +728,31 @@ export function Reports() {
                     <Bar dataKey="Receitas" fill="#22c55e" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
-                )}
-              </ResponsiveContainer>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
+
+          {cashflowPeriod === 'month' && (
+            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-border">
+                <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-fiducia-blue" /><h3 className="text-[15px] font-bold text-foreground">Resultado acumulado do mês</h3></div>
+                <p className="mt-1 text-[12px] text-muted-foreground">Começa em zero e soma entradas menos saídas. Não representa o saldo das contas bancárias.</p>
+              </div>
+              <div className="p-5">
+                <ResponsiveContainer width="100%" height={240}>
+                  <AreaChart data={dailyCashFlow} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} interval={4} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
+                    <ReferenceLine y={0} stroke="currentColor" strokeOpacity={0.5} />
+                    <Tooltip formatter={(value: number) => [fmt(value), 'Resultado acumulado']} labelFormatter={label => `Dia ${label}`} />
+                    <Area type="monotone" dataKey="Acumulado" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.12} strokeWidth={2.5} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {cashflowPeriod !== 'month' && <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="flex items-center gap-2 p-5 border-b border-border">
@@ -1286,32 +1324,18 @@ export function Reports() {
           <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
             <div className="flex flex-wrap gap-3 items-center">
               <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
-                {(['3months', '6months', '12months', 'custom'] as const).map(p => (
+                {(['3months', '6months', '12months'] as const).map(p => (
                   <FBtn key={p} active={invPeriod === p} onClick={() => setInvPeriod(p)}>
-                    {p === '3months' ? '3 Meses' : p === '6months' ? '6 Meses' : p === '12months' ? '12 Meses' : 'Personalizado'}
+                    Histórico {p === '3months' ? '3M' : p === '6months' ? '6M' : '12M'}
                   </FBtn>
                 ))}
               </div>
-              {invPeriod === 'custom' && (
-                <input type="date" value={invCustomEnd} onChange={e => setInvCustomEnd(e.target.value)}
-                  className="h-8 bg-background border border-border rounded-xl px-3 text-xs" />
-              )}
               <select value={invSelectedCard} onChange={e => setInvSelectedCard(e.target.value)}
                 className="h-8 bg-background border border-border rounded-xl px-3 text-xs text-foreground">
                 <option value="all">Todos os cartões</option>
                 {creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
-                {(['all', 'open', 'closed', 'paid', 'future'] as const).map(p => (
-                  <FBtn key={p} active={invStatusFilter === p} onClick={() => setInvStatusFilter(p)}>
-                    {p === 'all' ? 'Todas' : p === 'open' ? 'Abertas' : p === 'closed' ? 'Fechadas' : p === 'paid' ? 'Pagas' : 'Futuras'}
-                  </FBtn>
-                ))}
-              </div>
-              <button onClick={() => setInvIncludeCredits(!invIncludeCredits)}
-                className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border transition-all ${invIncludeCredits ? 'bg-fiducia-green/10 border-fiducia-green/30 text-fiducia-green dark:text-fiducia-green' : 'bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50'}`}>
-                {invIncludeCredits ? 'Incluindo Estornos' : 'S/ Estornos'}
-              </button>
+              <span className="text-[11px] text-muted-foreground">Valores líquidos após créditos e estornos · futuro limitado a 90 dias</span>
               <Button variant="outline" size="sm" className="h-8 ml-auto gap-1.5" onClick={handleExportInvoiceAnalysisPDF} disabled={isExportingPdf}>
                 <FileDown className="h-3.5 w-3.5" />
                 {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
@@ -1320,36 +1344,26 @@ export function Reports() {
           </div>
 
           {/* KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="bg-fiducia-amber/5 border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3"><CreditCard className="w-4 h-4 text-fiducia-amber" /><span className="text-[10px] font-bold text-fiducia-amber uppercase tracking-wider">Faturas Abertas</span></div>
-              <div className="text-2xl font-bold font-mono text-fiducia-amber">{fmt(invoiceAnalysis.summary.totalOpen)}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">Em andamento no período</div>
-            </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-fiducia-red/5 border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3"><ArrowDownRight className="w-4 h-4 text-fiducia-red" /><span className="text-[10px] font-bold text-fiducia-red uppercase tracking-wider">Faturas Fechadas</span></div>
+              <div className="flex items-center gap-2 mb-3"><ArrowDownRight className="w-4 h-4 text-fiducia-red" /><span className="text-[10px] font-bold text-fiducia-red uppercase tracking-wider">A pagar agora</span></div>
               <div className="text-2xl font-bold font-mono text-fiducia-red">{fmt(invoiceAnalysis.summary.totalClosed)}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">Aguardando pagamento</div>
+              <div className="text-[11px] text-muted-foreground mt-1">{invoiceAnalysis.summary.nextDueDate ? `Próximo vencimento em ${invoiceAnalysis.summary.nextDueDate.split('-').reverse().join('/')}` : 'Nenhuma fatura fechada'}</div>
             </div>
-            <div className="bg-fiducia-green/5 border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3"><ArrowUpRight className="w-4 h-4 text-fiducia-green" /><span className="text-[10px] font-bold text-fiducia-green uppercase tracking-wider">Pagamentos Registrados</span></div>
-              <div className="text-2xl font-bold font-mono text-fiducia-green">{fmt(invoiceAnalysis.summary.totalPaid)}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">Inclui pagamentos parciais</div>
+            <div className="bg-fiducia-amber/5 border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3"><CreditCard className="w-4 h-4 text-fiducia-amber" /><span className="text-[10px] font-bold text-fiducia-amber uppercase tracking-wider">Em andamento</span></div>
+              <div className="text-2xl font-bold font-mono text-fiducia-amber">{fmt(invoiceAnalysis.summary.totalOpen)}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Compras atuais ainda sujeitas a mudança</div>
             </div>
             <div className="bg-fiducia-blue/5 border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-fiducia-blue" /><span className="text-[10px] font-bold text-fiducia-blue uppercase tracking-wider">Comprometimento Futuro</span></div>
+              <div className="flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-fiducia-blue" /><span className="text-[10px] font-bold text-fiducia-blue uppercase tracking-wider">Próximos 90 dias</span></div>
               <div className="text-2xl font-bold font-mono text-fiducia-blue">{fmt(invoiceAnalysis.summary.totalFuture)}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">Parcelas a vencer</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Parcelas futuras já contratadas</div>
             </div>
-            <div className="bg-purple-50 dark:bg-purple-950/20 border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3"><Target className="w-4 h-4 text-purple-600 dark:text-purple-400" /><span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Média Mensal</span></div>
+            <div className="bg-secondary/40 border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3"><Target className="w-4 h-4 text-purple-600 dark:text-purple-400" /><span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Média histórica paga</span></div>
               <div className="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">{fmt(invoiceAnalysis.summary.monthlyAverage)}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">Por mês com dados</div>
-            </div>
-            <div className="bg-orange-50 dark:bg-orange-950/20 border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3"><BarChart2 className="w-4 h-4 text-orange-600 dark:text-orange-400" /><span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">Maior Fatura</span></div>
-              <div className="text-2xl font-bold font-mono text-orange-600 dark:text-orange-400">{fmt(invoiceAnalysis.summary.largestInvoice)}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">Recorde no período</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Somente faturas efetivamente pagas</div>
             </div>
           </div>
 
@@ -1361,9 +1375,9 @@ export function Reports() {
                 <div>
                   <div className="flex items-center gap-2">
                     <BarChart2 className="w-4 h-4 text-fiducia-blue" />
-                    <h3 className="text-[15px] font-bold text-foreground">Evolução Mensal por Cartão</h3>
+                    <h3 className="text-[15px] font-bold text-foreground">Histórico mensal por cartão</h3>
                   </div>
-                  <p className="text-[12px] text-muted-foreground mt-0.5">Total de faturas por mês — cada cor é um cartão</p>
+                  <p className="text-[12px] text-muted-foreground mt-0.5">Faturas líquidas até o mês atual — cada cor é um cartão</p>
                 </div>
                 {invChartBars.length > 0 && (
                   <div className="flex items-center gap-3">
@@ -1404,7 +1418,7 @@ export function Reports() {
                 <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
                   <div className="flex items-center gap-2 p-4 border-b border-border">
                     <CreditCard className="w-4 h-4 text-fiducia-blue" />
-                    <h3 className="text-[14px] font-bold text-foreground">Participação por Cartão</h3>
+                    <h3 className="text-[14px] font-bold text-foreground">Distribuição histórica</h3>
                   </div>
                   <div className="p-4">
                     <ResponsiveContainer width="100%" height={200}>
@@ -1430,21 +1444,21 @@ export function Reports() {
                 </div>
               )}
 
-              {invTrendData.some(t => t.total > 0) && (
+              {invFutureData.length > 0 && (
                 <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
                   <div className="flex items-center gap-2 p-4 border-b border-border">
                     <TrendingUp className="w-4 h-4 text-fiducia-amber" />
-                    <h3 className="text-[14px] font-bold text-foreground">Tendência Mensal</h3>
+                    <div><h3 className="text-[14px] font-bold text-foreground">Parcelas futuras</h3><p className="text-[11px] text-muted-foreground">Compromissos distribuídos nos próximos 90 dias</p></div>
                   </div>
                   <div className="p-4">
                     <ResponsiveContainer width="100%" height={180}>
-                      <AreaChart data={invTrendData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                      <BarChart data={invFutureData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
                         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
                         <Tooltip formatter={(v: number) => fmt(v)} />
-                        <Area type="monotone" dataKey="total" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.15} />
-                      </AreaChart>
+                        <Bar dataKey="total" name="Parcelas futuras" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
