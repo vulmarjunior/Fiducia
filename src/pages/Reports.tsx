@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, ComposedChart, Line,
@@ -11,7 +11,7 @@ import {
 import {
   TrendingUp, TrendingDown, Target, Sparkles, Loader2, Brain,
   ArrowUpRight, ArrowDownRight, ChevronDown, ChevronRight,
-  CreditCard, BarChart2, Calendar, FileDown,
+  CreditCard, BarChart2, Calendar, FileDown, ReceiptText,
 } from 'lucide-react';
 import { generateCashFlowPDF, generateCategoryPDF, generateTrendPDF, generateProjectionPDF, generateInvoiceAnalysisPDF } from '../lib/pdfTemplates';
 import { toast } from 'sonner';
@@ -23,6 +23,9 @@ import { buildFinancialInsightContext, buildGroqFinancialAnalysisPrompt } from '
 import { PageHelp } from '../components/PageHelp';
 import { callGroq } from '../services/groqService';
 import { Button } from '../components/ui/button';
+import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
+import { buildMonthlyStatement } from '../lib/monthlyStatement';
+import { MonthlyStatementEntries } from '../components/MonthlyStatementEntries';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
 
@@ -36,12 +39,14 @@ const isPending = (t: any) => t.status === 'pendente' || t.status === 'pending';
 const toMonthStr = (d: Date) => `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
 const toDateStr = (d: Date) => `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
 
-type Tab = 'cashflow' | 'categories' | 'trend' | 'projection' | 'invoices' | 'ai';
+type Tab = 'statement' | 'cashflow' | 'categories' | 'trend' | 'projection' | 'invoices' | 'ai';
 
 export function Reports() {
   const { user, isAuthReady } = useAuth();
   const { open: openTxDialog } = useTransactionDialog();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { selectedMonth, setSelectedMonth } = useReportingPeriod();
 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -51,7 +56,15 @@ export function Reports() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [recurrenceRules, setRecurrenceRules] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<Tab>('cashflow');
+  const [activeTab, setActiveTab] = useState<Tab>('statement');
+  const [statementFilter, setStatementFilter] = useState<'all' | 'income' | 'expense'>('all');
+
+  useEffect(() => {
+    const state = location.state as { tab?: Tab; month?: string } | null;
+    if (state?.tab) setActiveTab(state.tab);
+    if (state?.month && /^\d{4}-\d{2}$/.test(state.month)) setSelectedMonth(state.month);
+    if (state?.tab || state?.month) window.history.replaceState({}, '');
+  }, [location.state, setSelectedMonth]);
 
   // Aba 1 — Fluxo de Caixa
   const [cashflowPeriod, setCashflowPeriod] = useState<'3months' | '6months' | '12months' | 'year'>('6months');
@@ -170,6 +183,15 @@ export function Reports() {
   const todayStr = toDateStr(now);
   const currentMonthStr = toMonthStr(now);
   const totalBalance = accounts.reduce((s, a) => s + (a.balance || 0), 0);
+  const monthlyStatement = useMemo(
+    () => buildMonthlyStatement(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), selectedMonth),
+    [transactions, invoices, creditCards, selectedMonth],
+  );
+  const statementEntries = statementFilter === 'income'
+    ? monthlyStatement.incomeEntries
+    : statementFilter === 'expense'
+      ? monthlyStatement.expenseEntries
+      : [...monthlyStatement.incomeEntries, ...monthlyStatement.expenseEntries].sort((a, b) => b.transaction.date.localeCompare(a.transaction.date));
 
   // ─── ABA 1: FLUXO DE CAIXA ───────────────────────────────────────────────
   const cashFlowMonths = useMemo(() => {
@@ -447,6 +469,7 @@ export function Reports() {
   );
 
   const tabs: { id: Tab; label: string; icon: any }[] = [
+    { id: 'statement', label: 'Extrato Mensal', icon: ReceiptText },
     { id: 'cashflow', label: 'Fluxo de Caixa', icon: BarChart2 },
     { id: 'categories', label: 'Categorias', icon: Target },
     { id: 'trend', label: 'Tendência', icon: TrendingDown },
@@ -464,6 +487,7 @@ export function Reports() {
           title="Relatórios"
           description="Analise suas finanças sob diferentes perspectivas. Abaixo está a metodologia utilizada em cada relatório:"
           items={[
+            { label: 'Extrato Mensal', desc: 'Reconcilia exatamente os cards mensais do Dashboard. Separa receitas recebidas, despesas pagas diretamente em conta e pagamentos de fatura, permitindo abrir cada lançamento que compõe os totais.' },
             { label: '1. Fluxo de Caixa', desc: 'Receitas vs despesas realizadas na conta corrente (sem cartão e sem transferências) nos últimos meses. O botão "Só Realizados"/"Incluindo Pendentes" controla se lançamentos com status pendente entram no cálculo. A Taxa de Poupança mostra quantos % da sua receita líquida sobra após as despesas no período.' },
             { label: '2. Categorias', desc: 'Distribuição dos gastos ou receitas por categoria. A métrica "% Renda" revela o peso real de cada categoria sobre sua receita total, diferente do "% Total" que compara apenas entre categorias. Use para descobrir onde seu dinheiro está sendo mais consumido proporcionalmente.' },
             { label: '3. Tendência & Orçamento', desc: 'Curva cumulativa de despesas dia a dia dentro do mês atual, comparada com os limites de orçamento configurados. Mostra se você está gastando acima ou abaixo do planejado e projeta se ultrapassará o limite até o fim do mês.' },
@@ -495,6 +519,40 @@ export function Reports() {
       {/* ══════════════════════════════════════════════════════════════
           ABA 1 — FLUXO DE CAIXA
       ══════════════════════════════════════════════════════════════ */}
+      {activeTab === 'statement' && (
+        <div className="space-y-5">
+          <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-foreground">Extrato financeiro mensal</p>
+              <p className="mt-1 text-xs text-muted-foreground">A mesma composição dos cards do Dashboard, com pagamentos de fatura identificados separadamente.</p>
+            </div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Mês de referência
+              <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="mt-1 block h-10 w-full rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground sm:w-44" />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Receitas recebidas</span><strong className="mt-2 block font-mono text-lg text-fiducia-green sm:text-xl">{fmt(monthlyStatement.incomeTotal)}</strong></div>
+            <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Despesas em conta</span><strong className="mt-2 block font-mono text-lg text-fiducia-red sm:text-xl">{fmt(monthlyStatement.accountExpenseTotal)}</strong></div>
+            <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Pagamentos de fatura</span><strong className="mt-2 block font-mono text-lg text-fiducia-amber sm:text-xl">{fmt(monthlyStatement.invoicePaymentTotal)}</strong></div>
+            <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Resultado do mês</span><strong className={`mt-2 block font-mono text-lg sm:text-xl ${monthlyStatement.balance >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red'}`}>{fmt(monthlyStatement.balance)}</strong></div>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div><h3 className="text-sm font-bold text-foreground">Composição do mês</h3><p className="text-xs text-muted-foreground">{statementEntries.length} lançamento(s) · saídas totais de {fmt(monthlyStatement.expenseTotal)}</p></div>
+              <div className="flex rounded-xl border border-border bg-secondary/50 p-1">
+                <FBtn active={statementFilter === 'all'} onClick={() => setStatementFilter('all')}>Tudo</FBtn>
+                <FBtn active={statementFilter === 'income'} onClick={() => setStatementFilter('income')}>Receitas</FBtn>
+                <FBtn active={statementFilter === 'expense'} onClick={() => setStatementFilter('expense')}>Despesas</FBtn>
+              </div>
+            </div>
+            <MonthlyStatementEntries entries={statementEntries} accounts={accounts} categories={categories} emptyMessage="Nenhum lançamento efetivado para este filtro." onOpenTransaction={(id) => openTxDialog({ editId: id })} />
+          </div>
+        </div>
+      )}
+
       {activeTab === 'cashflow' && (
         <div className="space-y-6">
           <div className="flex items-center gap-2 flex-wrap">

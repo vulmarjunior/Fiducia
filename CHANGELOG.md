@@ -5,6 +5,32 @@
 
 ---
 
+## [0.10.0] — 2026-08-05 — Extrato Mensal Investigável
+
+**Resultado:** Os cards “Receitas do mês” e “Despesas do mês” agora abrem a composição completa em uma experiência responsiva. Relatórios ganha a aba “Extrato Mensal”, reconciliada com os mesmos totais do Dashboard e com separação entre despesas em conta e pagamentos de fatura.
+
+**Alterações técnicas:**
+- `src/lib/monthlyStatement.ts` — motor único de leitura para receitas recebidas, despesas bancárias e pagamentos de fatura atuais ou legados.
+- `src/components/MonthlyStatementEntries.tsx` — lista vertical reutilizável, sem rolagem horizontal, com conta, categoria, origem e navegação para o lançamento.
+- `src/pages/Dashboard.tsx` — cards clicáveis por mouse e teclado; detalhamento ocupa a largura útil no celular e mantém cabeçalho, resumo e ações organizados.
+- `src/pages/Reports.tsx` — nova aba inicial “Extrato Mensal”, com seletor de mês, quatro indicadores reconciliados e filtros Tudo/Receitas/Despesas.
+- `src/lib/monthlyStatement.test.ts` — regressões para o total R$ 2.368,99, pagamentos legados vinculados, pendências, transferências comuns e compras de cartão.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.10.0`.
+
+**Segurança operacional:**
+- Mudança exclusivamente de leitura e navegação; nenhum documento do Firestore foi criado, atualizado ou migrado.
+- A identificação de pagamento de fatura continua restrita aos IDs oficialmente vinculados em `invoices`.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 78 testes aprovados; 2 testes de emulador ignorados sem host local.
+- `npm run build` — build de produção concluído.
+- Aplicação local carregada sem tela em branco, overlay do Vite ou erros de console.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.9.3] — 2026-08-05 — Faturas Quitadas em Contas a Pagar
 
 **Resultado:** O card “Contas a Pagar” deixa de contabilizar faturas já quitadas e passa a exibir apenas o saldo oficial de faturas parcialmente pagas.

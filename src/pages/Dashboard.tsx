@@ -17,6 +17,9 @@ import { migrateCategoryIds } from '../services/categoryMigration';
 import { OnboardingChecklist } from '../components/OnboardingChecklist';
 import { MetricExplanationDialog } from '../components/MetricExplanationDialog';
 import { getInvoiceFinancialSummary, getInvoicePaymentTransactionIds } from '../lib/invoicePayment';
+import { buildMonthlyStatement } from '../lib/monthlyStatement';
+import { MonthlyStatementEntries } from '../components/MonthlyStatementEntries';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
  
 export function Dashboard() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -35,6 +38,7 @@ export function Dashboard() {
   const [periodFilter, setPeriodFilter] = useState<'week' | 'month' | 'year'>('month');
   const [extraSectionsOpen, setExtraSectionsOpen] = useState(false);
   const [showPendingChart, setShowPendingChart] = useState(false);
+  const [statementDetail, setStatementDetail] = useState<'income' | 'expense' | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(() => localStorage.getItem('fiducia_onboardingDismissed') !== 'true');
   const navigate = useNavigate();
   const location = useLocation();
@@ -217,25 +221,14 @@ Regras OBRIGATÓRIAS:
     return t.date.split('T')[0].startsWith(currentMonthStr);
   });
 
+  const monthlyStatement = useMemo(
+    () => buildMonthlyStatement(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), currentMonthStr),
+    [transactions, invoices, creditCards, currentMonthStr],
+  );
   const invoicePaymentTransactionIds = getInvoicePaymentTransactionIds(invoices);
-  const isMonthlyPaidExpense = (transaction: any, month: string) => {
-    if (!transaction.date?.split('T')[0].startsWith(month) || !isEffectivelyPaid(transaction)) return false;
-    if (invoicePaymentTransactionIds.has(transaction.id)) return true;
-    return (transaction.type === 'despesa' || transaction.type === 'expense') &&
-      !transaction.creditCardId &&
-      !creditCards.some(card => card.id === transaction.accountId) &&
-      transaction.type !== 'transferencia' &&
-      transaction.type !== 'transfer';
-  };
-  
-  
-  const monthlyIncome = currentMonthTransactions.filter(t =>
-    (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t) &&
-    !t.creditCardId && !creditCards.some(c => c.id === t.accountId) &&
-    t.type !== 'transferencia' && t.type !== 'transfer'
-  ).reduce((sum, t) => sum + t.amount, 0);
-  const monthlyExpenseTransactions = transactions.filter(t => isMonthlyPaidExpense(t, currentMonthStr));
-  const monthlyExpense = monthlyExpenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+  const monthlyIncome = monthlyStatement.incomeTotal;
+  const monthlyExpenseTransactions = monthlyStatement.expenseEntries.map(entry => entry.transaction);
+  const monthlyExpense = monthlyStatement.expenseTotal;
   const monthlyBalance = monthlyIncome - monthlyExpense;
 
   const cashCoverage = useMemo(
@@ -247,15 +240,10 @@ Regras OBRIGATÓRIAS:
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   const prevMonthStr = getPreviousPeriod(currentMonthStr);
-  const prevMonthTransactions = transactions.filter(t => {
-    if (t.creditCardId || t.accountId && creditCards.some(c => c.id === t.accountId)) {
-      return t.invoicePeriod === prevMonthStr;
-    }
-    return t.date.startsWith(prevMonthStr);
-  });
   // Comparativos usam a mesma regra de caixa do mês selecionado, incluindo pagamentos vinculados de fatura.
-  const prevIncome = prevMonthTransactions.filter(t => (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0);
-  const prevExpense = transactions.filter(t => isMonthlyPaidExpense(t, prevMonthStr)).reduce((sum, t) => sum + t.amount, 0);
+  const previousMonthlyStatement = buildMonthlyStatement(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), prevMonthStr);
+  const prevIncome = previousMonthlyStatement.incomeTotal;
+  const prevExpense = previousMonthlyStatement.expenseTotal;
   const incomeTrendPct = prevIncome > 0 ? ((monthlyIncome - prevIncome) / prevIncome * 100).toFixed(1) : null;
   const expenseTrendPct = prevExpense > 0 ? ((monthlyExpense - prevExpense) / prevExpense * 100).toFixed(1) : null;
 
@@ -438,6 +426,37 @@ Regras OBRIGATÓRIAS:
 
   return (
     <div className="space-y-6">
+      <Dialog open={statementDetail !== null} onOpenChange={(open) => { if (!open) setStatementDetail(null); }}>
+        <DialogContent className="flex w-[calc(100vw-1rem)] max-w-none max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl sm:max-h-[88vh]">
+          <DialogHeader className="border-b border-border p-4 pr-12 sm:p-5 sm:pr-12">
+            <DialogTitle>{statementDetail === 'income' ? 'Receitas do mês' : 'Despesas do mês'}</DialogTitle>
+            <DialogDescription>
+              {selectedMonth} · {statementDetail === 'income' ? monthlyStatement.incomeEntries.length : monthlyStatement.expenseEntries.length} lançamento(s)
+            </DialogDescription>
+            <div className={`pt-1 font-mono text-2xl font-bold ${statementDetail === 'income' ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+              {formatCurrency(statementDetail === 'income' ? monthlyIncome : monthlyExpense)}
+            </div>
+          </DialogHeader>
+          {statementDetail === 'expense' && (
+            <div className="grid grid-cols-2 gap-2 border-b border-border bg-secondary/30 p-3 text-xs sm:p-4">
+              <div><span className="block text-muted-foreground">Em conta</span><strong>{formatCurrency(monthlyStatement.accountExpenseTotal)}</strong></div>
+              <div><span className="block text-muted-foreground">Faturas</span><strong>{formatCurrency(monthlyStatement.invoicePaymentTotal)}</strong></div>
+            </div>
+          )}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1 sm:p-2">
+            <MonthlyStatementEntries
+              entries={statementDetail === 'income' ? monthlyStatement.incomeEntries : monthlyStatement.expenseEntries}
+              accounts={accounts}
+              categories={categories}
+              emptyMessage={statementDetail === 'income' ? 'Nenhuma receita recebida neste mês.' : 'Nenhuma despesa paga neste mês.'}
+              onOpenTransaction={(id) => { setStatementDetail(null); openTxDialog({ editId: id }); }}
+            />
+          </div>
+          <div className="border-t border-border p-3 sm:p-4">
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate('/reports', { state: { tab: 'statement', month: selectedMonth } })}>Ver extrato mensal completo</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
@@ -546,7 +565,7 @@ Regras OBRIGATÓRIAS:
         </div>
 
         {/* Receitas */}
-        <div className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
+        <div role="button" tabIndex={0} aria-label="Detalhar receitas do mês" onClick={() => setStatementDetail('income')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setStatementDetail('income'); } }} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-xl bg-fiducia-green/10 text-fiducia-green flex items-center justify-center group-hover:scale-110 transition-transform">
               <ArrowUpRight className="w-5 h-5" />
@@ -557,22 +576,22 @@ Regras OBRIGATÓRIAS:
           </div>
           <div className="mb-1 flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
             Receitas do mês
-            <MetricExplanationDialog
+            <span onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}><MetricExplanationDialog
               title="Receitas do mês"
               description="Considera somente receitas efetivamente recebidas em contas no mês selecionado."
               formula="Receitas = lançamentos recebidos, sem transferências e sem compras de cartão"
               lines={[
                 { label: 'Período', value: selectedMonth },
-                { label: 'Receitas consideradas', value: String(currentMonthTransactions.filter((transaction) => (transaction.type === 'receita' || transaction.type === 'income') && isEffectivelyPaid(transaction) && !transaction.creditCardId).length) },
+                { label: 'Receitas consideradas', value: String(monthlyStatement.incomeEntries.length) },
                 { label: 'Total', value: formatCurrency(monthlyIncome) },
               ]}
-            />
+            /></span>
           </div>
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(monthlyIncome)}</div>
         </div>
 
         {/* Despesas */}
-        <div className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
+        <div role="button" tabIndex={0} aria-label="Detalhar despesas do mês" onClick={() => setStatementDetail('expense')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setStatementDetail('expense'); } }} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-xl bg-fiducia-red/10 text-fiducia-red flex items-center justify-center group-hover:scale-110 transition-transform">
               <ArrowDownRight className="w-5 h-5" />
@@ -583,7 +602,7 @@ Regras OBRIGATÓRIAS:
           </div>
           <div className="mb-1 flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
             Despesas do mês
-            <MetricExplanationDialog
+            <span onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}><MetricExplanationDialog
               title="Despesas do mês"
               description="Considera despesas pagas em conta e pagamentos vinculados de fatura no mês selecionado. Compras individuais de cartão são excluídas para evitar contagem dupla."
               formula="Despesas = lançamentos pagos em conta + pagamentos de fatura vinculados, sem compras individuais de cartão"
@@ -593,7 +612,7 @@ Regras OBRIGATÓRIAS:
                 { label: 'Total', value: formatCurrency(monthlyExpense) },
               ]}
               note="O pagamento consolidado da fatura aparece como saída da conta; as compras do cartão não são somadas novamente aqui."
-            />
+            /></span>
           </div>
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(monthlyExpense)}</div>
         </div>
