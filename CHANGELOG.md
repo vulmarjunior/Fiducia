@@ -5,6 +5,25 @@
 
 ---
 
+## [0.9.2] — 2026-08-05 — Comprometimento Futuro Recolhível
+
+**Resultado:** O modal de fatura mantém visível o resumo do comprometimento futuro, mas inicia os detalhes mensais recolhidos para reduzir a rolagem e priorizar as informações da fatura selecionada.
+
+**Alterações técnicas:**
+- `src/pages/CreditCards.tsx` — cabeçalho clicável com total, quantidade de parcelas e faturas, controle por `aria-expanded`/`aria-controls` e detalhes renderizados sob demanda.
+- O estado volta a recolhido ao abrir outro cartão, trocar o período ou fechar o modal.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.9.2`.
+
+**Segurança operacional:**
+- Mudança exclusivamente visual; nenhum cálculo, documento do Firestore ou fluxo financeiro foi alterado.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 74 testes aprovados; 2 testes de emulador ignorados sem host local.
+- `npm run build` — build de produção concluído.
+
+---
+
 ## [0.9.1] — 2026-08-05 — Compatibilidade de Pagamentos Legados no Dashboard
 
 **Resultado:** O card “Despesas do mês” passa a considerar pagamentos de fatura vinculados oficialmente, inclusive registros legados salvos como transferência. Faturas legadas marcadas como pagas deixam de carregar um falso saldo remanescente para o mês seguinte. Nenhum documento do Firebase é alterado.

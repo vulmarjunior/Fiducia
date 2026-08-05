@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.9.1` |
+| **Versão atual** | `0.9.2` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-05 (compatibilidade de pagamentos e quitação de faturas legadas v0.9.1) |
+| **Última alteração em código** | 2026-08-05 (Comprometimento Futuro recolhível no modal de fatura v0.9.2) |
 | **Último deploy** | 2026-08-05 — v0.9.1 no Vercel (produção validada) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-08-05 | v0.9.2 — Comprometimento Futuro recolhível | Cartões / UX / Mobile |
 | 2026-08-05 | v0.9.1 — Pagamentos legados no Dashboard e quitação sem saldo transportado | Dashboard / Cartões / Compatibilidade |
 | 2026-08-04 | v0.9.0 — Estabilização, desempenho e experiência guiada | Segurança / UX / Performance |
 | 2026-07-13 | v0.6.1 — Períodos civis na Projeção Futura | Relatórios / UX |
@@ -177,6 +178,7 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 | `docs/ia-conciliacao-inteligente.md` | Spec IA Conciliação | ✅ Status "IMPLEMENTADO" adicionado em v0.4.0 |
 | `docs/plano-de-melhorias.md` | Diagnóstico e plano de correções | ⚠️ Parcialmente resolvido; inventário revisado em v0.4.0 |
 | `docs/plano-evolucao-previsao-caixa.md` | Spec evolução previsão de caixa | ✅ Criado em v0.4.0 |
+| `docs/plano-migracao-firebase-supabase.md` | Plano de contingência para eventual migração do banco | 📋 Proposta não autorizada |
 | `docs/archive/sessions/` | Arquivo de sessões concluídas | ✅ Ativo |
 
 ---

@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock, Layers, Clock, FileSearch, Undo } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock, Layers, Clock, FileSearch, Undo } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, isInvoiceClosed, findSeriesTransactions, getSeriesKey, isEffectivelyPaid } from '../lib/utils';
@@ -59,6 +59,7 @@ export function CreditCards() {
   const [deleteScope, setDeleteScope] = useState('only');
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
   const [invoiceViewMode, setInvoiceViewMode] = useState<'organized' | 'chronological'>('organized');
+  const [isFutureCommitmentExpanded, setIsFutureCommitmentExpanded] = useState(false);
 
   // PDF Import state
   const [isPdfReviewOpen, setIsPdfReviewOpen] = useState(false);
@@ -156,6 +157,7 @@ export function CreditCards() {
         const currentPeriod = calculateInvoicePeriod(new Date(), card.closingDay, card.dueDay);
         const [year, month] = currentPeriod.split('-').map(Number);
         setSelectedInvoiceMonth(new Date(year, month - 1, 1));
+        setIsFutureCommitmentExpanded(false);
         setIsInvoiceModalOpen(true);
         window.history.replaceState({}, '');
       }
@@ -1043,6 +1045,7 @@ export function CreditCards() {
                     const currentPeriod = calculateInvoicePeriod(new Date(), card.closingDay, card.dueDay);
                     const [year, month] = currentPeriod.split('-').map(Number);
                     setSelectedInvoiceMonth(new Date(year, month - 1, 1));
+                    setIsFutureCommitmentExpanded(false);
                     setIsInvoiceModalOpen(true);
                   }}
                 >
@@ -1064,6 +1067,7 @@ export function CreditCards() {
           const d = new Date();
           d.setDate(1);
           setSelectedInvoiceMonth(d);
+          setIsFutureCommitmentExpanded(false);
         }
       }}>
         <DialogContent className="w-[96vw] sm:max-w-[920px] max-h-[92vh] flex flex-col p-0 overflow-hidden">
@@ -1125,6 +1129,7 @@ export function CreditCards() {
                     newDate.setDate(1);
                     newDate.setMonth(newDate.getMonth() - 1);
                     setSelectedInvoiceMonth(newDate);
+                    setIsFutureCommitmentExpanded(false);
                   }}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -1141,6 +1146,7 @@ export function CreditCards() {
                     newDate.setDate(1);
                     newDate.setMonth(newDate.getMonth() + 1);
                     setSelectedInvoiceMonth(newDate);
+                    setIsFutureCommitmentExpanded(false);
                   }}
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -1641,54 +1647,69 @@ export function CreditCards() {
 
                     return (
                       <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-amber-200/50 dark:border-amber-800/50 flex justify-between items-center">
-                          <div>
+                        <button
+                          type="button"
+                          className={`w-full px-4 py-3 flex justify-between items-center gap-3 text-left hover:bg-amber-100/40 dark:hover:bg-amber-900/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-500 transition-colors ${isFutureCommitmentExpanded ? 'border-b border-amber-200/50 dark:border-amber-800/50' : ''}`}
+                          aria-expanded={isFutureCommitmentExpanded}
+                          aria-controls="future-commitment-details"
+                          onClick={() => setIsFutureCommitmentExpanded(expanded => !expanded)}
+                        >
+                          <div className="min-w-0">
                             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Comprometimento Futuro</p>
                             <p className="text-[9px] text-muted-foreground mt-0.5">
                               {futureTxs.length} parcela{futureTxs.length > 1 ? 's' : ''} em {sortedPeriods.length} fatura{sortedPeriods.length > 1 ? 's' : ''} futura{sortedPeriods.length > 1 ? 's' : ''} — aparecerão como Parcelamentos Anteriores
                             </p>
                           </div>
-                          <span className="font-mono font-black text-sm text-fiducia-amber">R$ {grandTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="divide-y divide-amber-200/30 dark:divide-amber-800/30">
-                          {sortedPeriods.map(period => {
-                            const periodTxs = groupedByPeriod[period];
-                            const [y, m] = period.split('-').map(Number);
-                            const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-                            const periodTotal = periodTxs.reduce((sum, ft) => sum + ft.amount, 0);
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-mono font-black text-sm text-fiducia-amber">R$ {grandTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            {isFutureCommitmentExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                            )}
+                          </div>
+                        </button>
+                        {isFutureCommitmentExpanded && (
+                          <div id="future-commitment-details" className="divide-y divide-amber-200/30 dark:divide-amber-800/30">
+                            {sortedPeriods.map(period => {
+                              const periodTxs = groupedByPeriod[period];
+                              const [y, m] = period.split('-').map(Number);
+                              const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                              const periodTotal = periodTxs.reduce((sum, ft) => sum + ft.amount, 0);
 
-                            return (
-                              <div key={period} className="px-4 py-2.5">
-                                <div className="flex justify-between items-center mb-1.5">
-                                  <span className="text-xs font-black text-muted-foreground capitalize">{label}</span>
-                                  <span className="text-[10px] font-mono font-bold text-fiducia-amber">R$ {periodTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                                <div className="space-y-1">
-                                  {periodTxs.map(ft => (
-                                    <div key={ft.id} className="flex items-center justify-between text-[11px] pl-3 border-l-2 border-amber-300/40 dark:border-amber-700/40">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <span className="truncate text-secondary-foreground">
-                                          {ft.description.replace(/\s*\(\d+\/\d+\)\s*$/, '')}
-                                        </span>
-                                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1 rounded shrink-0">
-                                          {ft.installmentNumber}/{ft.totalInstallments}
-                                        </span>
-                                        {ft.postingDate && (
-                                          <span className="text-[9px] text-muted-foreground/60 shrink-0 hidden sm:inline">
-                                            {parseLocalDate(ft.postingDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                              return (
+                                <div key={period} className="px-4 py-2.5">
+                                  <div className="flex justify-between items-center mb-1.5">
+                                    <span className="text-xs font-black text-muted-foreground capitalize">{label}</span>
+                                    <span className="text-[10px] font-mono font-bold text-fiducia-amber">R$ {periodTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="space-y-1">
+                                    {periodTxs.map(ft => (
+                                      <div key={ft.id} className="flex items-center justify-between text-[11px] pl-3 border-l-2 border-amber-300/40 dark:border-amber-700/40">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="truncate text-secondary-foreground">
+                                            {ft.description.replace(/\s*\(\d+\/\d+\)\s*$/, '')}
                                           </span>
-                                        )}
+                                          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1 rounded shrink-0">
+                                            {ft.installmentNumber}/{ft.totalInstallments}
+                                          </span>
+                                          {ft.postingDate && (
+                                            <span className="text-[9px] text-muted-foreground/60 shrink-0 hidden sm:inline">
+                                              {parseLocalDate(ft.postingDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="font-mono font-bold text-muted-foreground shrink-0 ml-2">
+                                          R$ {ft.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </span>
                                       </div>
-                                      <span className="font-mono font-bold text-muted-foreground shrink-0 ml-2">
-                                        R$ {ft.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                      </span>
-                                    </div>
-                                  ))}
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
