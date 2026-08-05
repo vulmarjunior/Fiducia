@@ -5,6 +5,29 @@
 
 ---
 
+## [0.13.0] — 2026-08-05 — Relatórios Organizados e Exportáveis
+
+**Resultado:** Relatórios passa a ter abas legíveis no celular, nomes mais diretos e exportação CSV do Extrato Mensal. A visão Orçamento agora acompanha o mês selecionado, inclusive para consultas históricas.
+
+**Alterações técnicas:**
+- `src/lib/monthlyStatementCsv.ts` — exportador CSV em formato compatível com planilhas em português, com nomes de conta/cartão e categoria.
+- `src/pages/Reports.tsx` — botão Exportar CSV, nomes visíveis nas abas móveis e remoção de selos antigos.
+- Tendência/Orçamento passa a usar `selectedMonth` na curva, no realizado, no título e no PDF; meses anteriores mostram todos os dias do período.
+- `src/lib/monthlyStatementCsv.test.ts` — regressões para conteúdo, formatação monetária e escape de separadores/aspas.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.13.0`.
+
+**Segurança operacional:**
+- Mudança exclusivamente de leitura e apresentação; nenhum documento do Firestore foi alterado ou migrado.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npx vitest run --maxWorkers=1` — 84 testes aprovados; 2 cenários de emulador ignorados sem host local.
+- `npm run build` — build de produção concluído.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.12.0] — 2026-08-05 — Consumo Investigável
 
 **Resultado:** A antiga visão Categorias passa a ser Consumo e explica onde o dinheiro foi gasto, quanto ocorreu diretamente em conta ou no cartão e o que mudou em relação ao período anterior. Cada categoria abre os lançamentos que compõem o valor.

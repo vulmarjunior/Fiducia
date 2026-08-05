@@ -29,6 +29,7 @@ import { MonthlyStatementEntries } from '../components/MonthlyStatementEntries';
 import { buildDailyCashFlow } from '../lib/cashFlowView';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { buildConsumptionAnalysis } from '../lib/consumptionAnalysis';
+import { buildMonthlyStatementCsv } from '../lib/monthlyStatementCsv';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
 
@@ -129,7 +130,7 @@ export function Reports() {
     if (isExportingPdf) return;
     setIsExportingPdf(true);
     try {
-      await generateTrendPDF({ trendData, budgetComparison, currentMonthStr });
+      await generateTrendPDF({ trendData, budgetComparison, currentMonthStr: selectedMonth });
     } catch (err) {
       console.error('PDF export error:', err);
       toast.error('Erro ao gerar PDF');
@@ -200,6 +201,16 @@ export function Reports() {
     : statementFilter === 'expense'
       ? monthlyStatement.expenseEntries
       : [...monthlyStatement.incomeEntries, ...monthlyStatement.expenseEntries].sort((a, b) => b.transaction.date.localeCompare(a.transaction.date));
+
+  const handleExportStatementCsv = () => {
+    const csv = buildMonthlyStatementCsv(monthlyStatement, accounts, categories, creditCards);
+    const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `fiducia-extrato-${selectedMonth}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   // ─── ABA 1: FLUXO DE CAIXA ───────────────────────────────────────────────
   const cashFlowMonths = useMemo(() => {
@@ -287,28 +298,30 @@ export function Reports() {
 
   // ─── ABA 3: TENDÊNCIA & ORÇAMENTOS ───────────────────────────────────────
   const trendData = useMemo(() => {
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const visibleDays = selectedMonth === currentMonthStr ? Math.min(now.getDate(), daysInMonth) : daysInMonth;
     let cumulative = 0;
-    return Array.from({ length: daysInMonth }, (_, i) => {
+    return Array.from({ length: visibleDays }, (_, i) => {
       const day = i + 1;
-      const dateStr = `${currentMonthStr}-${day.toString().padStart(2, '0')}`;
+      const dateStr = `${selectedMonth}-${day.toString().padStart(2, '0')}`;
       cumulative += transactions.filter(t => isExpense(t) && isEffectivelyPaid(t) && !isCreditCardTx(t) && !isTransfer(t) && t.date.startsWith(dateStr)).reduce((s, t) => s + t.amount, 0);
       return { day, amount: cumulative };
-    }).filter(d => d.day <= now.getDate());
-  }, [transactions, currentMonthStr]);
+    });
+  }, [transactions, selectedMonth, currentMonthStr]);
 
   const budgetComparison = useMemo(() => {
     return budgets
       .filter(b => b.period === 'monthly' || !b.period)
       .map(b => {
         const paradigm = localStorage.getItem('fiducia_budgetParadigm') || 'fracionado';
-        const spent = transactions.filter(t => isExpense(t) && isEffectivelyPaid(t) && t.categoryId === b.categoryId && t.date.startsWith(currentMonthStr)).reduce((s, t) => s + getBudgetImpact(t, paradigm), 0);
+        const spent = transactions.filter(t => isExpense(t) && isEffectivelyPaid(t) && t.categoryId === b.categoryId && t.date.startsWith(selectedMonth)).reduce((s, t) => s + getBudgetImpact(t, paradigm), 0);
         const cat = categories.find(c => c.id === b.categoryId);
         return { name: cat?.name || 'Geral', budget: b.amount, spent, diff: b.amount - spent, pct: b.amount > 0 ? Math.round((spent / b.amount) * 100) : 0 };
       })
       .filter(b => b.budget > 0 || b.spent > 0)
       .sort((a, b) => b.spent - a.spent);
-  }, [transactions, budgets, categories, currentMonthStr]);
+  }, [transactions, budgets, categories, selectedMonth]);
 
   // ─── ABA 4: PROJEÇÃO FUTURA ───────────────────────────────────────────────
   const projEndDate = useMemo(() => {
@@ -501,13 +514,13 @@ export function Reports() {
   );
 
   const tabs: { id: Tab; label: string; icon: any }[] = [
-    { id: 'statement', label: 'Extrato Mensal', icon: ReceiptText },
-    { id: 'cashflow', label: 'Fluxo de Caixa', icon: BarChart2 },
+    { id: 'statement', label: 'Extrato', icon: ReceiptText },
+    { id: 'cashflow', label: 'Fluxo', icon: BarChart2 },
     { id: 'categories', label: 'Consumo', icon: Target },
-    { id: 'trend', label: 'Tendência', icon: TrendingDown },
-    { id: 'projection', label: 'Projeção Futura', icon: TrendingUp },
+    { id: 'trend', label: 'Orçamento', icon: TrendingDown },
+    { id: 'projection', label: 'Futuro', icon: TrendingUp },
     { id: 'invoices', label: 'Faturas', icon: CreditCard },
-    { id: 'ai', label: 'Análise IA', icon: Brain },
+    { id: 'ai', label: 'IA', icon: Brain },
   ];
 
   return (
@@ -554,7 +567,7 @@ export function Reports() {
             { label: 'Extrato Mensal', desc: 'Reconcilia exatamente os cards mensais do Dashboard. Separa receitas recebidas, despesas pagas diretamente em conta e pagamentos de fatura, permitindo abrir cada lançamento que compõe os totais.' },
             { label: '1. Fluxo de Caixa', desc: 'No modo Mês, mostra a evolução diária do período selecionado e permite abrir os lançamentos de cada dia. As visões 3/6/12 meses comparam o histórico até esse mesmo mês. Pagamentos vinculados de fatura entram como saída; compras individuais do cartão não são duplicadas.' },
             { label: '2. Consumo', desc: 'Mostra onde o dinheiro foi gasto sem duplicar o pagamento da fatura. Compras de cartão usam o período da fatura; despesas diretas usam a data efetiva. Cada categoria separa conta/cartão, compara com o período anterior e abre seus lançamentos.' },
-            { label: '3. Tendência & Orçamento', desc: 'Curva cumulativa de despesas dia a dia dentro do mês atual, comparada com os limites de orçamento configurados. Mostra se você está gastando acima ou abaixo do planejado e projeta se ultrapassará o limite até o fim do mês.' },
+            { label: '3. Orçamento', desc: 'Curva cumulativa das despesas e comparação com os limites configurados para o mês selecionado. Permite consultar tanto o período atual quanto meses anteriores.' },
             { label: '4. Projeção Futura', desc: 'Simulação de saldo futuro projetando receitas a receber, despesas a pagar e faturas de cartão mês a mês. Use o seletor de período para definir o horizonte: 30 dias (rolante a partir de hoje), Próx. mês (até o último dia do mês seguinte), 3/6/12 meses (até o último dia do mês correspondente) ou data personalizada. Os filtros de tipo e categoria permitem isolar receitas ou despesas específicas. É possível incluir ou excluir investimentos do saldo inicial.' },
             { label: '4a. Cenários da Projeção', desc: 'Conservador: inclui apenas o que é certo — faturas já fechadas e transações bancárias pendentes. Responde "meu caixa quebra mesmo sem considerar nada incerto?".\n\nRealista (recomendado): inclui também a fatura em andamento (seus gastos atuais do cartão que ainda não fecharam). É o cenário de referência para o dia a dia.\n\nProjetado: cenário completo — inclui parcelamentos de meses futuros e regras de recorrência ativas. Revela se seu padrão de consumo atual é sustentável no médio prazo.' },
             { label: '5. Faturas de Cartão', desc: 'Análise detalhada das faturas ao longo do tempo: evolução mensal dos valores, participação de cada cartão no total e distribuição por status. Aberta = em andamento (você ainda está gastando). Fechada = valor definido, aguardando vencimento. Paga = já quitada. Futura = períodos posteriores com parcelamentos já contratados que ainda vão vencer.' },
@@ -569,12 +582,10 @@ export function Reports() {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
-<button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-2 sm:px-4 py-2.5 rounded-xl text-[13px] font-semibold whitespace-nowrap transition-all ${isActive ? 'bg-background shadow-sm text-foreground border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}>
+<button key={tab.id} onClick={() => setActiveTab(tab.id)} aria-current={isActive ? 'page' : undefined}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl text-[12px] sm:text-[13px] font-semibold whitespace-nowrap transition-all ${isActive ? 'bg-background shadow-sm text-foreground border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}>
               <Icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
-              {tab.id === 'projection' && <span className="hidden sm:inline text-[9px] font-bold bg-fiducia-blue text-white dark:text-background px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
-              {tab.id === 'invoices' && <span className="hidden sm:inline text-[9px] font-bold bg-fiducia-amber text-white dark:text-background px-1.5 py-0.5 rounded-full leading-none">Novo</span>}
+              <span>{tab.label}</span>
             </button>
           );
         })}
@@ -590,10 +601,15 @@ export function Reports() {
               <p className="text-sm font-bold text-foreground">Extrato financeiro mensal</p>
               <p className="mt-1 text-xs text-muted-foreground">A mesma composição dos cards do Dashboard, com pagamentos de fatura identificados separadamente.</p>
             </div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Mês de referência
-              <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="mt-1 block h-10 w-full rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground sm:w-44" />
-            </label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <Button variant="outline" size="sm" className="h-10 gap-1.5" onClick={handleExportStatementCsv}>
+                <FileDown className="h-3.5 w-3.5" /> Exportar CSV
+              </Button>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Mês de referência
+                <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="mt-1 block h-10 w-full rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground sm:w-44" />
+              </label>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -612,7 +628,7 @@ export function Reports() {
                 <FBtn active={statementFilter === 'expense'} onClick={() => setStatementFilter('expense')}>Despesas</FBtn>
               </div>
             </div>
-            <MonthlyStatementEntries entries={statementEntries} accounts={accounts} categories={categories} emptyMessage="Nenhum lançamento efetivado para este filtro." onOpenTransaction={(id) => openTxDialog({ editId: id })} />
+            <MonthlyStatementEntries entries={statementEntries} accounts={accounts} creditCards={creditCards} categories={categories} emptyMessage="Nenhum lançamento efetivado para este filtro." onOpenTransaction={(id) => openTxDialog({ editId: id })} />
           </div>
         </div>
       )}
@@ -871,18 +887,21 @@ export function Reports() {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <TrendingDown className="w-4 h-4 text-fiducia-blue" />
-              <h3 className="text-[15px] font-bold text-foreground">{fmtMonthYear(currentMonthStr)}</h3>
+              <h3 className="text-[15px] font-bold text-foreground">{fmtMonthYear(selectedMonth)}</h3>
             </div>
-            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportTrendPDF} disabled={isExportingPdf}>
-              <FileDown className="h-3.5 w-3.5" />
-              {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} aria-label="Mês do orçamento" className="h-8 rounded-xl border border-border bg-background px-2 text-xs font-semibold" />
+              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportTrendPDF} disabled={isExportingPdf}>
+                <FileDown className="h-3.5 w-3.5" />
+                {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+              </Button>
+            </div>
           </div>
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="p-5 border-b border-border">
               <div className="flex items-center gap-2">
                 <TrendingDown className="w-4 h-4 text-fiducia-blue" />
-                <h3 className="text-[15px] font-bold text-foreground">Evolução de Gastos — Mês Atual</h3>
+                <h3 className="text-[15px] font-bold text-foreground">Evolução de Gastos — {fmtMonthYear(selectedMonth)}</h3>
               </div>
               <p className="text-[12px] text-muted-foreground mt-0.5">Curva cumulativa diária das despesas realizadas em conta corrente</p>
             </div>
@@ -916,7 +935,7 @@ export function Reports() {
                 <h3 className="text-[15px] font-bold text-foreground">Orçado × Realizado</h3>
               </div>
               <p className="text-[12px] text-muted-foreground mt-0.5">
-                {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })} — somente despesas efetivadas
+                {fmtMonthYear(selectedMonth)} — somente despesas efetivadas
               </p>
             </div>
             <div className="p-5">

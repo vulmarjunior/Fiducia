@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.12.0` |
+| **Versão atual** | `0.13.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-05 (Consumo investigável v0.12.0) |
+| **Última alteração em código** | 2026-08-05 (Relatórios organizados e exportáveis v0.13.0) |
 | **Último deploy** | 2026-08-05 — v0.10.0 no Vercel (`READY`) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -57,7 +57,7 @@ npm run build      # vite build
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
 | Conciliação | ✅ Funcional | OFX/CSV, auto-match, AI match, AI análise de divergências |
-| Relatórios | ✅ Funcional | Caixa, Extrato e Consumo investigáveis; projeção futura e análise de faturas |
+| Relatórios | ✅ Funcional | Caixa, Extrato e Consumo investigáveis; CSV mensal; orçamento histórico; projeção e faturas |
 | Auditoria | ✅ Funcional | Diagnóstico, correção de saldo, reabertura de períodos |
 | Orçamentos | ✅ Funcional | Metas por categoria, tabela Orçado x Realizado |
 | Metas | ✅ Funcional | Metas financeiras com progresso |
@@ -66,7 +66,7 @@ npm run build      # vite build
 | Autenticação | ✅ Funcional | Google Auth + modo convidado anônimo |
 | PWA | ✅ Instalável | iOS meta tags, update com toast |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
-| Testes | ✅ Automatizados | 82 testes locais + 2 cenários com Firebase Emulator no CI |
+| Testes | ✅ Automatizados | 84 testes locais + 2 cenários com Firebase Emulator no CI |
 
 ---
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-08-05 | v0.13.0 — Relatórios organizados e exportáveis | Relatórios / CSV / Mobile |
 | 2026-08-05 | v0.12.0 — Consumo investigável | Relatórios / Cartões / Categorias |
 | 2026-08-05 | v0.11.0 — Fluxo de Caixa mensal investigável | Relatórios / Dashboard / Mobile |
 | 2026-08-05 | v0.10.0 — Extrato Mensal investigável | Dashboard / Relatórios / Mobile |
