@@ -14,7 +14,7 @@
 | **Versão atual** | `0.14.0` |
 | **Modelo de versionamento** | SemVer |
 | **Última alteração em código** | 2026-08-05 (Margem de Caixa decisória v0.14.0) |
-| **Último deploy** | 2026-08-05 — v0.10.0 no Vercel (`READY`) |
+| **Último deploy** | 2026-08-05 — v0.14.0 no Vercel (`READY`) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
