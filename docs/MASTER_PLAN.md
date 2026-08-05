@@ -14,7 +14,7 @@
 | **Versão atual** | `0.10.0` |
 | **Modelo de versionamento** | SemVer |
 | **Última alteração em código** | 2026-08-05 (Extrato Mensal investigável v0.10.0) |
-| **Último deploy** | 2026-08-05 — v0.9.1 no Vercel (produção validada) |
+| **Último deploy** | 2026-08-05 — v0.10.0 no Vercel (`READY`) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 

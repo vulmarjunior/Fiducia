@@ -29,6 +29,7 @@ Permitir que o usuário identifique os lançamentos que formam os cards mensais 
 - 78 testes aprovados; 2 cenários de emulador ignorados sem host local.
 - Build de produção concluído.
 - Aplicação local sem overlay ou erros de console.
+- Commit `740bc8c` publicado na `main`; deployment de produção confirmado como `READY` no Vercel.
 
 ## Segurança
 

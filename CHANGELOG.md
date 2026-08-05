@@ -26,6 +26,7 @@
 - `npx vitest run --maxWorkers=1` — 78 testes aprovados; 2 testes de emulador ignorados sem host local.
 - `npm run build` — build de produção concluído.
 - Aplicação local carregada sem tela em branco, overlay do Vite ou erros de console.
+- Deploy de produção no Vercel concluído com estado `READY` para o commit `740bc8c` e alias `fiducianew.vercel.app`.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
