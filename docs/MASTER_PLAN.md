@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.15.0` |
+| **Versão atual** | `0.15.1` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-05 (Fluxo e Faturas sem alarmismo v0.15.0) |
+| **Última alteração em código** | 2026-08-06 (Projeção futura com escalas separadas v0.15.1) |
 | **Último deploy** | 2026-08-05 — v0.14.0 no Vercel (`READY`) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-08-06 | v0.15.1 — Projeção futura com escalas separadas | Relatórios / Projeção / UX financeira |
 | 2026-08-05 | v0.15.0 — Fluxo e Faturas sem alarmismo | Relatórios / Cartões / UX financeira |
 | 2026-08-05 | v0.14.0 — Margem de Caixa decisória | Dashboard / Relatórios / Previsão |
 | 2026-08-05 | v0.13.0 — Relatórios organizados e exportáveis | Relatórios / CSV / Mobile |

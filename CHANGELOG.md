@@ -5,6 +5,27 @@
 
 ---
 
+## [0.15.1] — 2026-08-06 — Projeção Futura com Escalas Separadas
+
+**Resultado:** A Projeção Futura deixa de misturar compromissos mensais positivos e saldo projetado negativo no mesmo eixo. Entradas e saídas passam a ocupar um gráfico de barras iniciado em zero, enquanto a evolução do saldo aparece separadamente e parte do saldo atual.
+
+**Alterações técnicas:**
+- `src/pages/Reports.tsx` — separação do gráfico composto em “Compromissos por mês” e “Evolução do saldo projetado”.
+- O gráfico de saldo inclui o ponto inicial “Hoje”, linha de referência em zero e explicação de que valores negativos representam falta de cobertura projetada, não despesa mensal.
+- Layout responsivo em uma coluna nas telas menores e duas colunas em telas largas.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.15.1`.
+
+**Segurança operacional:**
+- Mudança exclusivamente de leitura e apresentação; nenhum documento do Firestore foi alterado.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- Testes e build aguardam repetição em ambiente que permita iniciar o processo do Vite; a sandbox local bloqueou `spawn` com `EPERM`.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.15.0] — 2026-08-05 — Fluxo e Faturas sem Alarmismo
 
 **Resultado:** Fluxo de Caixa deixa claro que seu resultado acumulado não é saldo bancário e passa a exibir cards coerentes com o horizonte escolhido. Faturas separa obrigações atuais, consumo em andamento, próximos 90 dias e histórico pago.

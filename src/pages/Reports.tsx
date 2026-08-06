@@ -6,7 +6,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, ComposedChart, Line, ReferenceLine,
+  PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, ReferenceLine,
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Target, Sparkles, Loader2, Brain,
@@ -412,8 +412,15 @@ export function Reports() {
       name: m.shortLabel.charAt(0).toUpperCase() + m.shortLabel.slice(1),
       'A Receber': m.incomeTotal,
       'A Pagar': m.expenseTotal + m.invoiceTotal,
-      Acumulado: m.accum,
     })), [projectionData]);
+
+  const projBalanceChartData = useMemo(() => [
+    { name: 'Hoje', 'Saldo projetado': cashCoverageProjection.startingBalance },
+    ...projectionData.map(m => ({
+      name: m.shortLabel.charAt(0).toUpperCase() + m.shortLabel.slice(1),
+      'Saldo projetado': m.accum,
+    })),
+  ], [cashCoverageProjection.startingBalance, projectionData]);
 
   const filteredProjData = projectionData;
 
@@ -1120,36 +1127,61 @@ export function Reports() {
             </div>
           </div>
 
-          {/* Gráfico */}
+          {/* Gráficos */}
           {projChartData.length > 1 && (
+            <div className="grid gap-4 xl:grid-cols-2">
             <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between p-5 border-b border-border">
+              <div className="flex flex-col gap-3 p-5 border-b border-border sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-fiducia-blue" />
-                    <h3 className="text-[15px] font-bold text-foreground">Projeção Mensal</h3>
+                    <h3 className="text-[15px] font-bold text-foreground">Compromissos por mês</h3>
                   </div>
-                  <p className="text-[12px] text-muted-foreground mt-0.5">Comprometimentos mensais + saldo acumulado projetado</p>
+                  <p className="text-[12px] text-muted-foreground mt-0.5">Entradas e saídas previstas no período</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-green" />A Receber</div>
                   <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-red" />A Pagar</div>
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-blue" />Acumulado</div>
                 </div>
               </div>
               <div className="p-5">
                 <ResponsiveContainer width="100%" height={280}>
-                  <ComposedChart data={projChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <BarChart data={projChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
+                    <YAxis domain={[0, 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
                     <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                     <Bar dataKey="A Receber" fill="#22c55e" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="A Pagar" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    <Line type="monotone" dataKey="Acumulado" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 4 }} />
-                  </ComposedChart>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-fiducia-blue" />
+                  <h3 className="text-[15px] font-bold text-foreground">Evolução do saldo projetado</h3>
+                </div>
+                <p className="text-[12px] text-muted-foreground mt-0.5">Parte do saldo atual das contas e incorpora os compromissos futuros</p>
+              </div>
+              <div className="p-5">
+                <ResponsiveContainer width="100%" height={240}>
+                  <AreaChart data={projBalanceChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
+                    <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    <ReferenceLine y={0} stroke="currentColor" strokeOpacity={0.55} ifOverflow="extendDomain" />
+                    <Area type="monotone" dataKey="Saldo projetado" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.12} strokeWidth={2.5} />
+                  </AreaChart>
+                </ResponsiveContainer>
+                <p className="mt-3 text-[11px] text-muted-foreground">
+                  Saldo inicial: <span className="font-mono font-semibold text-foreground">{fmt(cashCoverageProjection.startingBalance)}</span>. Valores abaixo de zero indicam falta de cobertura projetada, não despesa mensal.
+                </p>
+              </div>
+            </div>
             </div>
           )}
 
