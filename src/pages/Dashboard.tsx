@@ -3,14 +3,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, Sparkles, Loader2, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
+import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLocalDate, projectDailyBalance, getBudgetImpact } from '../lib/utils';
-import { callGroq } from '../services/groqService';
-import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
 import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
 import { migrateCategoryIds } from '../services/categoryMigration';
@@ -34,8 +32,6 @@ export function Dashboard() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [recurrenceRules, setRecurrenceRules] = useState<any[]>([]);
   const [showValues, setShowValues] = useState(true);
-  const [aiTip, setAiTip] = useState<string>('');
-  const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [periodFilter, setPeriodFilter] = useState<'week' | 'month' | 'year'>('month');
   const [extraSectionsOpen, setExtraSectionsOpen] = useState(false);
   const [showPendingChart, setShowPendingChart] = useState(false);
@@ -132,82 +128,6 @@ export function Dashboard() {
       }
     }).catch(() => {});
   }, [user, categories.length, transactions.length]);
-
-  const fetchAiTip = async () => {
-    if (!user || transactions.length < 5 || isLoadingAi) return;
-    setIsLoadingAi(true);
-    try {
-      const prevMonthStr = getPreviousPeriod(currentMonthStr);
-
-      const isAccountTx = (t: any) => !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer';
-
-      const monthExpenses = transactions.filter(t => isAccountTx(t) && (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t) && t.date.startsWith(currentMonthStr));
-      const monthIncome = transactions.filter(t => isAccountTx(t) && (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t) && t.date.startsWith(currentMonthStr));
-      const prevExpenses = transactions.filter(t => isAccountTx(t) && (t.type === 'despesa' || t.type === 'expense') && isEffectivelyPaid(t) && t.date.startsWith(prevMonthStr));
-      const prevIncome = transactions.filter(t => isAccountTx(t) && (t.type === 'receita' || t.type === 'income') && isEffectivelyPaid(t) && t.date.startsWith(prevMonthStr));
-
-      const totalExpense = monthExpenses.reduce((sum, t) => sum + t.amount, 0);
-      const totalIncome = monthIncome.reduce((sum, t) => sum + t.amount, 0);
-      const prevExpenseTotal = prevExpenses.reduce((sum, t) => sum + t.amount, 0);
-      const prevIncomeTotal = prevIncome.reduce((sum, t) => sum + t.amount, 0);
-
-      const topCategories = monthExpenses.reduce<Record<string, number>>((acc, t) => {
-        const catName = categories.find(c => c.id === t.categoryId)?.name || 'Geral';
-        acc[catName] = (acc[catName] || 0) + t.amount;
-        return acc;
-      }, {});
-      const sortedCategories = Object.entries(topCategories)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([name, amount]) => `${name}: R$ ${amount.toFixed(2)}`)
-        .join('\n');
-
-      const expenseTrend = prevExpenseTotal > 0 ? ((totalExpense - prevExpenseTotal) / prevExpenseTotal * 100).toFixed(0) : null;
-      const incomeTrend = prevIncomeTotal > 0 ? ((totalIncome - prevIncomeTotal) / prevIncomeTotal * 100).toFixed(0) : null;
-
-      const saldoCirculanteLocal = accounts.filter(a => !a.excludeFromCashFlow).reduce((sum, a) => sum + (a.balance || 0), 0);
-      const totalPendingExpenses = transactions.filter(t => isAccountTx(t) && (t.type === 'despesa' || t.type === 'expense') && (t.status === 'pendente' || t.status === 'pending') && t.date.startsWith(currentMonthStr)).reduce((sum, t) => sum + t.amount, 0);
-      const totalPendingIncome = transactions.filter(t => isAccountTx(t) && (t.type === 'receita' || t.type === 'income') && (t.status === 'pendente' || t.status === 'pending') && t.date.startsWith(currentMonthStr)).reduce((sum, t) => sum + t.amount, 0);
-      const gastosCartaoLocal = invoices.filter(i => i.status === 'aberta' || i.status === 'fechada' || i.status === 'parcial').reduce((sum, i) => {
-        const remaining = i.status === 'parcial' ? Math.max(0, (i.totalAmount || 0) - (i.paidAmount || 0)) : (i.totalAmount || 0);
-        return sum + remaining;
-      }, 0);
-      const disponivelSeguro = saldoCirculanteLocal + totalPendingIncome - gastosCartaoLocal - totalPendingExpenses;
-
-      const prompt = `Você é o assistente Fiducia, um consultor financeiro pessoal direto. Analise os dados financeiros REAIS (apenas transações efetivadas em conta corrente, sem cartão de crédito) e dê 1 insight curto (até 100 caracteres) em Português.
-
-Mês: ${currentMonthStr}
-Receitas recebidas: R$ ${totalIncome.toFixed(2)} ${incomeTrend ? `(${Number(incomeTrend) > 0 ? '+' : ''}${incomeTrend}% vs mês anterior)` : ''}
-Despesas pagas: R$ ${totalExpense.toFixed(2)} ${expenseTrend ? `(${Number(expenseTrend) > 0 ? '+' : ''}${expenseTrend}% vs mês anterior)` : ''}
-Saldo em conta: R$ ${saldoCirculanteLocal.toFixed(2)}
-Previsão de caixa (saldo + receitas a receber - despesas pendentes - faturas): R$ ${disponivelSeguro.toFixed(2)}
-
-Top gastos: ${sortedCategories || 'Nenhum'}
-${totalPendingExpenses > 0 ? `Despesas pendentes no mês: R$ ${totalPendingExpenses.toFixed(2)}` : ''}
-${gastosCartaoLocal > 0 ? `Faturas de cartão a pagar: R$ ${gastosCartaoLocal.toFixed(2)}` : ''}
-
-Regras OBRIGATÓRIAS:
-- Se a previsão de caixa (disponivel) for negativa, ALERTE sobre risco de não cobrir as contas
-- Se receitas caíram E despesas subiram, alerte sobre desequilíbrio (nunca diga "mantenha o ritmo")
-- Se receitas subiram E despesas caíram, reconheça o progresso
-- Se houver gasto concentrado em 1 categoria, sugira atenção a ela
-- Responda APenas com o insight, sem marcadores, sem introdução`;
-
-      const tip = await callGroq([{ role: "user", content: prompt }], { maxTokens: 200 });
-      setAiTip(tip);
-    } catch (error) {
-      console.error("Dashboard AI Tip error:", error);
-      toast.error('Não foi possível carregar a dica financeira.');
-    } finally {
-      setIsLoadingAi(false);
-    }
-  };
-
-  useEffect(() => {
-    if (transactions.length >= 1 && !aiTip) {
-      fetchAiTip();
-    }
-  }, [transactions.length]);
 
   const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
   
@@ -465,7 +385,6 @@ Regras OBRIGATÓRIAS:
         <div>
           <div className="text-[13px] text-muted-foreground font-medium mb-1 flex items-center gap-2">
             {greetingEmoji} {greeting}, {user?.displayName?.split(' ')[0] || 'Usuário'}
-            {isLoadingAi && !aiTip && <Loader2 className="w-3 h-3 animate-spin text-fiducia-blue" />}
           </div>
           <div className="text-[28px] font-bold tracking-tight text-foreground">Visão Geral</div>
         </div>
@@ -496,7 +415,6 @@ Regras OBRIGATÓRIAS:
               { label: "Margem de Caixa", desc: "Calcula quanto pode ser assumido em novos compromissos sem consumir a reserva protegida, usando o menor saldo previsto nos próximos 90 dias." },
               { label: "Gráfico de Caixa", desc: "Mapeia a evolução real. Ele ignora transferências entre contas e não duplica despesas individuais do cartão de crédito (considera apenas o vencimento consolidado das faturas)." },
               { label: "Resolução de Timezone", desc: "Todas as datas do gráfico consideram o fuso horário local, garantindo que lançamentos de fim de mês caiam no período correto." },
-              { label: "Dica IA", desc: "Análise autônoma com base nos seus gastos reais em conta corrente (ignora cartão para evitar distorções)." },
             ]}
           />
           <Button className="h-10 px-4 text-sm font-semibold rounded-xl gap-2 bg-primary text-primary-foreground hover:opacity-90 transition-opacity" onClick={() => openTxDialog()}>
@@ -519,29 +437,6 @@ Regras OBRIGATÓRIAS:
           }}
         />
       )}
-      {/* AI Tip Card */}
-      {(aiTip || isLoadingAi) && (
-        <div className="bg-gradient-to-br from-fiducia-blue/5 via-transparent to-emerald-500/5 border border-border/60 rounded-2xl p-4 mb-6 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 via-cyan-400 to-blue-500 flex items-center justify-center shrink-0 mt-0.5">
-              {isLoadingAi ? (
-                <Loader2 className="w-4 h-4 animate-spin text-white dark:text-[#0a101c]" />
-              ) : (
-                <Sparkles className="w-4 h-4 text-white dark:text-[#0a101c]" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                Insight Financeiro
-              </div>
-              <div className="text-sm text-foreground leading-relaxed">
-                {aiTip || 'Analisando seus dados...'}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {/* Saldo Total */}

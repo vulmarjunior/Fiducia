@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, getDoc, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -12,6 +12,7 @@ import { logActivity } from '../services/activityLogService';
 import { toast } from 'sonner';
 import { PageHelp } from '../components/PageHelp';
 import { useNavigate } from 'react-router-dom';
+import { APP_VERSION } from '../lib/utils';
 
 const RESET_COLLECTIONS = [
   'transactions',
@@ -22,6 +23,8 @@ const RESET_COLLECTIONS = [
   'closedPeriods',
   'tags',
   'recurrenceRules',
+  'installments',
+  'importCandidates',
   'reconciliationHistory',
   'activityLogs',
 ] as const;
@@ -56,7 +59,7 @@ export function SettingsPage() {
     setExporting(true);
 
     try {
-      const collections = [
+      const collectionNames = [
         'accounts',
         'creditCards',
         'categories',
@@ -67,17 +70,34 @@ export function SettingsPage() {
         'invoices',
         'closedPeriods',
         'recurrenceRules',
+        'installments',
+        'importCandidates',
         'reconciliationHistory',
         'activityLogs',
       ];
 
-      const backupData: Record<string, any> = {};
-
-      for (const colName of collections) {
-        const q = query(collection(db, colName), where('userId', '==', user.uid));
-        const snapshot = await getDocs(q);
-        backupData[colName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      }
+      const [collectionEntries, userSnapshot] = await Promise.all([
+        Promise.all(collectionNames.map(async colName => {
+          const q = query(collection(db, colName), where('userId', '==', user.uid));
+          const snapshot = await getDocs(q);
+          return [colName, snapshot.docs.map(item => ({ id: item.id, ...item.data() }))] as const;
+        })),
+        getDoc(doc(db, 'users', user.uid)),
+      ]);
+      const collections = Object.fromEntries(collectionEntries);
+      const preferences = Object.fromEntries(
+        Object.keys(localStorage)
+          .filter(key => key.startsWith('fiducia_'))
+          .map(key => [key, localStorage.getItem(key)]),
+      );
+      const backupData = {
+        schemaVersion: 1,
+        appVersion: APP_VERSION,
+        exportedAt: new Date().toISOString(),
+        user: userSnapshot.exists() ? { id: userSnapshot.id, ...userSnapshot.data() } : null,
+        preferences,
+        collections,
+      };
 
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -123,6 +143,11 @@ export function SettingsPage() {
         }
       }
 
+      if (errors.length > 0) {
+        toast.error(`O reset foi interrompido por falhas em: ${errors.join(', ')}. Os saldos das contas não foram alterados.`);
+        return;
+      }
+
       const accQuery = query(collection(db, 'accounts'), where('userId', '==', user.uid));
       const accSnapshot = await getDocs(accQuery);
       const accDocs = accSnapshot.docs;
@@ -131,17 +156,14 @@ export function SettingsPage() {
         const batch = writeBatch(db);
         const chunk = accDocs.slice(i, i + 450);
         for (const d of chunk) {
-          batch.update(doc(db, 'accounts', d.id), { balance: 0 });
+          batch.update(doc(db, 'accounts', d.id), { balance: 0, initialBalance: 0 });
         }
         await batch.commit();
       }
 
-      if (errors.length > 0) {
-        toast.warning(`Reset concluído com avisos em: ${errors.join(', ')}`);
-      } else {
-        logActivity({ userId: user.uid, action: 'delete', entityType: 'account', entityId: 'all', description: 'Aplicação resetada' }).catch(() => {});
-        toast.success('Aplicação resetada com sucesso! Seus dados estão como novos.');
-      }
+      Object.keys(localStorage).filter(key => key.startsWith('fiducia_')).forEach(key => localStorage.removeItem(key));
+      logActivity({ userId: user.uid, action: 'delete', entityType: 'account', entityId: 'all', description: 'Aplicação resetada' }).catch(() => {});
+      toast.success('Aplicação resetada com sucesso! Seus dados estão como novos.');
 
       setResetDialogOpen(false);
       setResetStep(1);
@@ -167,7 +189,7 @@ export function SettingsPage() {
             title="Configurações"
             description="Exporte seus dados financeiros ou redefina completamente o sistema."
             items={[
-              { label: "Exportar Dados", desc: "Baixe todas as suas transações em formato CSV para análise externa." },
+              { label: "Exportar Dados", desc: "Baixe um backup JSON com os dados, perfil e preferências do Fiducia." },
               { label: "Resetar Sistema", desc: "Remove todos os seus dados (transações, contas, cartões, etc.). Use com extrema cautela." },
             ]}
           />
@@ -183,7 +205,7 @@ export function SettingsPage() {
             Exportação de Dados
           </CardTitle>
           <CardDescription>
-            Exporte todos os seus dados cadastrados para backup em formato JSON. Inclui contas, cartões, lançamentos, categorias, tags, orçamentos, metas e histórico de auditoria.
+            Exporte todos os dados cadastrados para backup em formato JSON, incluindo perfil, preferências, importações, parcelamentos e histórico de auditoria.
           </CardDescription>
         </CardHeader>
         <CardContent>

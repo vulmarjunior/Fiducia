@@ -181,7 +181,7 @@ describe('buildInvoiceAnalysis', () => {
   });
 
   it('detecta faturas futuras com parcelas pendentes', () => {
-    const today = new Date();
+    const today = new Date(2026, 7, 5);
     const m1 = today.getMonth() + 2;
     const m2 = today.getMonth() + 3;
     const y1 = today.getFullYear() + Math.floor(m1 / 12);
@@ -196,6 +196,7 @@ describe('buildInvoiceAnalysis', () => {
         { id: 'tx-2', type: 'despesa', status: 'pendente', amount: 100, date: `${period2}-25`, description: 'Parcela 3/6', accountId: 'card-1', invoicePeriod: period2, installmentNumber: 3, totalInstallments: 6 },
       ],
       invoices: [],
+      referenceDate: today,
       startDate: new Date(today.getFullYear(), today.getMonth(), 1),
       endDate: new Date(y2, (m2 % 12) + 1, 0),
     });

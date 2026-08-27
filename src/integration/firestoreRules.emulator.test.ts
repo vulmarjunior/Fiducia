@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 const describeWithEmulator = process.env.FIRESTORE_EMULATOR_HOST ? describe : describe.skip;
 const createdAt = '2026-08-04T12:00:00.000Z';
+const ownerToken = { email: 'vulmarjunior@gmail.com', email_verified: true };
 
 describeWithEmulator('Firestore security rules', () => {
   let testEnvironment: RulesTestEnvironment;
@@ -20,8 +21,9 @@ describeWithEmulator('Firestore security rules', () => {
   afterAll(async () => testEnvironment.cleanup());
 
   it('blocks unauthenticated access and isolates data by user', async () => {
-    const userA = testEnvironment.authenticatedContext('user-a').firestore();
-    const userB = testEnvironment.authenticatedContext('user-b').firestore();
+    const userA = testEnvironment.authenticatedContext('user-a', ownerToken).firestore();
+    const userB = testEnvironment.authenticatedContext('user-b', ownerToken).firestore();
+    const outsider = testEnvironment.authenticatedContext('outsider', { email: 'outra-pessoa@example.com', email_verified: true }).firestore();
     const anonymous = testEnvironment.unauthenticatedContext().firestore();
     const accountRef = doc(userA, 'accounts/account-a');
 
@@ -30,8 +32,18 @@ describeWithEmulator('Firestore security rules', () => {
     }));
     await assertFails(getDoc(doc(anonymous, 'accounts/account-a')));
     await assertFails(getDoc(doc(userB, 'accounts/account-a')));
+    await assertFails(getDoc(doc(outsider, 'accounts/account-a')));
     await assertFails(setDoc(doc(userB, 'accounts/forged'), {
       userId: 'user-a', name: 'Conta forjada', type: 'checking', balance: 0, createdAt,
+    }));
+  });
+
+  it('accepts the owner profile without multi-user roles', async () => {
+    const firestore = testEnvironment.authenticatedContext('user-a', ownerToken).firestore();
+    await assertSucceeds(setDoc(doc(firestore, 'users/user-a'), {
+      email: ownerToken.email,
+      name: 'Proprietario',
+      createdAt,
     }));
   });
 
@@ -47,7 +59,7 @@ describeWithEmulator('Firestore security rules', () => {
       });
     });
 
-    const firestore = testEnvironment.authenticatedContext('user-a').firestore();
+    const firestore = testEnvironment.authenticatedContext('user-a', ownerToken).firestore();
     const accountRef = doc(firestore, 'accounts/account-a');
     const invoiceRef = doc(firestore, 'invoices/invoice-a');
 

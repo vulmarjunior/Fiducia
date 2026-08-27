@@ -7,7 +7,9 @@ service cloud.firestore {
     // Helper Functions
     // ===============================================================
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null &&
+             request.auth.token.email_verified == true &&
+             request.auth.token.email == "vulmarjunior@gmail.com";
     }
 
     function isOwner(userId) {
@@ -50,10 +52,11 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return hasRequiredFields(['email', 'createdAt', 'role']) &&
+      return hasRequiredFields(['email', 'createdAt']) &&
              isValidEmail(data.email) &&
+             data.email == request.auth.token.email &&
              isValidDate(data.createdAt) &&
-             data.role in ['admin', 'client'] &&
+             (!('role' in data) || data.role in ['admin', 'client']) &&
              (!('name' in data) || (data.name is string && data.name.size() < 100));
     }
 
@@ -97,12 +100,6 @@ service cloud.firestore {
              data.name is string && data.name.size() > 0 && data.name.size() < 50 &&
              data.color is string && data.color.matches("^#[0-9a-fA-F]{6}$") &&
              isValidDate(data.createdAt);
-    }
-
-    function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "vulmarjunior@gmail.com" && request.auth.token.email_verified == true));
     }
 
     function isValidTransaction(data) {
@@ -267,10 +264,10 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuthenticated() && isValidUser(request.resource.data) && ((isOwner(userId) && request.resource.data.role == 'client') || isAdmin());
-      allow update: if isAuthenticated() && isValidUser(request.resource.data) && ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());
-      allow delete: if isAdmin();
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if isOwner(userId);
     }
 
     match /accounts/{accountId} {

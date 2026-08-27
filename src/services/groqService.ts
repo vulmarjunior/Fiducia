@@ -11,6 +11,18 @@ interface GroqOptions {
   model?: string;
   maxTokens?: number;
   temperature?: number;
+  timeoutMs?: number;
+}
+
+function getErrorMessage(payload: unknown): string {
+  if (typeof payload === 'string') return payload;
+  if (!payload || typeof payload !== 'object') return 'Resposta de erro inválida.';
+  const error = (payload as { error?: unknown }).error;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return 'Erro não detalhado pelo serviço de IA.';
 }
 
 export async function callGroq(
@@ -21,10 +33,11 @@ export async function callGroq(
     model = "llama-3.3-70b-versatile",
     maxTokens = 500,
     temperature = 0.7,
+    timeoutMs = maxTokens > 1500 ? 55000 : 45000,
   } = options;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
+  const timeout = setTimeout(() => controller.abort(), Math.min(Math.max(timeoutMs, 10000), 55000));
 
   let response: Response;
   try {
@@ -47,7 +60,7 @@ export async function callGroq(
     });
   } catch (err: any) {
     clearTimeout(timeout);
-    if (err.name === 'AbortError') throw new Error('Groq API demorou demais (timeout 45s). Tente novamente.');
+    if (err.name === 'AbortError') throw new Error('O serviço de IA excedeu o tempo limite. Tente novamente.');
     throw err;
   }
   clearTimeout(timeout);
@@ -55,7 +68,7 @@ export async function callGroq(
   if (!response.ok) {
     const errorText = await response.text();
     let message = errorText;
-    try { message = JSON.parse(errorText)?.error || errorText; } catch { /* resposta textual */ }
+    try { message = getErrorMessage(JSON.parse(errorText)); } catch { /* resposta textual */ }
     throw new Error(`Serviço de IA (${response.status}): ${message}`);
   }
 

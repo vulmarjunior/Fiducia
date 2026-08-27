@@ -5,6 +5,32 @@
 
 ---
 
+## [0.15.2] — 2026-08-27 — Estabilização de IA, Importação e Acesso Pessoal
+
+**Resultado:** O Dashboard deixa de consumir IA automaticamente, as integrações Groq sob demanda passam a ter proxy e limites compatíveis com importações extensas, transferências da Central de Importação atualizam as duas contas e backup/reset cobrem as coleções atuais.
+
+**Alterações técnicas:**
+- `api/groq.ts`, `src/services/groqService.ts` e `vercel.json` — rota server-side explícita, acesso restrito ao proprietário, validação de mensagens, timeout, erros legíveis e limite de saída de até 6.000 tokens.
+- `src/pages/Dashboard.tsx` — remoção completa da dica financeira automática e de seus estados, prompt, toast e apresentação.
+- `src/components/Logo.tsx` — selo visual alinhado à versão oficial do aplicativo.
+- `src/services/importCandidateService.ts` e `src/pages/ImportCenter.tsx` — conta de destino obrigatória, confirmação manual de transferências e atualização atômica dos saldos de origem e destino.
+- `src/pages/Settings.tsx` — backup versionado com perfil, preferências, parcelamentos e candidatos de importação; reset inclui as coleções atuais e zera `balance`/`initialBalance` somente após exclusões sem erro.
+- `firestore.rules` e `src/integration/firestoreRules.emulator.test.ts` — política simplificada de proprietário único, sem dependência de `role`, mantendo isolamento por `userId`.
+- `src/lib/invoiceAnalysis.test.ts` — referência temporal fixa, eliminando flutuação conforme a data de execução.
+- `package.json`, `package-lock.json` e `APP_VERSION` — versão `0.15.2`.
+
+**Validações:**
+- `npm run lint` — sem erros.
+- `npm run test -- --maxWorkers=1` — 90 testes aprovados; 3 cenários de emulador ignorados nessa execução.
+- `npm run build` — build de produção concluído.
+- `npm run test:emulator` — não executado localmente porque o ambiente possui Java 8 e o Firebase CLI exige Java 21; o workflow de CI provisiona Java 21.
+
+**Impacto operacional:** a v0.15.2 ainda precisa ser publicada para que `/api/groq` e as novas regras entrem em produção. Configurar `GROQ_API_KEY` e, opcionalmente, `FIDUCIA_OWNER_EMAIL` no ambiente da Vercel.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.15.1] — 2026-08-06 — Projeção Futura com Escalas Separadas
 
 **Resultado:** A Projeção Futura deixa de misturar compromissos mensais positivos e saldo projetado negativo no mesmo eixo. Entradas e saídas passam a ocupar um gráfico de barras iniciado em zero, enquanto a evolução do saldo aparece separadamente e parte do saldo atual.

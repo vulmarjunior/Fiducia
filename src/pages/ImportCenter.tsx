@@ -351,7 +351,8 @@ export function ImportCenter() {
     for (const candidate of selectedPendingCandidates) {
       if (!candidate.id) continue;
       const input = buildInitialForm(candidate);
-      if (!input.amount || !input.description || (!input.accountId && !input.creditCardId)) {
+      const isTransfer = input.type === 'transferencia' || input.type === 'transfer';
+      if (!input.amount || !input.description || (!input.accountId && !input.creditCardId) || isTransfer) {
         skipped++;
         continue;
       }
@@ -381,6 +382,15 @@ export function ImportCenter() {
     }
     if (!form.creditCardId && !form.accountId) {
       toast.error('Selecione uma conta ou cartao.');
+      return;
+    }
+    const isTransfer = form.type === 'transferencia' || form.type === 'transfer';
+    if (isTransfer && !form.destinationAccountId) {
+      toast.error('Selecione a conta de destino.');
+      return;
+    }
+    if (isTransfer && form.accountId === form.destinationAccountId) {
+      toast.error('As contas de origem e destino devem ser diferentes.');
       return;
     }
 
@@ -608,7 +618,10 @@ export function ImportCenter() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label>Tipo</Label>
-                    <select value={form.type} onChange={event => setForm({ ...form, type: event.target.value as ConfirmImportCandidateInput['type'] })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
+                    <select value={form.type} onChange={event => {
+                      const type = event.target.value as ConfirmImportCandidateInput['type'];
+                      setForm({ ...form, type, ...(type === 'transferencia' ? { creditCardId: '' } : { destinationAccountId: undefined }) });
+                    }} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
                       <option value="despesa">Despesa</option>
                       <option value="receita">Receita</option>
                       <option value="transferencia">Transferencia</option>
@@ -641,16 +654,26 @@ export function ImportCenter() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label>Conta</Label>
+                  <Label>{form.type === 'transferencia' || form.type === 'transfer' ? 'Conta de origem' : 'Conta'}</Label>
                   <select value={form.accountId || ''} onChange={event => setForm({ ...form, accountId: event.target.value, creditCardId: '', status: 'pago' })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
                     <option value="">Selecione uma conta</option>
                     {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
                   </select>
                 </div>
 
+                {(form.type === 'transferencia' || form.type === 'transfer') && (
+                  <div className="space-y-1">
+                    <Label htmlFor="import-destination-account">Conta de destino</Label>
+                    <select id="import-destination-account" value={form.destinationAccountId || ''} onChange={event => setForm({ ...form, destinationAccountId: event.target.value })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
+                      <option value="">Selecione a conta de destino</option>
+                      {accounts.filter(account => account.id !== form.accountId).map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+                    </select>
+                  </div>
+                )}
+
                 <div className="space-y-1">
                   <Label>Cartao</Label>
-                  <select value={form.creditCardId || ''} onChange={event => setForm({ ...form, creditCardId: event.target.value, accountId: '', status: 'realizado' })} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm dark:bg-input/50">
+                  <select value={form.creditCardId || ''} onChange={event => setForm({ ...form, creditCardId: event.target.value, accountId: '', status: 'realizado' })} disabled={form.type === 'transferencia' || form.type === 'transfer'} className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/50">
                     <option value="">Selecione um cartao</option>
                     {creditCards.map(card => <option key={card.id} value={card.id}>{card.name}{card.lastFourDigits ? ` - final ${card.lastFourDigits}` : ''}</option>)}
                   </select>

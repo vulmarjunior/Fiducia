@@ -4,10 +4,10 @@
 Este é um aplicativo Single Page Application (SPA) construído com **React**, **Vite** e **TypeScript**.
 A estilização é feita com **Tailwind CSS** juntamente com a biblioteca de componentes **Shadcn/UI**.
 O backend (banco de dados e autenticação) é inteiramente gerenciado usando o **Firebase** (Firestore Database e Firebase Authentication).
-As análises inteligentes e dicas contextuais são feitas integrando o modelo LLM via Groq, consumindo a **Groq API**.
+As análises inteligentes sob demanda são feitas integrando o modelo LLM via Groq, consumindo a **Groq API** por uma Vercel Function autenticada.
 
 ## 2. Banco de Dados (Estrutura do Firestore)
-O sistema opera com o banco de dados em tempo real Firestore (NoSQL). O design de dados é centrado no usuário: todas as coleções possuem uma forte relação com o `userId` oriundo da autenticação para garantir total isolamento de dados (cada usuário interage apenas com seus próprios registros).
+O sistema opera com o banco de dados em tempo real Firestore (NoSQL). O design preserva `userId` em todas as coleções para integridade referencial. Na configuração atual, de uso pessoal, as regras aceitam somente a conta Google verificada do proprietário e não mantêm papéis ou administração multiusuário.
 
 ### Principais Coleções e Lógicas de Modelagem:
 - **`users`**:
@@ -42,17 +42,18 @@ O sistema opera com o banco de dados em tempo real Firestore (NoSQL). O design d
 - **Lógica implementada**: O estado da autenticação (`onAuthStateChanged`) encapsula toda a aplicação em um Provider (`AuthContext`).
 - As rotas da aplicação são divididas entre Públicas e Privadas (protegidas via Wrapper que força redirecionamentos de navegação caso não exista sessão).
 - Ao logar pela primeira vez, o Firebase captura a identidade e, via listener explícito, um hook inicializa um documento base para esse UID no subconjunto `users`.
+- As regras do Firestore e o proxy de IA restringem o acesso à conta Google verificada do proprietário. O perfil não depende de `role`.
 
 ### 3.2 Painel Consolidado / Dashboard (`/src/pages/Dashboard.tsx`)
 - **Objetivo**: Ser o raio-X diário das finanças e hub de operações rápidas.
 - **Dinamismo Operacional**:
   - Resolve snapshots do Firestore globalmente para derivar saldos imediatos de contas; faz parse manual e filtragem para aglutinar gastos atômicos que casem com a referência do Mês atual e da visão global.
-  - **Fiducia AI Insight**: Um side-effect (useEffect) envia o balanço consolidável bruto para a Groq API, que devolve uma pílula (short-tip inteligente) com até 150 caracteres, gerando empatia instantânea com o usuário com insights reativos.
+  - O Dashboard não dispara chamadas automáticas de IA. Recursos Groq ficam restritos a ações explícitas em Relatórios, Conciliação, Transações e importação/conferência de faturas.
 
 ### 3.3 Gestor de Transações (`/src/pages/Transactions.tsx`)
 - **Objetivo Central**: Um super-formulário CRUD dotado de lógicas transversais robustas das movimentações de caixa.
 - **Lógicas cruciais embutidas:**
-  1. **Transferências**: O formulário gera uma entrada dualógica invisível — debita atomicamente da 'Conta Origem' com tipo=despesa e credita na 'Conta Destino' com tipo=receita.
+  1. **Transferências**: Um único documento de transferência referencia origem e destino; a operação atualiza atomicamente os dois saldos usando `getTransactionEffect()` na perspectiva de cada conta.
   2. **Travas Temporais**: Qualquer alteração rege-se contra o index de `closedPeriods`. Meses fiscalizados desabilitam botões de editar e apagar (`disabled={isPeriodClosed}`).
   3. **Rotina de Pagamento na Fonte**: Uma transação paga e vinculada a uma Origem de Cartão dispara sincronismos retroativos (fechando faturas, caso os montantes se encontrem).
 
@@ -87,16 +88,8 @@ Para replicar exatamente a funcionalidade orgânica produzida aqui acima, não c
 
 1. **Atenção nas Dependências Reactivas em Cascatas (useEffect)**: Use com parcimônia, evitando disparos repetitivos e montagem demorada devido a event-listeners que não limpam seus Callbacks `return () => unsubscribe()`. 
 2. **Utilizar UUIDs do Firestore**: Não substitua os IDs das referências. Quando relacionar dados (ex: Transações -> Categorias), não salve os textnames da categoria; salve o seu ID e faça JOIN relacional (client-side) usando utilitários simples (vide: `resolveAccountName(...)`).
-3. **Escrita Dupla no Backend**:
-  Ao criar transações geradas via Fatura, abrace lógicas Promises Paralelas:
-  \`\`\`js
-  // Ao Pagar Fatura
-  await Promise.all([
-    addDoc(transactionsRef, payloadPgto),
-    setDoc(invoiceRef, { status: "paga", ... })
-  ]);
-  \`\`\`
-  Garante integridade.
+3. **Escritas Financeiras Atômicas**:
+  Nunca use `Promise.all()` para documentos financeiros relacionados. Criação, edição ou exclusão de transação, atualização de saldo, pagamento de fatura e confirmação de importação devem ocorrer no mesmo `runTransaction()` do Firestore, com todas as leituras antes das escritas.
 4. **Gerenciamento de Segredos de IA**:
   Garantir que os tokens de chaves API sensíveis fiquem alocadas em infra server-side (ou em `.env` locais para `npm run dev`) mas *Cuidado* extremo ao realizar transições severas p/ Prod em arquitetura Client-Side-Only (CSR).
 5. **Integridade de Saldo e Reconciliação (Partidas Dobradas)**:
@@ -142,7 +135,7 @@ Para replicar exatamente a funcionalidade orgânica produzida aqui acima, não c
 
 ## Segurança das Chamadas de IA (v0.8.0)
 
-O cliente nunca acessa a Groq diretamente e não recebe `GROQ_API_KEY`. `callGroq()` obtém o Firebase ID token do usuário e chama `/api/groq`. A Vercel Function valida o token no Firebase Authentication, restringe modelo e tamanho do payload e somente então usa a chave disponível no ambiente server-side.
+O cliente nunca acessa a Groq diretamente e não recebe `GROQ_API_KEY`. `callGroq()` obtém o Firebase ID token do usuário e chama `/api/groq`. A Vercel Function valida a conta verificada do proprietário, restringe modelo, formato, tamanho do payload, tokens de saída e tempo de execução, e somente então usa a chave disponível no ambiente server-side. Operações extensas de fatura podem solicitar até 6.000 tokens; as demais mantêm limites menores definidos pelo chamador.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 

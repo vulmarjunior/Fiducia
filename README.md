@@ -2,7 +2,8 @@
 
 Aplicação web para controle completo das suas finanças: contas, cartões de crédito, orçamentos, metas, conciliação bancária e relatórios inteligentes com IA.
 
-> **Versão atual:** `0.5.1` | **Status:** Em desenvolvimento ativo
+> **Versão atual:** `0.15.2` | **Status:** Em desenvolvimento ativo
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
 
 ---
 
@@ -27,7 +28,7 @@ Importação OFX/CSV, auto-match de transações, sugestão de matches com IA e 
 - **Fluxo de Caixa** — receitas vs despesas mensais, taxa de poupança
 - **Categorias** — distribuição percentual com métrica % Renda
 - **Tendência & Orçamento** — curva diária de gastos vs limites
-- **Projeção Futura** — simulação de saldo com 3 cenários (Conservador, Realista, Projetado), horizonte configurável e visão diária de risco
+- **Projeção Futura** — compromissos mensais e evolução do saldo projetado em gráficos separados, com horizonte configurável e visão diária de risco
 - **Faturas de Cartão** — evolução mensal, peso por cartão, status (aberta/fechada/paga/futura)
 - **Análise IA** — Groq interpreta os dados calculados pelo sistema e gera score financeiro com recomendações personalizadas
 
@@ -38,7 +39,7 @@ Limites de gasto por categoria com tabela Orçado × Realizado. Metas financeira
 Diagnóstico de integridade de saldo, correção por reconciliação e reabertura de períodos contábeis fechados.
 
 ### Outros
-- **Autenticação** Google + modo convidado anônimo
+- **Autenticação** Google restrita à conta do proprietário
 - **Tema** claro/escuro com paleta navy
 - **PWA** instalável em dispositivos móveis
 - **Exportação PDF** para relatórios, extratos e faturas
@@ -76,6 +77,7 @@ Crie um arquivo `.env.local` baseado no `.env.example`:
 
 ```env
 GROQ_API_KEY=sua_chave_groq
+FIDUCIA_OWNER_EMAIL=seu_email_google
 APP_URL=http://localhost:3000
 ```
 
@@ -143,7 +145,7 @@ src/
 
 ### Firestore — Coleções
 
-Cada coleção é isolada por `userId`.
+Cada coleção preserva `userId` para integridade referencial; as regras publicadas autorizam somente a conta Google do proprietário.
 
 | Coleção | Descrição |
 |---------|-----------|
@@ -161,6 +163,7 @@ Cada coleção é isolada por `userId`.
 | `installments` | Contratos de parcelamento |
 | `activityLogs` | Histórico de operações |
 | `reconciliationHistory` | Histórico de conciliações |
+| `importCandidates` | Candidatos da Central de Importação |
 
 ---
 

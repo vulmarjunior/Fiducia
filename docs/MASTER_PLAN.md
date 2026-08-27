@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.15.1` |
+| **Versão atual** | `0.15.2` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-06 (Projeção futura com escalas separadas v0.15.1) |
-| **Último deploy** | 2026-08-05 — v0.14.0 no Vercel (`READY`) |
+| **Última alteração em código** | 2026-08-27 (Estabilização de IA, importação e acesso v0.15.2) |
+| **Último deploy** | v0.15.1 em produção; v0.15.2 aguarda publicação |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -52,7 +52,7 @@ npm run build      # vite build
 
 | Área | Estado | Observação |
 |------|--------|------------|
-| Dashboard | ✅ Funcional | KPIs, fluxo, insight IA e Margem de Caixa em 90 dias via motor único |
+| Dashboard | ✅ Funcional | KPIs, fluxo e Margem de Caixa em 90 dias via motor único; sem chamada automática de IA |
 | Transações | ✅ Funcional | CRUD com runTransaction, parcelamento, recorrência, quick confirm |
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
@@ -63,18 +63,18 @@ npm run build      # vite build
 | Metas | ✅ Funcional | Metas financeiras com progresso |
 | Categorias / Tags | ✅ Funcional | CRUD com hierarquia de categorias |
 | Activity Log | ✅ Funcional | Histórico de operações |
-| Autenticação | ✅ Funcional | Google Auth + modo convidado anônimo |
+| Autenticação | ✅ Funcional | Google Auth restrito à conta verificada do proprietário |
 | PWA | ✅ Instalável | iOS meta tags, update com toast |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
-| Testes | ✅ Automatizados | 90 testes locais + 2 cenários com Firebase Emulator no CI |
+| Testes | ✅ Automatizados | 90 testes locais + 3 cenários com Firebase Emulator no CI |
 
 ---
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Estabilização da versão 0.9.x, observabilidade e evolução das funcionalidades financeiras existentes.
+**Foco atual:** Publicação e monitoramento da v0.15.2, integridade financeira e redução da dívida arquitetural sem migração de banco.
 
-**Próximo passo sugerido:** Monitorar a v0.9.1 em produção, ampliar testes de interface e otimizar o pacote compartilhado de ícones. A Fase 3 da Central de Importação permanece fora do escopo atual.
+**Próximo passo sugerido:** publicar a v0.15.2, validar `/api/groq` e os fluxos de IA sob demanda em produção, acompanhar o CI com Java 21 e otimizar o pacote compartilhado de ícones. A Fase 3 da Central de Importação permanece fora do escopo atual.
 
 ---
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-08-27 | v0.15.2 — Estabilização de IA, importação e acesso pessoal | Groq / Firestore / Importação / Backup |
 | 2026-08-06 | v0.15.1 — Projeção futura com escalas separadas | Relatórios / Projeção / UX financeira |
 | 2026-08-05 | v0.15.0 — Fluxo e Faturas sem alarmismo | Relatórios / Cartões / UX financeira |
 | 2026-08-05 | v0.14.0 — Margem de Caixa decisória | Dashboard / Relatórios / Previsão |
@@ -150,7 +151,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 |-------|-----------|-----------|
 | Testes dependentes de emulador | Baixa | Suíte configurada no CI com Java 21; execução local exige Java instalado |
 | Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard |
-| IA server-side | ✅ Resolvido | Chave Groq restrita à Vercel Function; bundle verificado sem segredo |
+| IA server-side | Média | Proxy e roteamento corrigidos na v0.15.2; requer validação após deploy em produção |
 | Single developer | Alta | Todo conhecimento está em um único desenvolvedor (documentação atenua) |
 | Sem CI/CD | ✅ Resolvido | GitHub Actions configurado em v0.7.0 |
 
@@ -168,6 +169,8 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 6. **Campos `originalPurchaseDate` e `postingDate`**: Separação entre data da compra e data de lançamento na fatura.
 7. **Proibição de auto-healing**: Scripts silenciosos de correção de saldo removidos.
 8. **Motor único de cobertura de caixa**: Projeção futura transforma contas pendentes e faturas de cartão em eventos datados, simula saldo diário e agrega por mês para Dashboard/Reports.
+9. **Proprietário único**: Firebase Auth, regras do Firestore e proxy Groq aceitam somente a conta Google verificada do proprietário; `userId` permanece para integridade referencial.
+10. **IA somente sob demanda**: Dashboard não chama Groq automaticamente; análise, categorização e importação assistida dependem de ação explícita.
 
 ---
 
@@ -207,7 +210,8 @@ Itens entregues em v0.7.0 a v0.8.0 (2026-08-04):
 11. ✅ Compatibilidade de pagamentos e faturas legadas (v0.9.1) — IDs oficiais entram no regime de caixa e faturas com status `paga` não transportam saldo por ausência de `paidAmount`, sem migração do Firestore.
 
 Pendências para sessão futura:
-- Testes de interface em navegador e monitoramento da v0.9.1
+- Deploy e monitoramento da v0.15.2, incluindo `/api/groq` e testes do emulador no CI com Java 21
+- Testes de interface em navegador
 - Redução adicional do chunk compartilhado de ícones
 
 Fora do escopo atual:

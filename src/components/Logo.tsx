@@ -1,4 +1,5 @@
 import React from 'react';
+import { APP_VERSION } from '../lib/utils';
 
 interface FiduciaLogoProps {
   size?: number;
@@ -64,7 +65,7 @@ export const FiduciaLogo: React.FC<FiduciaLogoProps> = ({ size = 36, className =
             Fidúcia
           </span>
           <span className="text-[10px] font-bold tracking-widest text-[#10b981] uppercase bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20 leading-none">
-            v2.0
+            v{APP_VERSION}
           </span>
         </span>
       )}

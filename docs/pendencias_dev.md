@@ -7,4 +7,4 @@
 
 ## Próxima sessão
 
-Nenhuma pauta ativa. Consultar `docs/MASTER_PLAN.md` para selecionar o próximo item autorizado.
+Nenhuma pauta de desenvolvimento ativa. A v0.15.2 aguarda publicação e validação operacional conforme `docs/MASTER_PLAN.md`.

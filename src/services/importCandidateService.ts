@@ -66,9 +66,26 @@ export async function confirmImportCandidate(params: {
     if (candidate.status !== 'pending') throw new Error('Candidato ja processado');
 
     const isCard = Boolean(params.input.creditCardId);
-    let accountSnap: any = null;
-    if (!isCard && params.input.accountId && isEffectivelyPaid({ status: params.input.status })) {
-      accountSnap = await transaction.get(doc(db, 'accounts', params.input.accountId));
+    const isTransfer = params.input.type === 'transferencia' || params.input.type === 'transfer';
+    const affectsBalance = !isCard && isEffectivelyPaid({ status: params.input.status });
+    const accountSnapshots = new Map<string, any>();
+
+    if (isTransfer && !params.input.destinationAccountId) {
+      throw new Error('Selecione a conta de destino da transferencia');
+    }
+    if (isTransfer && params.input.accountId === params.input.destinationAccountId) {
+      throw new Error('As contas de origem e destino devem ser diferentes');
+    }
+
+    const affectedAccountIds = affectsBalance
+      ? [params.input.accountId, ...(isTransfer ? [params.input.destinationAccountId] : [])].filter(Boolean) as string[]
+      : [];
+    for (const accountId of affectedAccountIds) {
+      const accountSnap = await transaction.get(doc(db, 'accounts', accountId));
+      if (!accountSnap.exists() || accountSnap.data().userId !== params.userId) {
+        throw new Error('Conta vinculada ao lancamento nao encontrada');
+      }
+      accountSnapshots.set(accountId, accountSnap);
     }
 
     const transactionData: any = {
@@ -98,10 +115,10 @@ export async function confirmImportCandidate(params: {
 
     transaction.set(txRef, cleanUndefinedFields(transactionData));
 
-    if (!isCard && accountSnap?.exists() && params.input.accountId) {
-      const delta = getTransactionEffect(transactionData, params.input.accountId);
+    for (const [accountId, accountSnap] of accountSnapshots) {
+      const delta = getTransactionEffect(transactionData, accountId);
       if (delta !== 0) {
-        transaction.update(doc(db, 'accounts', params.input.accountId), {
+        transaction.update(doc(db, 'accounts', accountId), {
           balance: (accountSnap.data().balance || 0) + delta,
         });
       }
