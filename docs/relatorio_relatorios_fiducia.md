@@ -115,7 +115,7 @@ Fonte: `src/pages/Reports.tsx` (936 linhas)
 ### 4.1 Estrutura Geral
 - **Dados**: 6 listeners Firestore em tempo real (transactions, categories, accounts, creditCards, budgets, invoices)
 - **Estado**: Tudo em `useMemo` para performance
-- **IA**: `callGroq()` com modelo `llama-3.3-70b-versatile`
+- **IA**: `callGroq()` com modelo `openai/gpt-oss-120b`
 
 ---
 

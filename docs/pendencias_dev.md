@@ -5,6 +5,10 @@
 
 ---
 
-## Próxima sessão
+## Sessão ativa — Hotfix Groq v0.15.3
 
-Nenhuma pauta de desenvolvimento ativa. A v0.15.2 aguarda publicação e validação operacional conforme `docs/MASTER_PLAN.md`.
+**Objetivo:** substituir o modelo Groq descontinuado, republicar aplicação e regras e validar a integração em produção.
+
+**Estado:** em execução.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode

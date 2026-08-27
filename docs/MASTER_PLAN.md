@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.15.2` |
+| **Versão atual** | `0.15.3` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-27 (Estabilização de IA, importação e acesso v0.15.2) |
-| **Último deploy** | v0.15.1 em produção; v0.15.2 aguarda publicação |
+| **Última alteração em código** | 2026-08-27 (Migração do modelo Groq v0.15.3) |
+| **Último deploy** | v0.15.2 em produção; v0.15.3 em validação para corrigir modelo descontinuado |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -30,7 +30,7 @@
 | Linguagem | TypeScript 5.8 |
 | UI | React 19, Tailwind CSS 4, Shadcn/UI (Base UI) |
 | Backend | Firebase (Firestore + Auth) |
-| IA | Groq API (`llama-3.3-70b-versatile`) |
+| IA | Groq API (`openai/gpt-oss-120b`) |
 | Gráficos | Recharts |
 | Build | `npm run dev` (dev), `npm run build` (prod) |
 | Testes | Vitest |
@@ -72,9 +72,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Publicação e monitoramento da v0.15.2, integridade financeira e redução da dívida arquitetural sem migração de banco.
+**Foco atual:** Publicação e monitoramento do hotfix v0.15.3, integridade financeira e redução da dívida arquitetural sem migração de banco.
 
-**Próximo passo sugerido:** publicar a v0.15.2, validar `/api/groq` e os fluxos de IA sob demanda em produção, acompanhar o CI com Java 21 e otimizar o pacote compartilhado de ícones. A Fase 3 da Central de Importação permanece fora do escopo atual.
+**Próximo passo sugerido:** publicar a v0.15.3, validar `/api/groq` e os fluxos de IA sob demanda em produção, acompanhar o CI com Java 21 e otimizar o pacote compartilhado de ícones. A Fase 3 da Central de Importação permanece fora do escopo atual.
 
 ---
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-08-27 | v0.15.3 — Migração do modelo Groq descontinuado | Groq / Produção / IA |
 | 2026-08-27 | v0.15.2 — Estabilização de IA, importação e acesso pessoal | Groq / Firestore / Importação / Backup |
 | 2026-08-06 | v0.15.1 — Projeção futura com escalas separadas | Relatórios / Projeção / UX financeira |
 | 2026-08-05 | v0.15.0 — Fluxo e Faturas sem alarmismo | Relatórios / Cartões / UX financeira |
@@ -151,7 +152,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 |-------|-----------|-----------|
 | Testes dependentes de emulador | Baixa | Suíte configurada no CI com Java 21; execução local exige Java instalado |
 | Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard |
-| IA server-side | Média | Proxy e roteamento corrigidos na v0.15.2; requer validação após deploy em produção |
+| IA server-side | Média | Roteamento corrigido na v0.15.2; modelo migrado na v0.15.3 e aguardando validação final em produção |
 | Single developer | Alta | Todo conhecimento está em um único desenvolvedor (documentação atenua) |
 | Sem CI/CD | ✅ Resolvido | GitHub Actions configurado em v0.7.0 |
 
@@ -210,7 +211,7 @@ Itens entregues em v0.7.0 a v0.8.0 (2026-08-04):
 11. ✅ Compatibilidade de pagamentos e faturas legadas (v0.9.1) — IDs oficiais entram no regime de caixa e faturas com status `paga` não transportam saldo por ausência de `paidAmount`, sem migração do Firestore.
 
 Pendências para sessão futura:
-- Deploy e monitoramento da v0.15.2, incluindo `/api/groq` e testes do emulador no CI com Java 21
+- Deploy e monitoramento da v0.15.3, incluindo `/api/groq` e testes do emulador no CI com Java 21
 - Testes de interface em navegador
 - Redução adicional do chunk compartilhado de ícones
 

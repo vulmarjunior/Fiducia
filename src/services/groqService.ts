@@ -1,6 +1,7 @@
 import { auth } from '../firebase';
 
 const GROQ_PROXY_URL = '/api/groq';
+export const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b';
 
 interface GroqMessage {
   role: "user" | "assistant" | "system";
@@ -30,7 +31,7 @@ export async function callGroq(
   options: GroqOptions = {}
 ): Promise<string> {
   const {
-    model = "llama-3.3-70b-versatile",
+    model = DEFAULT_GROQ_MODEL,
     maxTokens = 500,
     temperature = 0.7,
     timeoutMs = maxTokens > 1500 ? 55000 : 45000,

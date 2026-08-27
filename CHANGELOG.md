@@ -5,6 +5,22 @@
 
 ---
 
+## [0.15.3] — 2026-08-27 — Migração do Modelo Groq
+
+**Resultado:** Os recursos de IA sob demanda voltam a usar um modelo disponível no plano gratuito/desenvolvedor da Groq após o desligamento do Llama 3.3 70B.
+
+**Correção e causa-raiz:**
+- A Function `/api/groq` passou a ser executada corretamente na v0.15.2, mas a Groq respondia `404` porque `llama-3.3-70b-versatile` foi descontinuado em 16/08/2026 nesses planos.
+- O modelo padrão e permitido foi substituído por `openai/gpt-oss-120b`, recomendação oficial da Groq para essa migração.
+- Chamadores de fatura passaram a usar o modelo padrão centralizado em `groqService.ts`, evitando novas divergências locais.
+- A função não utilizada `isPositive()` foi removida de `firestore.rules`, eliminando avisos de compilação.
+
+**Validações:** aguardando repetição de lint, testes, build, deploy e chamada autenticada em produção.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.15.2] — 2026-08-27 — Estabilização de IA, Importação e Acesso Pessoal
 
 **Resultado:** O Dashboard deixa de consumir IA automaticamente, as integrações Groq sob demanda passam a ter proxy e limites compatíveis com importações extensas, transferências da Central de Importação atualizam as duas contas e backup/reset cobrem as coleções atuais.
@@ -25,7 +41,7 @@
 - `npm run build` — build de produção concluído.
 - `npm run test:emulator` — não executado localmente porque o ambiente possui Java 8 e o Firebase CLI exige Java 21; o workflow de CI provisiona Java 21.
 
-**Impacto operacional:** a v0.15.2 ainda precisa ser publicada para que `/api/groq` e as novas regras entrem em produção. Configurar `GROQ_API_KEY` e, opcionalmente, `FIDUCIA_OWNER_EMAIL` no ambiente da Vercel.
+**Impacto operacional:** publicada em 27/08/2026. O roteamento e as regras entraram em produção, mas a validação identificou o modelo Groq descontinuado; correção preparada na v0.15.3.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 

@@ -226,6 +226,6 @@ A aba "Análise IA" em Relatórios foi refatorada para enviar dados calculados p
 
 ### Parâmetros da chamada Groq
 
-- **Modelo:** `llama-3.3-70b-versatile`
+- **Modelo:** `openai/gpt-oss-120b`
 - **Temperatura:** 0.5 (reduzida de 0.7 para respostas mais consistentes)
 - **Max tokens:** 1200 (aumentado de 1000 para comportar as 5 seções)

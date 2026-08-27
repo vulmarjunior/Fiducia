@@ -2,7 +2,7 @@
 
 Aplicação web para controle completo das suas finanças: contas, cartões de crédito, orçamentos, metas, conciliação bancária e relatórios inteligentes com IA.
 
-> **Versão atual:** `0.15.2` | **Status:** Em desenvolvimento ativo
+> **Versão atual:** `0.15.3` | **Status:** Em desenvolvimento ativo
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
 ---
@@ -57,7 +57,7 @@ Diagnóstico de integridade de saldo, correção por reconciliação e reabertur
 | Linguagem | TypeScript 5.8 |
 | UI | React 19, Tailwind CSS 4, Shadcn/UI (Base UI) |
 | Backend | Firebase (Firestore + Auth) |
-| IA | Groq API (`llama-3.3-70b-versatile`) |
+| IA | Groq API (`openai/gpt-oss-120b`) |
 | Gráficos | Recharts |
 | PDF | jsPDF + autotable (lazy-loaded) |
 | Testes | Vitest |

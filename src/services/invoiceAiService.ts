@@ -92,7 +92,7 @@ Regras extras para texto bruto:
   const result = await callGroq([
     { role: 'system', content: systemPrompt },
     { role: 'user', content: userContent },
-  ], { model: 'llama-3.3-70b-versatile', maxTokens: 5000, temperature: 0.1 });
+  ], { maxTokens: 5000, temperature: 0.1 });
 
   return parseJsonArray<any>(result)
     .map((item, index) => {
@@ -161,7 +161,6 @@ Lançamentos do Fiducia:
 ${JSON.stringify(relevantTransactions)}`;
 
   const result = await callGroq([{ role: 'user', content: prompt }], {
-    model: 'llama-3.3-70b-versatile',
     maxTokens: 4000,
     temperature: 0.1,
   });

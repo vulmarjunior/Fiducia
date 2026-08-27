@@ -3,7 +3,8 @@ import type { Request, Response } from 'express';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const FIREBASE_API_KEY = 'AIzaSyAnSqlHqSaU__YtRo64zbsNZjM1iDYYxl4';
 const OWNER_EMAIL = process.env.FIDUCIA_OWNER_EMAIL || 'vulmarjunior@gmail.com';
-const ALLOWED_MODELS = new Set(['llama-3.3-70b-versatile']);
+const DEFAULT_MODEL = 'openai/gpt-oss-120b';
+const ALLOWED_MODELS = new Set([DEFAULT_MODEL]);
 const MAX_BODY_BYTES = 80_000;
 const MAX_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 30_000;
@@ -50,7 +51,7 @@ export default async function handler(req: Request, res: Response) {
   if (!apiKey) return res.status(503).json({ error: 'Serviço de IA não configurado.' });
   const bodyText = JSON.stringify(req.body || {});
   if (Buffer.byteLength(bodyText, 'utf8') > MAX_BODY_BYTES) return res.status(413).json({ error: 'Solicitação de IA muito grande.' });
-  const { messages, model = 'llama-3.3-70b-versatile', max_tokens = 500, temperature = 0.7 } = req.body || {};
+  const { messages, model = DEFAULT_MODEL, max_tokens = 500, temperature = 0.7 } = req.body || {};
   if (!isValidMessages(messages) || !ALLOWED_MODELS.has(model)) return res.status(400).json({ error: 'Solicitação de IA inválida.' });
 
   const controller = new AbortController();

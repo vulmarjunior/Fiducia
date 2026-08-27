@@ -43,10 +43,6 @@ service cloud.firestore {
       ));
     }
 
-    function isPositive(field) {
-      return request.resource.data[field] is number && request.resource.data[field] >= 0;
-    }
-
     // ===============================================================
     // Domain Validators
     // ===============================================================

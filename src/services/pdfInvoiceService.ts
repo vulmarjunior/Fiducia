@@ -110,7 +110,7 @@ ${truncated}`;
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { model: 'llama-3.3-70b-versatile', maxTokens: 4000, temperature: 0.1 }
+    { maxTokens: 4000, temperature: 0.1 }
   );
 
   // Tenta extrair JSON mesmo que venha com algum lixo na resposta
