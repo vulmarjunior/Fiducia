@@ -14,7 +14,7 @@
 | **Versão atual** | `0.15.3` |
 | **Modelo de versionamento** | SemVer |
 | **Última alteração em código** | 2026-08-27 (Migração e estabilização do modelo Groq v0.15.3) |
-| **Último deploy** | v0.15.3 em produção e validada (`dpl_GmruDoAPH4NyiM8pZdWegrvKLVvx`) |
+| **Último deploy** | v0.15.3 em produção e validada |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
