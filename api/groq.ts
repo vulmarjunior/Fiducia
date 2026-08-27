@@ -63,13 +63,25 @@ export default async function handler(req: Request, res: Response) {
       body: JSON.stringify({
         model,
         messages,
-        max_tokens: Math.min(Math.max(Number(max_tokens) || 500, 1), MAX_OUTPUT_TOKENS),
+        max_completion_tokens: Math.min(Math.max(Number(max_tokens) || 500, 1), MAX_OUTPUT_TOKENS),
         temperature: Math.min(Math.max(Number(temperature) || 0, 0), 1),
+        include_reasoning: false,
       }),
       signal: controller.signal,
     });
     const data = await upstream.json().catch(() => ({ error: 'Resposta inválida da Groq.' }));
-    if (!upstream.ok) return res.status(upstream.status).json(data);
+    if (!upstream.ok) {
+      const upstreamError = data && typeof data === 'object' && 'error' in data
+        ? (data as { error?: { type?: string; code?: string; message?: string } }).error
+        : undefined;
+      console.error('Groq upstream error', {
+        status: upstream.status,
+        type: upstreamError?.type,
+        code: upstreamError?.code,
+        message: upstreamError?.message,
+      });
+      return res.status(upstream.status).json(data);
+    }
     return res.status(200).json(data);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
