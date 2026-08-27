@@ -12,10 +12,19 @@
 **Correção e causa-raiz:**
 - A Function `/api/groq` passou a ser executada corretamente na v0.15.2, mas a Groq respondia `404` porque `llama-3.3-70b-versatile` foi descontinuado em 16/08/2026 nesses planos.
 - O modelo padrão e permitido foi substituído por `openai/gpt-oss-120b`, recomendação oficial da Groq para essa migração.
+- O proxy passou a enviar `max_completion_tokens` e `include_reasoning: false`, compatíveis com o GPT-OSS, preservando o contrato interno existente dos chamadores.
+- Erros do provedor agora registram somente status e metadados técnicos, sem prompts nem dados financeiros.
 - Chamadores de fatura passaram a usar o modelo padrão centralizado em `groqService.ts`, evitando novas divergências locais.
 - A função não utilizada `isPositive()` foi removida de `firestore.rules`, eliminando avisos de compilação.
 
-**Validações:** aguardando repetição de lint, testes, build, deploy e chamada autenticada em produção.
+**Validações:**
+- `npm run lint` — sem erros.
+- `npm run test -- --maxWorkers=1` — 90 testes aprovados; 3 cenários de emulador ignorados localmente.
+- `npm run build` — build de produção concluído; permanece o aviso conhecido de chunks maiores que 500 kB.
+- Regras do Firestore compiladas e publicadas sem avisos no banco nomeado do projeto.
+- Deployment Vercel `dpl_GmruDoAPH4NyiM8pZdWegrvKLVvx` — estado `Ready`, alvo `production`.
+- Teste autenticado de Relatórios → IA — resposta concluída; `/api/groq` confirmou HTTP 200 nos logs de produção.
+- Workflow `CI` da branch `main` — `passing` após o commit final de código `b7b767c`.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 

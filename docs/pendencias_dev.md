@@ -5,10 +5,10 @@
 
 ---
 
-## Sessão ativa — Hotfix Groq v0.15.3
+## Próxima pauta
 
-**Objetivo:** substituir o modelo Groq descontinuado, republicar aplicação e regras e validar a integração em produção.
+Nenhuma sessão ativa. A v0.15.3 foi publicada e validada em 27/08/2026.
 
-**Estado:** em execução.
+Consultar `docs/MASTER_PLAN.md` para o próximo passo sugerido e `docs/archive/sessions/2026-08-27-hotfix-modelo-groq-v0153.md` para o encerramento mais recente.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode

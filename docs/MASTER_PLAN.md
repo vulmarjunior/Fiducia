@@ -13,8 +13,8 @@
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
 | **Versão atual** | `0.15.3` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-27 (Migração do modelo Groq v0.15.3) |
-| **Último deploy** | v0.15.2 em produção; v0.15.3 em validação para corrigir modelo descontinuado |
+| **Última alteração em código** | 2026-08-27 (Migração e estabilização do modelo Groq v0.15.3) |
+| **Último deploy** | v0.15.3 em produção e validada (`dpl_GmruDoAPH4NyiM8pZdWegrvKLVvx`) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -72,9 +72,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Publicação e monitoramento do hotfix v0.15.3, integridade financeira e redução da dívida arquitetural sem migração de banco.
+**Foco atual:** Monitoramento da v0.15.3, integridade financeira e redução da dívida arquitetural sem migração de banco.
 
-**Próximo passo sugerido:** publicar a v0.15.3, validar `/api/groq` e os fluxos de IA sob demanda em produção, acompanhar o CI com Java 21 e otimizar o pacote compartilhado de ícones. A Fase 3 da Central de Importação permanece fora do escopo atual.
+**Próximo passo sugerido:** monitorar os fluxos de IA sob demanda e otimizar o pacote compartilhado de ícones, hoje o maior chunk do build. A Fase 3 da Central de Importação permanece fora do escopo atual.
 
 ---
 
@@ -152,7 +152,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 |-------|-----------|-----------|
 | Testes dependentes de emulador | Baixa | Suíte configurada no CI com Java 21; execução local exige Java instalado |
 | Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard |
-| IA server-side | Média | Roteamento corrigido na v0.15.2; modelo migrado na v0.15.3 e aguardando validação final em produção |
+| IA server-side | Baixa | Roteamento corrigido na v0.15.2; modelo e parâmetros migrados na v0.15.3, com chamada autenticada HTTP 200 em produção |
 | Single developer | Alta | Todo conhecimento está em um único desenvolvedor (documentação atenua) |
 | Sem CI/CD | ✅ Resolvido | GitHub Actions configurado em v0.7.0 |
 
