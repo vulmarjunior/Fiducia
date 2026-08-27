@@ -5,6 +5,31 @@
 
 ---
 
+## [0.15.5] — 2026-08-27 — Runtime Inicial com Cache Estável
+
+**Resultado:** Atualizações do Fiducia deixam de invalidar um único arquivo de 1,2 MB que misturava código do aplicativo, Firebase, React e componentes de UI. As dependências estáveis passam a ter artefatos próprios e reutilizáveis pela PWA e pelo cache HTTP.
+
+**Alterações técnicas:**
+- `vite.config.ts` — fronteiras explícitas para `firebase-runtime`, `react-runtime` e `ui-runtime`, mantendo pacotes específicos de páginas nos respectivos carregamentos lazy.
+- `vite.config.test.ts` — cobertura da classificação, incluindo caminhos Windows e proteção para não puxar `react-select` ao runtime inicial.
+- A medição por sourcemap confirmou que Firestore, Auth, React DOM, React Router e Base UI dominavam o antigo entry; o código local representava uma fração pequena.
+- Versão atualizada em `package.json`, `package-lock.json`, `APP_VERSION` e `README.md`.
+
+**Validações locais:**
+- `npm run lint` — sem erros.
+- `npm run test -- --maxWorkers=1` — 101 testes aprovados; 3 cenários de emulador ignorados localmente.
+- `npm run build` — sem ciclos entre chunks; entry reduzido de 1.228,28 kB para 52,18 kB.
+- Artefatos estáveis: Firebase 773,66 kB, React 237,09 kB e UI 269,17 kB; o custo permanece explícito em vez de ser ocultado pelo limite de aviso.
+- Precache PWA: 3.985,86 KiB para 3.978,18 KiB.
+
+**Trade-off:** a soma gzip do caminho inicial cresce cerca de 32,8 kB por perder compressão cruzada entre bibliotecas, em troca de downloads paralelos e de evitar baixar novamente aproximadamente 356 kB gzip de runtimes estáveis a cada alteração do aplicativo.
+
+**Pendente:** deploy e validação autenticada em produção.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.15.4] — 2026-08-27 — Catálogo Financeiro de Ícones Otimizado
 
 **Resultado:** O aplicativo deixa de empacotar todo o catálogo do Lucide para exibir ícones de categorias, reduzindo o download e o precache da PWA sem alterar dados financeiros.
