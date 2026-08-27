@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.Fiducia" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/fiducia_background</item>
+        <item name="android:statusBarColor">@color/fiducia_background</item>
+        <item name="android:windowBackground">@color/fiducia_background</item>
+    </style>
+</resources>

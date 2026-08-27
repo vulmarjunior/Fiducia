@@ -7,3 +7,9 @@ coverage/
 .env*
 !.env.example
 .vercel
+android/.gradle/
+android/local.properties
+android/**/build/
+artifacts/*.apk
+*.jks
+*.keystore

@@ -65,6 +65,7 @@ npm run build      # vite build
 | Activity Log | ✅ Funcional | Histórico de operações |
 | Autenticação | ✅ Funcional | Google Auth restrito à conta verificada do proprietário |
 | PWA | ✅ Instalável | iOS meta tags, update com toast |
+| Android | 🧪 Diagnóstico compilado | Shell TWA/Custom Tab e captura local C6/Itaú; aguarda validação em aparelho real |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
 | Testes | ✅ Automatizados | 90 testes locais + 3 cenários com Firebase Emulator no CI |
 
@@ -72,9 +73,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Monitoramento da v0.15.5, integridade financeira e redução da dívida arquitetural sem migração de banco.
+**Foco atual:** Protótipo Android do Fiducia para captura local e assistida de alertas de cartão, sem migração de banco.
 
-**Próximo passo sugerido:** ampliar a verificação automatizada de interface nos fluxos críticos. A Fase 3 da Central de Importação permanece fora do escopo atual.
+**Próximo passo sugerido:** validar em aparelho real um APK diagnóstico que abra a PWA por TWA e reconheça localmente notificações do C6 e alertas do Itaú exibidos pelo aplicativo de mensagens. A integração com o Firebase somente será ativada depois dessa validação.
 
 ---
 
@@ -142,7 +143,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 9 | Testes automatizados (integração + unitários) | ✅ Concluído | 74 testes locais + regras e pagamentos atômicos no Firebase Emulator/CI |
 | 10 | Gestão de versão / releases | ✅ Concluído | v0.7.0; exibida no Login e Dashboard |
 | 11 | Central de Importacao Assistida - Fases 1 e 2 | ✅ Concluído | Entregues em v0.6.0 |
-| 12 | Central de Importação Assistida — Fase 3 | ⏸️ Fora do escopo atual | Ideia preservada apenas para eventual reavaliação futura; sem previsão de implementação |
+| 12 | Central de Importação Assistida — Fase 3 | 🔄 Parcialmente retomada | Autorizado somente o Companion Android/TWA para C6 e Itaú; e-mail, Open Finance e perfis avançados permanecem fora do escopo |
 | 13 | CI/CD — GitHub Actions | ✅ Concluído | v0.7.0 — `.github/workflows/ci.yml`: lint + test + build |
 | 14 | Chave Groq em proxy | ✅ Concluído | v0.8.0 — Vercel Function autenticada por Firebase ID token |
 
@@ -155,6 +156,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | Testes dependentes de emulador | Baixa | Suíte configurada no CI com Java 21; execução local exige Java instalado |
 | Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard |
 | IA server-side | Baixa | Roteamento corrigido na v0.15.2; modelo e parâmetros migrados na v0.15.3, com chamada autenticada HTTP 200 em produção |
+| Formato de notificações Android | Média | C6 e Itaú podem alterar textos/pacotes sem contrato público; parser deve ser calibrado com alertas reais antes de integrar ao Firebase |
 | Single developer | Alta | Todo conhecimento está em um único desenvolvedor (documentação atenua) |
 | Sem CI/CD | ✅ Resolvido | GitHub Actions configurado em v0.7.0 |
 
@@ -193,6 +195,7 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 | `docs/plano-de-melhorias.md` | Diagnóstico e plano de correções | ⚠️ Parcialmente resolvido; inventário revisado em v0.4.0 |
 | `docs/plano-evolucao-previsao-caixa.md` | Spec evolução previsão de caixa | ✅ Criado em v0.4.0 |
 | `docs/plano-migracao-firebase-supabase.md` | Plano de contingência para eventual migração do banco | 📋 Proposta não autorizada |
+| `docs/ARQUITETURA_ANDROID.md` | Arquitetura, privacidade, build e roteiro do APK diagnóstico | 🧪 Aguarda validação em aparelho real |
 | `docs/archive/sessions/` | Arquivo de sessões concluídas | ✅ Ativo |
 
 ---
@@ -215,6 +218,8 @@ Itens entregues em v0.7.0 a v0.8.0 (2026-08-04):
 Pendências para sessão futura:
 - Ampliar testes de interface em navegador
 - Monitorar os fluxos Groq sob demanda
+- Validar alertas reais do C6 e Itaú no APK diagnóstico já instalado no Samsung SM-S918B
+- Após a validação, definir assinatura release, Digital Asset Links e fila autenticada de candidatos no Firebase
 
 Fora do escopo atual:
-- Central de Importação Fase 3 — e-mail, app Android, Open Finance e perfis avançados; sem previsão de retomada.
+- Central de Importação Fase 3 — e-mail, Open Finance e perfis avançados; sem previsão de retomada.
