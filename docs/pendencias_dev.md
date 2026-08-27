@@ -5,12 +5,10 @@
 
 ---
 
-## Sessão ativa — Separação do carregamento inicial v0.15.5
+## Próxima pauta
 
-**Objetivo:** reduzir e tornar cacheável o chunk principal de aproximadamente 1,2 MB sem mascarar o custo total do aplicativo.
+Nenhuma sessão ativa. A v0.15.5 foi publicada e validada em 27/08/2026.
 
-**Escopo:** medir a composição real do bundle inicial, separar apenas dependências estáveis com fronteiras arquiteturais claras, comparar o carregamento antes/depois e validar autenticação, Dashboard e PWA.
-
-**Estado:** implementação concluída localmente; aguardando publicação e validação.
+Consultar `docs/MASTER_PLAN.md` para o próximo passo sugerido e `docs/archive/sessions/2026-08-27-runtime-cache-v0155.md` para o encerramento mais recente.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode

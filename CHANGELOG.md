@@ -24,7 +24,7 @@
 
 **Trade-off:** a soma gzip do caminho inicial cresce cerca de 32,8 kB por perder compressão cruzada entre bibliotecas, em troca de downloads paralelos e de evitar baixar novamente aproximadamente 356 kB gzip de runtimes estáveis a cada alteração do aplicativo.
 
-**Pendente:** deploy e validação autenticada em produção.
+**Publicação:** deploy de produção `dpl_9MNEGtgBxsZYEhHRJoxeXmVkStyo` concluído na Vercel. A aplicação autenticada exibiu a v0.15.5 no Dashboard, em Contas e em Relatórios; os três runtimes separados foram confirmados no HTML, o console permaneceu sem erros, os logs de produção ficaram limpos e o CI passou.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 

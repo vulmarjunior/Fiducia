@@ -14,7 +14,7 @@
 | **Versão atual** | `0.15.5` |
 | **Modelo de versionamento** | SemVer |
 | **Última alteração em código** | 2026-08-27 (Separação do runtime inicial v0.15.5) |
-| **Último deploy** | v0.15.4 em produção; v0.15.5 em validação |
+| **Último deploy** | v0.15.5 em produção e validada |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -72,9 +72,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Validação da v0.15.5, integridade financeira e redução da dívida arquitetural sem migração de banco.
+**Foco atual:** Monitoramento da v0.15.5, integridade financeira e redução da dívida arquitetural sem migração de banco.
 
-**Próximo passo sugerido:** publicar e validar a v0.15.5; depois ampliar a verificação automatizada de interface nos fluxos críticos. A Fase 3 da Central de Importação permanece fora do escopo atual.
+**Próximo passo sugerido:** ampliar a verificação automatizada de interface nos fluxos críticos. A Fase 3 da Central de Importação permanece fora do escopo atual.
 
 ---
 
