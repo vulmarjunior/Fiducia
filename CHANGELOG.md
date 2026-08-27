@@ -21,7 +21,11 @@
 - `npm run build` — chunk `categoryIcons` reduzido de 797,16 kB para 39,52 kB; gzip de 143,25 kB para 9,93 kB.
 - Precache da PWA reduzido de 4.717,32 KiB para 3.985,86 KiB.
 
-**Pendente:** deploy e validação autenticada das categorias em produção.
+**Validações de publicação:**
+- Deployment Vercel `dpl_2meVWwaT4fdP6KR6ZXymnJVAzsbp` — estado `Ready`, alvo `production`.
+- Navegação autenticada carregou `v0.15.4`, preservou os ícones personalizados existentes e apresentou 97 opções no seletor otimizado.
+- Logs Vercel pós-deploy — nenhum erro encontrado.
+- Workflow `CI` da branch `main` — `passing`.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 

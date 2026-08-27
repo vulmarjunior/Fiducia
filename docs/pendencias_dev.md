@@ -5,12 +5,10 @@
 
 ---
 
-## Sessão ativa — Otimização do catálogo de ícones v0.15.4
+## Próxima pauta
 
-**Objetivo:** reduzir o maior chunk compartilhado do build sem alterar regras financeiras nem a experiência de categorias.
+Nenhuma sessão ativa. A v0.15.4 foi publicada e validada em 27/08/2026.
 
-**Escopo:** substituir a importação integral do Lucide por um registro explícito dos ícones financeiros usados, preservar fallback para nomes legados, cobrir as categorias padrão com teste e comparar o build antes/depois.
-
-**Estado:** em execução.
+Consultar `docs/MASTER_PLAN.md` para o próximo passo sugerido e `docs/archive/sessions/2026-08-27-otimizacao-icones-v0154.md` para o encerramento mais recente.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode

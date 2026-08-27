@@ -14,7 +14,7 @@
 | **Versão atual** | `0.15.4` |
 | **Modelo de versionamento** | SemVer |
 | **Última alteração em código** | 2026-08-27 (Otimização do catálogo de ícones v0.15.4) |
-| **Último deploy** | v0.15.3 em produção; v0.15.4 em validação |
+| **Último deploy** | v0.15.4 em produção e validada |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -72,9 +72,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Validação da v0.15.4, integridade financeira e redução da dívida arquitetural sem migração de banco.
+**Foco atual:** Monitoramento da v0.15.4, integridade financeira e redução da dívida arquitetural sem migração de banco.
 
-**Próximo passo sugerido:** publicar e validar a v0.15.4, depois investigar o chunk principal de 1,2 MB sem trocar o banco nem alterar regras financeiras. A Fase 3 da Central de Importação permanece fora do escopo atual.
+**Próximo passo sugerido:** investigar o chunk principal de 1,2 MB e separar dependências de infraestrutura sem mascarar o custo total do aplicativo. A Fase 3 da Central de Importação permanece fora do escopo atual.
 
 ---
 
