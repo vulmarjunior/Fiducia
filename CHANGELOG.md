@@ -5,6 +5,28 @@
 
 ---
 
+## [0.15.4] — 2026-08-27 — Catálogo Financeiro de Ícones Otimizado
+
+**Resultado:** O aplicativo deixa de empacotar todo o catálogo do Lucide para exibir ícones de categorias, reduzindo o download e o precache da PWA sem alterar dados financeiros.
+
+**Alterações técnicas:**
+- `src/lib/categoryIcons.tsx` — registro explícito dos ícones padrão e dos ícones personalizados encontrados nas categorias de produção; nomes desconhecidos continuam usando `HelpCircle` como fallback seguro.
+- `src/lib/categoryIcons.test.ts` — regressão que exige cobertura para todas as categorias padrão, templates e sugestões automáticas.
+- Seletor de categorias preserva um catálogo direcionado ao domínio financeiro, em vez de carregar milhares de ícones não utilizados.
+- Versão atualizada em `package.json`, `package-lock.json`, `APP_VERSION` e `README.md`.
+
+**Validações locais:**
+- `npm run lint` — sem erros.
+- `npm run test -- --maxWorkers=1` — 93 testes aprovados; 3 cenários de emulador ignorados localmente.
+- `npm run build` — chunk `categoryIcons` reduzido de 797,16 kB para 39,52 kB; gzip de 143,25 kB para 9,93 kB.
+- Precache da PWA reduzido de 4.717,32 KiB para 3.985,86 KiB.
+
+**Pendente:** deploy e validação autenticada das categorias em produção.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.15.3] — 2026-08-27 — Migração do Modelo Groq
 
 **Resultado:** Os recursos de IA sob demanda voltam a usar um modelo disponível no plano gratuito/desenvolvedor da Groq após o desligamento do Llama 3.3 70B.

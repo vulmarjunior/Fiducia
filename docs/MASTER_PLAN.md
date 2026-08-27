@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.15.3` |
+| **Versão atual** | `0.15.4` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-27 (Migração e estabilização do modelo Groq v0.15.3) |
-| **Último deploy** | v0.15.3 em produção e validada |
+| **Última alteração em código** | 2026-08-27 (Otimização do catálogo de ícones v0.15.4) |
+| **Último deploy** | v0.15.3 em produção; v0.15.4 em validação |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -72,9 +72,9 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Monitoramento da v0.15.3, integridade financeira e redução da dívida arquitetural sem migração de banco.
+**Foco atual:** Validação da v0.15.4, integridade financeira e redução da dívida arquitetural sem migração de banco.
 
-**Próximo passo sugerido:** monitorar os fluxos de IA sob demanda e otimizar o pacote compartilhado de ícones, hoje o maior chunk do build. A Fase 3 da Central de Importação permanece fora do escopo atual.
+**Próximo passo sugerido:** publicar e validar a v0.15.4, depois investigar o chunk principal de 1,2 MB sem trocar o banco nem alterar regras financeiras. A Fase 3 da Central de Importação permanece fora do escopo atual.
 
 ---
 
@@ -84,6 +84,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-08-27 | v0.15.4 — Catálogo financeiro de ícones otimizado | Performance / PWA / Categorias |
 | 2026-08-27 | v0.15.3 — Migração do modelo Groq descontinuado | Groq / Produção / IA |
 | 2026-08-27 | v0.15.2 — Estabilização de IA, importação e acesso pessoal | Groq / Firestore / Importação / Backup |
 | 2026-08-06 | v0.15.1 — Projeção futura com escalas separadas | Relatórios / Projeção / UX financeira |
@@ -211,9 +212,9 @@ Itens entregues em v0.7.0 a v0.8.0 (2026-08-04):
 11. ✅ Compatibilidade de pagamentos e faturas legadas (v0.9.1) — IDs oficiais entram no regime de caixa e faturas com status `paga` não transportam saldo por ausência de `paidAmount`, sem migração do Firestore.
 
 Pendências para sessão futura:
-- Deploy e monitoramento da v0.15.3, incluindo `/api/groq` e testes do emulador no CI com Java 21
-- Testes de interface em navegador
-- Redução adicional do chunk compartilhado de ícones
+- Investigar e reduzir o chunk principal de 1,2 MB
+- Ampliar testes de interface em navegador
+- Monitorar os fluxos Groq sob demanda
 
 Fora do escopo atual:
 - Central de Importação Fase 3 — e-mail, app Android, Open Finance e perfis avançados; sem previsão de retomada.

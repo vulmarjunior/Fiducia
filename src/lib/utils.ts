@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { buildCashCoverageProjection } from './cashCoverage';
 
-export const APP_VERSION = '0.15.3';
+export const APP_VERSION = '0.15.4';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

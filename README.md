@@ -2,7 +2,7 @@
 
 Aplicação web para controle completo das suas finanças: contas, cartões de crédito, orçamentos, metas, conciliação bancária e relatórios inteligentes com IA.
 
-> **Versão atual:** `0.15.3` | **Status:** Em desenvolvimento ativo
+> **Versão atual:** `0.15.4` | **Status:** Em desenvolvimento ativo
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
 ---

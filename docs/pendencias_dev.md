@@ -5,10 +5,12 @@
 
 ---
 
-## Próxima pauta
+## Sessão ativa — Otimização do catálogo de ícones v0.15.4
 
-Nenhuma sessão ativa. A v0.15.3 foi publicada e validada em 27/08/2026.
+**Objetivo:** reduzir o maior chunk compartilhado do build sem alterar regras financeiras nem a experiência de categorias.
 
-Consultar `docs/MASTER_PLAN.md` para o próximo passo sugerido e `docs/archive/sessions/2026-08-27-hotfix-modelo-groq-v0153.md` para o encerramento mais recente.
+**Escopo:** substituir a importação integral do Lucide por um registro explícito dos ícones financeiros usados, preservar fallback para nomes legados, cobrir as categorias padrão com teste e comparar o build antes/depois.
+
+**Estado:** em execução.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
