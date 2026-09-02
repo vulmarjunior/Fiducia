@@ -5,6 +5,31 @@
 
 ---
 
+## [0.16.0] — 2026-09-02 — Relatórios Essenciais
+
+**Resultado:** A central de relatórios passa a responder diretamente às quatro principais perguntas financeiras do usuário (Despesas por Categoria, Receitas por Categoria, Entradas × Saídas e Fluxo por Conta), com navegação mensal sincronizada, filtros combináveis de categoria e origem, gráficos de distribuição e evolução temporal, detalhamento de lançamentos (drill-down), reconciliação de contas bancárias e exportação fiel em CSV e PDF. As análises avançadas anteriores permanecem acessíveis e intactas no menu secundário "Mais relatórios".
+
+**Alterações técnicas:**
+- `src/types/reports.ts` — tipos normalizados para filtros, transações em centavos inteiros, buckets de agrupamento (dia, semana com início na segunda-feira, mês), distribuição e evolução de categorias, fluxo de caixa e diagnósticos de faturas residuais.
+- `src/lib/reports/normalize.ts` — normalização de transações bancárias e de cartão, créditos/estornos, identificação de pagamentos oficiais de fatura e resolução de categorias legadas em memória.
+- `src/lib/reports/periods.ts` — geração determinística de limites de mês civil e buckets diários, semanais recortados no mês e mensais.
+- `src/lib/reports/categoryReport.ts` — agregação de despesas e receitas por categoria, cálculo de percentuais, suporte a seleção hierárquica pai/filhas, tratamento de categorias líquidas negativas e evolução no tempo.
+- `src/lib/reports/accountFlow.ts` — reconstrução de saldo inicial histórico a partir do saldo de abertura somado às transações realizadas anteriores, efeito de transferências internas (neutralizadas no consolidado) e faturas residuais com conta a definir.
+- `src/lib/reports/invoiceEvents.ts` — cálculo de saldo residual de faturas de cartão sem duplicar agendamentos pendentes já cadastrados no banco.
+- `src/lib/reports/reportExport.ts` — exportação limpa e segura contra injeção de fórmulas para CSV e exportação estruturada para PDF com metadados de filtros.
+- `src/components/reports/` — conjunto de componentes reutilizáveis: `ReportHeader` (navegação mensal e filtros), `ReportFilterDrawer` (painel de filtros com busca), `CategoryDistributionChart` (alternância pizza/barras e tabela conferível), `CategoryEvolutionChart` (séries temporais e matriz), `CashFlowChart` (cards, gráfico comparativo e saldo em escala separada), `AccountFlowView` (visão Consolidada e Por Conta) e `ReportDetailsDialog` (drill-down de lançamentos com edição direta).
+- `src/pages/Reports.tsx` — reestruturação da página principal com 4 abas prioritárias e menu "Mais relatórios" (Extrato Mensal, Orçamento, Projeção Futura, Análise de Faturas e IA), preservando navegação externa do Dashboard.
+- Versão incrementada para `0.16.0` em `package.json`, `package-lock.json`, `src/lib/utils.ts` e `README.md`.
+
+**Validações locais:**
+- `npm run lint` — 0 erros.
+- `npm run test -- --maxWorkers=1` — 19 arquivos de teste e 114 testes aprovados (3 cenários de emulador ignorados localmente).
+- `npm run build` — build de produção concluído com sucesso e sem ciclos.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+---
+
 ## [0.15.5] — 2026-08-27 — Runtime Inicial com Cache Estável
 
 **Resultado:** Atualizações do Fiducia deixam de invalidar um único arquivo de 1,2 MB que misturava código do aplicativo, Firebase, React e componentes de UI. As dependências estáveis passam a ter artefatos próprios e reutilizáveis pela PWA e pelo cache HTTP.

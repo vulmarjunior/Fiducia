@@ -1,0 +1,366 @@
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import type { Account, Category, CreditCard } from '../../types';
+import type { PaymentStatusFilter, ReportFilters, ReportTab } from '../../types/reports';
+import { Search, CheckSquare, Square, Filter, X } from 'lucide-react';
+
+interface ReportFilterDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  activeTab: ReportTab;
+  filters: ReportFilters;
+  onApplyFilters: (newFilters: ReportFilters) => void;
+  categories: Category[];
+  accounts: Account[];
+  creditCards: CreditCard[];
+}
+
+export function ReportFilterDrawer({
+  open,
+  onOpenChange,
+  activeTab,
+  filters,
+  onApplyFilters,
+  categories,
+  accounts,
+  creditCards,
+}: ReportFilterDrawerProps) {
+  // Estado local (rascunho)
+  const [draftCategoryIds, setDraftCategoryIds] = useState<string[] | undefined>(filters.categoryIds);
+  const [draftOriginIds, setDraftOriginIds] = useState<string[] | undefined>(filters.originIds);
+  const [draftStatus, setDraftStatus] = useState<PaymentStatusFilter>(filters.status);
+  const [draftIncludePending, setDraftIncludePending] = useState<boolean>(filters.includePending);
+  const [draftAccumulated, setDraftAccumulated] = useState<boolean>(filters.accumulated);
+  const [searchCategory, setSearchCategory] = useState('');
+
+  // Ao abrir, sincroniza o rascunho com os filtros aplicados atuais
+  useEffect(() => {
+    if (open) {
+      setDraftCategoryIds(filters.categoryIds);
+      setDraftOriginIds(filters.originIds);
+      setDraftStatus(filters.status);
+      setDraftIncludePending(filters.includePending);
+      setDraftAccumulated(filters.accumulated);
+      setSearchCategory('');
+    }
+  }, [open, filters]);
+
+  const isCategoryTab = activeTab === 'expenses' || activeTab === 'income';
+  const relevantCategories = categories.filter(c => {
+    if (activeTab === 'expenses') return c.type === 'expense';
+    if (activeTab === 'income') return c.type === 'income';
+    return true;
+  });
+
+  const filteredCategories = relevantCategories.filter(c =>
+    c.name.toLowerCase().includes(searchCategory.toLowerCase())
+  );
+
+  // Toggle category
+  const toggleCategory = (catId: string) => {
+    setDraftCategoryIds(prev => {
+      const current = prev !== undefined ? prev : relevantCategories.map(c => c.id || '');
+      if (current.includes(catId)) {
+        return current.filter(id => id !== catId);
+      } else {
+        return [...current, catId];
+      }
+    });
+  };
+
+  const selectAllCategories = () => {
+    setDraftCategoryIds(relevantCategories.map(c => c.id || ''));
+  };
+
+  const clearCategories = () => {
+    setDraftCategoryIds([]);
+  };
+
+  // Toggle origin
+  const toggleOrigin = (origId: string) => {
+    setDraftOriginIds(prev => {
+      const allOrigins = isCategoryTab
+        ? [...accounts.map(a => a.id || ''), ...creditCards.map(c => c.id || '')]
+        : accounts.map(a => a.id || '');
+      const current = prev !== undefined ? prev : allOrigins;
+      if (current.includes(origId)) {
+        return current.filter(id => id !== origId);
+      } else {
+        return [...current, origId];
+      }
+    });
+  };
+
+  const selectAllOrigins = () => {
+    const allOrigins = isCategoryTab
+      ? [...accounts.map(a => a.id || ''), ...creditCards.map(c => c.id || '')]
+      : accounts.map(a => a.id || '');
+    setDraftOriginIds(allOrigins);
+  };
+
+  const clearOrigins = () => {
+    setDraftOriginIds([]);
+  };
+
+  const handleApply = () => {
+    onApplyFilters({
+      ...filters,
+      categoryIds: draftCategoryIds,
+      originIds: draftOriginIds,
+      status: draftStatus,
+      includePending: draftIncludePending,
+      accumulated: draftAccumulated,
+    });
+    onOpenChange(false);
+  };
+
+  const handleResetDefaults = () => {
+    setDraftCategoryIds(undefined);
+    setDraftOriginIds(undefined);
+    setDraftStatus('all');
+    setDraftIncludePending(false);
+    setDraftAccumulated(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col p-6">
+        <DialogHeader className="pb-3 border-b border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="w-5 h-5 text-primary" />
+              <DialogTitle className="text-xl font-bold">Filtros do Relatório</DialogTitle>
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleResetDefaults} className="text-xs text-muted-foreground hover:text-foreground">
+              Restaurar padrões
+            </Button>
+          </div>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Ajuste os filtros e clique em Aplicar. Alterações não salvas serão descartadas ao fechar.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto py-4 space-y-6 pr-1">
+          {/* Situação de Pagamento */}
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-2">
+              Situação
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setDraftStatus('all')}
+                className={`py-2 px-3 rounded-lg text-xs font-medium border transition-colors ${
+                  draftStatus === 'all'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                }`}
+              >
+                Todas as situações
+              </button>
+              <button
+                type="button"
+                onClick={() => setDraftStatus('paid')}
+                className={`py-2 px-3 rounded-lg text-xs font-medium border transition-colors ${
+                  draftStatus === 'paid'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                }`}
+              >
+                Apenas Realizadas
+              </button>
+              <button
+                type="button"
+                onClick={() => setDraftStatus('pending')}
+                className={`py-2 px-3 rounded-lg text-xs font-medium border transition-colors ${
+                  draftStatus === 'pending'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                }`}
+              >
+                Apenas Pendentes
+              </button>
+            </div>
+          </div>
+
+          {/* Opções de Fluxo (apenas para cashflow e accounts) */}
+          {!isCategoryTab && (
+            <div className="p-3 bg-muted/40 rounded-lg space-y-3 border border-border/60">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                Comportamento de Caixa
+              </label>
+              <div className="flex items-center justify-between text-xs">
+                <div>
+                  <span className="font-medium text-foreground block">Incluir compromissos pendentes</span>
+                  <span className="text-muted-foreground">Simula os compromissos futuros sobre a base de saldo</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={draftIncludePending}
+                  onChange={e => setDraftIncludePending(e.target.checked)}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary"
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-2 border-t border-border/40">
+                <div>
+                  <span className="font-medium text-foreground block">Visão Acumulada</span>
+                  <span className="text-muted-foreground">Acumula entradas e saídas desde o início do período</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={draftAccumulated}
+                  onChange={e => setDraftAccumulated(e.target.checked)}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Origens (Contas e Cartões) */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Origem ({isCategoryTab ? 'Contas e Cartões' : 'Contas Bancárias'})
+              </label>
+              <div className="flex items-center gap-2 text-xs">
+                <button type="button" onClick={selectAllOrigins} className="text-primary hover:underline">
+                  Todas
+                </button>
+                <span className="text-muted-foreground">•</span>
+                <button type="button" onClick={clearOrigins} className="text-muted-foreground hover:underline">
+                  Limpar
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2 border border-border rounded-lg p-3 max-h-48 overflow-y-auto">
+              {accounts.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-semibold text-muted-foreground block mb-1">Contas</span>
+                  <div className="space-y-1">
+                    {accounts.map(acc => {
+                      const id = acc.id || '';
+                      const isSelected = draftOriginIds === undefined || draftOriginIds.includes(id);
+                      return (
+                        <div
+                          key={id}
+                          onClick={() => toggleOrigin(id)}
+                          className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/50 cursor-pointer text-xs"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+                          ) : (
+                            <Square className="w-4 h-4 text-muted-foreground shrink-0" />
+                          )}
+                          <span className="truncate">{acc.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {isCategoryTab && creditCards.length > 0 && (
+                <div className="pt-2 border-t border-border/40">
+                  <span className="text-[11px] font-semibold text-muted-foreground block mb-1">Cartões de Crédito</span>
+                  <div className="space-y-1">
+                    {creditCards.map(card => {
+                      const id = card.id || '';
+                      const isSelected = draftOriginIds === undefined || draftOriginIds.includes(id);
+                      return (
+                        <div
+                          key={id}
+                          onClick={() => toggleOrigin(id)}
+                          className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/50 cursor-pointer text-xs"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+                          ) : (
+                            <Square className="w-4 h-4 text-muted-foreground shrink-0" />
+                          )}
+                          <span className="truncate">{card.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Categorias (apenas para despesas e receitas) */}
+          {isCategoryTab && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Categorias
+                </label>
+                <div className="flex items-center gap-2 text-xs">
+                  <button type="button" onClick={selectAllCategories} className="text-primary hover:underline">
+                    Todas
+                  </button>
+                  <span className="text-muted-foreground">•</span>
+                  <button type="button" onClick={clearCategories} className="text-muted-foreground hover:underline">
+                    Limpar
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative mb-2">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Buscar categoria..."
+                  value={searchCategory}
+                  onChange={e => setSearchCategory(e.target.value)}
+                  className="pl-8 text-xs h-8"
+                />
+              </div>
+
+              <div className="space-y-1 border border-border rounded-lg p-3 max-h-56 overflow-y-auto">
+                {filteredCategories.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    Nenhuma categoria encontrada
+                  </div>
+                ) : (
+                  filteredCategories.map(cat => {
+                    const id = cat.id || '';
+                    const isSelected = draftCategoryIds === undefined || draftCategoryIds.includes(id);
+                    return (
+                      <div
+                        key={id}
+                        onClick={() => toggleCategory(id)}
+                        className={`flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/50 cursor-pointer text-xs ${
+                          cat.parentId ? 'pl-6 text-muted-foreground' : 'font-medium'
+                        }`}
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+                        ) : (
+                          <Square className="w-4 h-4 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="truncate">{cat.name}</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="pt-3 border-t border-border flex items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button size="sm" onClick={handleApply}>
+            Aplicar Filtros
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

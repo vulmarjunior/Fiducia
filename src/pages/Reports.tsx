@@ -11,7 +11,7 @@ import {
 import {
   TrendingUp, TrendingDown, Target, Sparkles, Loader2, Brain,
   ArrowUpRight, ArrowDownRight, ChevronDown, ChevronRight,
-  CreditCard, BarChart2, Calendar, FileDown, ReceiptText,
+  CreditCard, BarChart2, Calendar, FileDown, ReceiptText, Wallet,
 } from 'lucide-react';
 import { generateCashFlowPDF, generateCategoryPDF, generateTrendPDF, generateProjectionPDF, generateInvoiceAnalysisPDF } from '../lib/pdfTemplates';
 import { toast } from 'sonner';
@@ -31,6 +31,23 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { buildConsumptionAnalysis } from '../lib/consumptionAnalysis';
 import { buildMonthlyStatementCsv } from '../lib/monthlyStatementCsv';
 
+import type { ReportFilters, ReportTab } from '../types/reports';
+import { normalizeTransactions } from '../lib/reports/normalize';
+import { buildCategoryReport } from '../lib/reports/categoryReport';
+import { buildAccountFlowReport } from '../lib/reports/accountFlow';
+import { ReportHeader } from '../components/reports/ReportHeader';
+import { ReportFilterDrawer } from '../components/reports/ReportFilterDrawer';
+import { CategoryDistributionChart } from '../components/reports/CategoryDistributionChart';
+import { CategoryEvolutionChart } from '../components/reports/CategoryEvolutionChart';
+import { CashFlowChart } from '../components/reports/CashFlowChart';
+import { AccountFlowView } from '../components/reports/AccountFlowView';
+import {
+  exportCategoryReportToCsv,
+  exportCashFlowReportToCsv,
+  exportAccountFlowReportToCsv,
+  exportCategoryReportToPdf,
+} from '../lib/reports/reportExport';
+
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
 
 const isTransfer = (t: any) => t.type === 'transferencia' || t.type === 'transfer';
@@ -46,7 +63,7 @@ const shiftMonth = (month: string, offset: number) => {
   return toMonthStr(new Date(year, monthNumber - 1 + offset, 1));
 };
 
-type Tab = 'statement' | 'cashflow' | 'categories' | 'trend' | 'projection' | 'invoices' | 'ai';
+type Tab = 'expenses' | 'income' | 'cashflow' | 'accounts' | 'statement' | 'categories' | 'trend' | 'projection' | 'invoices' | 'ai';
 
 export function Reports() {
   const { user, isAuthReady } = useAuth();
@@ -63,12 +80,33 @@ export function Reports() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [recurrenceRules, setRecurrenceRules] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<Tab>('statement');
+  const [activeTab, setActiveTab] = useState<Tab>('expenses');
   const [statementFilter, setStatementFilter] = useState<'all' | 'income' | 'expense'>('all');
+
+  // Estados dos novos Relatórios Essenciais
+  const [reportFilters, setReportFilters] = useState<ReportFilters>({
+    selectedMonth,
+    status: 'all',
+    intervalType: 'day',
+    accumulated: false,
+    includePending: false,
+  });
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [catDistributionView, setCatDistributionView] = useState<'distribution' | 'evolution'>('distribution');
+
+  useEffect(() => {
+    setReportFilters(prev => ({ ...prev, selectedMonth }));
+  }, [selectedMonth]);
 
   useEffect(() => {
     const state = location.state as { tab?: Tab; month?: string } | null;
-    if (state?.tab) setActiveTab(state.tab);
+    if (state?.tab) {
+      if ((state.tab as any) === 'categories') {
+        setActiveTab('expenses');
+      } else {
+        setActiveTab(state.tab);
+      }
+    }
     if (state?.month && /^\d{4}-\d{2}$/.test(state.month)) setSelectedMonth(state.month);
     if (state?.tab || state?.month) window.history.replaceState({}, '');
   }, [location.state, setSelectedMonth]);
@@ -188,6 +226,44 @@ export function Reports() {
   const todayStr = toDateStr(now);
   const currentMonthStr = toMonthStr(now);
   const totalBalance = accounts.reduce((s, a) => s + (a.balance || 0), 0);
+
+  // ─── CÁLCULOS DOS RELATÓRIOS ESSENCIAIS ──────────────────────────────────
+  const normalizedTransactions = useMemo(() => {
+    return normalizeTransactions(transactions, categories, creditCards, invoices);
+  }, [transactions, categories, creditCards, invoices]);
+
+  const expensesReport = useMemo(() => {
+    return buildCategoryReport('expenses', normalizedTransactions, categories, invoices, reportFilters);
+  }, [normalizedTransactions, categories, invoices, reportFilters]);
+
+  const incomeReport = useMemo(() => {
+    return buildCategoryReport('income', normalizedTransactions, categories, invoices, reportFilters);
+  }, [normalizedTransactions, categories, invoices, reportFilters]);
+
+  const { cashFlowResult, accountFlowResult } = useMemo(() => {
+    return buildAccountFlowReport(accounts, creditCards, invoices, normalizedTransactions, reportFilters);
+  }, [accounts, creditCards, invoices, normalizedTransactions, reportFilters]);
+
+  const handleExportCurrentReportCsv = () => {
+    if (activeTab === 'expenses') {
+      exportCategoryReportToCsv(expensesReport, reportFilters);
+    } else if (activeTab === 'income') {
+      exportCategoryReportToCsv(incomeReport, reportFilters);
+    } else if (activeTab === 'cashflow') {
+      exportCashFlowReportToCsv(cashFlowResult, reportFilters);
+    } else if (activeTab === 'accounts') {
+      exportAccountFlowReportToCsv(accountFlowResult, reportFilters);
+    }
+  };
+
+  const handleExportCurrentReportPdf = () => {
+    if (activeTab === 'expenses') {
+      exportCategoryReportToPdf(expensesReport, reportFilters);
+    } else if (activeTab === 'income') {
+      exportCategoryReportToPdf(incomeReport, reportFilters);
+    }
+  };
+
   const monthlyStatement = useMemo(
     () => buildMonthlyStatement(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), selectedMonth),
     [transactions, invoices, creditCards, selectedMonth],
@@ -526,14 +602,19 @@ export function Reports() {
     </button>
   );
 
-  const tabs: { id: Tab; label: string; icon: any }[] = [
-    { id: 'statement', label: 'Extrato', icon: ReceiptText },
-    { id: 'cashflow', label: 'Fluxo', icon: BarChart2 },
-    { id: 'categories', label: 'Consumo', icon: Target },
-    { id: 'trend', label: 'Orçamento', icon: TrendingDown },
-    { id: 'projection', label: 'Futuro', icon: TrendingUp },
-    { id: 'invoices', label: 'Faturas', icon: CreditCard },
-    { id: 'ai', label: 'IA', icon: Brain },
+  const primaryTabs: { id: Tab; label: string; icon: any }[] = [
+    { id: 'expenses', label: 'Despesas', icon: TrendingDown },
+    { id: 'income', label: 'Receitas', icon: TrendingUp },
+    { id: 'cashflow', label: 'Entradas × saídas', icon: BarChart2 },
+    { id: 'accounts', label: 'Fluxo por conta', icon: Wallet },
+  ];
+
+  const secondaryTabs: { id: Tab; label: string }[] = [
+    { id: 'statement', label: 'Extrato Mensal' },
+    { id: 'trend', label: 'Orçamento' },
+    { id: 'projection', label: 'Futuro' },
+    { id: 'invoices', label: 'Faturas' },
+    { id: 'ai', label: 'IA Insights' },
   ];
 
   return (
@@ -577,32 +658,164 @@ export function Reports() {
           title="Relatórios"
           description="Analise suas finanças sob diferentes perspectivas. Abaixo está a metodologia utilizada em cada relatório:"
           items={[
-            { label: 'Extrato Mensal', desc: 'Reconcilia exatamente os cards mensais do Dashboard. Separa receitas recebidas, despesas pagas diretamente em conta e pagamentos de fatura, permitindo abrir cada lançamento que compõe os totais.' },
-            { label: '1. Fluxo de Caixa', desc: 'Mostra entradas, saídas e o resultado do período. O resultado acumulado começa em zero e não representa saldo bancário. No modo Mês, cada dia abre os lançamentos; em 3/6/12 meses, os cards exibem médias coerentes e o resultado do último mês.' },
-            { label: '2. Consumo', desc: 'Mostra onde o dinheiro foi gasto sem duplicar o pagamento da fatura. Compras de cartão usam o período da fatura; despesas diretas usam a data efetiva. Cada categoria separa conta/cartão, compara com o período anterior e abre seus lançamentos.' },
-            { label: '3. Orçamento', desc: 'Curva cumulativa das despesas e comparação com os limites configurados para o mês selecionado. Permite consultar tanto o período atual quanto meses anteriores.' },
-            { label: '4. Projeção Futura', desc: 'Simula o saldo diário usando compromissos registrados, faturas abertas e fechadas e parcelas futuras. O horizonte pode ser 30, 60, 90, 180 ou 365 dias, ou uma data escolhida. Recorrências ainda não geradas e reservas financeiras são opções explícitas.' },
-            { label: '4a. Margem de Caixa', desc: 'Mostra quanto pode ser assumido em novos compromissos sem reduzir o menor saldo projetado abaixo da reserva de segurança. Compromissos registrados entram sempre; recorrências ainda não geradas e reservas financeiras são opções explícitas.' },
-            { label: '5. Faturas de Cartão', desc: 'Separa situação atual, parcelas dos próximos 90 dias e histórico pago. Valores são líquidos de créditos e estornos. Faturas fechadas mostram o que precisa ser pago agora; abertas mostram consumo em andamento; histórico não é tratado como dívida.' },
-            { label: '6. Análise IA', desc: 'O assistente Fiducia processa seus últimos meses de fluxo de caixa e lançamentos recentes para gerar uma nota de saúde financeira com recomendações personalizadas. A análise considera padrões de gasto, consistência de receitas, evolução do saldo e riscos identificados na projeção de caixa.' },
+            { label: 'Despesas por Categoria', desc: 'Distribuição e evolução temporal do que foi gasto. Compras de cartão usam o período da fatura e descontam estornos/créditos; pagamentos de fatura não entram para não duplicar.' },
+            { label: 'Receitas por Categoria', desc: 'Distribuição e evolução temporal de todas as entradas bancárias operacionais, com detalhamento conferível por categoria.' },
+            { label: 'Entradas × Saídas', desc: 'Visão de caixa pura: compara o total de dinheiro que entrou e saiu das contas, com saldo em escala alinhada e suporte a pendências.' },
+            { label: 'Fluxo por Conta', desc: 'Acompanha a evolução do saldo de cada conta e o consolidado geral. Neutraliza transferências internas e destaca faturas de cartão com conta a definir.' },
+            { label: 'Extrato Mensal', desc: 'Reconcilia exatamente os cards mensais do Dashboard. Separa receitas recebidas, despesas pagas diretamente em conta e pagamentos de fatura.' },
+            { label: 'Orçamento', desc: 'Curva cumulativa das despesas e comparação com os limites configurados para o mês selecionado.' },
+            { label: 'Projeção Futura', desc: 'Simula o saldo diário usando compromissos registrados, faturas abertas e fechadas e parcelas futuras em 30 a 365 dias.' },
+            { label: 'Faturas de Cartão', desc: 'Separa situação atual, parcelas dos próximos 90 dias e histórico pago das faturas.' },
+            { label: 'Análise IA', desc: 'O assistente Fiducia processa os dados sob demanda para gerar insights analíticos e recomendações.' },
           ]}
         />
       </div>
 
       {/* ── TAB BAR ── */}
-      <div className="flex gap-1 bg-secondary/50 dark:bg-secondary/80 p-1 rounded-2xl border border-border overflow-x-auto">
-        {tabs.map(tab => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-<button key={tab.id} onClick={() => setActiveTab(tab.id)} aria-current={isActive ? 'page' : undefined}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl text-[12px] sm:text-[13px] font-semibold whitespace-nowrap transition-all ${isActive ? 'bg-background shadow-sm text-foreground border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}>
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex gap-1 bg-secondary/50 dark:bg-secondary/80 p-1 rounded-2xl border border-border overflow-x-auto">
+          {primaryTabs.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                aria-current={isActive ? 'page' : undefined}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-[12px] sm:text-[13px] font-semibold whitespace-nowrap transition-all ${
+                  isActive
+                    ? 'bg-background shadow-sm text-foreground border border-border/50'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Dropdown Mais Relatórios */}
+        <div className="flex items-center gap-2">
+          <select
+            value={secondaryTabs.some(t => t.id === activeTab) ? activeTab : ''}
+            onChange={(e) => {
+              if (e.target.value) setActiveTab(e.target.value as Tab);
+            }}
+            className={`text-xs font-semibold py-2 px-3 rounded-xl border transition-all cursor-pointer outline-none shadow-xs ${
+              secondaryTabs.some(t => t.id === activeTab)
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card border-border text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <option value="" disabled>Mais relatórios...</option>
+            {secondaryTabs.map(st => (
+              <option key={st.id} value={st.id} className="bg-popover text-popover-foreground">
+                {st.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          RELATÓRIO ESSENCIAL 1 & 2 — DESPESAS & RECEITAS POR CATEGORIA
+      ══════════════════════════════════════════════════════════════ */}
+      {(activeTab === 'expenses' || activeTab === 'income') && (
+        <div className="space-y-6">
+          <ReportHeader
+            filters={reportFilters}
+            onFilterChange={setReportFilters}
+            onOpenFilterDrawer={() => setFilterDrawerOpen(true)}
+            onExportCsv={handleExportCurrentReportCsv}
+            onExportPdf={handleExportCurrentReportPdf}
+            showIntervalSelector={catDistributionView === 'evolution'}
+          />
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCatDistributionView('distribution')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                catDistributionView === 'distribution'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Distribuição por Categoria
+            </button>
+            <button
+              type="button"
+              onClick={() => setCatDistributionView('evolution')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                catDistributionView === 'evolution'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Evolução no Tempo
+            </button>
+          </div>
+
+          {activeTab === 'expenses' ? (
+            catDistributionView === 'distribution' ? (
+              <CategoryDistributionChart
+                reportResult={expensesReport}
+                title={reportFilters.status === 'paid' ? 'Despesas Realizadas' : 'Despesas Registradas'}
+              />
+            ) : (
+              <CategoryEvolutionChart reportResult={expensesReport} />
+            )
+          ) : (
+            catDistributionView === 'distribution' ? (
+              <CategoryDistributionChart
+                reportResult={incomeReport}
+                title={reportFilters.status === 'paid' ? 'Receitas Realizadas' : 'Receitas Registradas'}
+              />
+            ) : (
+              <CategoryEvolutionChart reportResult={incomeReport} />
+            )
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          RELATÓRIO ESSENCIAL 3 — ENTRADAS × SAÍDAS
+      ══════════════════════════════════════════════════════════════ */}
+      {activeTab === 'cashflow' && (
+        <div className="space-y-6">
+          <ReportHeader
+            filters={reportFilters}
+            onFilterChange={setReportFilters}
+            onOpenFilterDrawer={() => setFilterDrawerOpen(true)}
+            onExportCsv={handleExportCurrentReportCsv}
+            showIntervalSelector={true}
+          />
+          <CashFlowChart
+            reportResult={cashFlowResult}
+            showPending={reportFilters.includePending}
+          />
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          RELATÓRIO ESSENCIAL 4 — FLUXO POR CONTA
+      ══════════════════════════════════════════════════════════════ */}
+      {activeTab === 'accounts' && (
+        <div className="space-y-6">
+          <ReportHeader
+            filters={reportFilters}
+            onFilterChange={setReportFilters}
+            onOpenFilterDrawer={() => setFilterDrawerOpen(true)}
+            onExportCsv={handleExportCurrentReportCsv}
+            showIntervalSelector={true}
+          />
+          <AccountFlowView
+            reportResult={accountFlowResult}
+            showPending={reportFilters.includePending}
+          />
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════
           ABA 1 — FLUXO DE CAIXA
@@ -1764,6 +1977,18 @@ export function Reports() {
           </div>
         </div>
       )}
+
+      {/* ── DRAWER DE FILTROS DOS RELATÓRIOS ESSENCIAIS ── */}
+      <ReportFilterDrawer
+        open={filterDrawerOpen}
+        onOpenChange={setFilterDrawerOpen}
+        activeTab={activeTab as ReportTab}
+        filters={reportFilters}
+        onApplyFilters={setReportFilters}
+        categories={categories}
+        accounts={accounts}
+        creditCards={creditCards}
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 # Fiducia — Plano Mestre
+# Fiducia — Plano Mestre
 
 > Fonte única de verdade estratégica.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
@@ -11,10 +12,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.15.5` |
+| **Versão atual** | `0.16.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-08-27 (Separação do runtime inicial v0.15.5) |
-| **Último deploy** | v0.15.5 em produção e validada |
+| **Última alteração em código** | 2026-09-02 (Relatórios essenciais v0.16.0) |
+| **Último deploy** | v0.15.5 em produção (v0.16.0 pronta para deploy) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -57,7 +58,7 @@ npm run build      # vite build
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
 | Conciliação | ✅ Funcional | OFX/CSV, auto-match, AI match, AI análise de divergências |
-| Relatórios | ✅ Funcional | Fluxo, Faturas, Extrato e Consumo decisórios; Margem de Caixa flexível; CSV e orçamento |
+| Relatórios | ✅ Funcional | 4 relatórios essenciais (Despesas, Receitas, Entradas × saídas e Fluxo por conta) + Mais relatórios (Extrato, Orçamento, Futuro, Faturas, IA) |
 | Auditoria | ✅ Funcional | Diagnóstico, correção de saldo, reabertura de períodos |
 | Orçamentos | ✅ Funcional | Metas por categoria, tabela Orçado x Realizado |
 | Metas | ✅ Funcional | Metas financeiras com progresso |
@@ -65,17 +66,19 @@ npm run build      # vite build
 | Activity Log | ✅ Funcional | Histórico de operações |
 | Autenticação | ✅ Funcional | Google Auth restrito à conta verificada do proprietário |
 | PWA | ✅ Instalável | iOS meta tags, update com toast; cache antigo pode exigir recarga forçada após deploy |
-| Android | 🧪 Diagnóstico compilado | Shell TWA/Custom Tab e captura local C6/Itaú; aguarda validação em aparelho real |
+| Android | ⏸️ Pendente | Protótipo diagnóstico compilado; importador de notificações pausado para estudos mais aprofundados |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
-| Testes | ✅ Automatizados | 90 testes locais + 3 cenários com Firebase Emulator no CI |
+| Testes | ✅ Automatizados | 114 testes locais + 3 cenários com Firebase Emulator no CI |
 
 ---
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Protótipo Android do Fiducia para captura local e assistida de alertas de cartão, sem migração de banco.
+**Foco atual:** Entrega dos quatro relatórios essenciais concluída com sucesso na v0.16.0 (Despesas, Receitas, Entradas × saídas e Fluxo por conta), com distribuição, evolução temporal, drill-down de lançamentos, cálculo de saldo em escala separada e exportações CSV/PDF.
 
-**Próximo passo sugerido:** validar em aparelho real um APK diagnóstico que abra a PWA por TWA e reconheça localmente notificações do C6 e alertas do Itaú exibidos pelo aplicativo de mensagens. A integração com o Firebase somente será ativada depois dessa validação.
+**Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
+
+**Próximo passo sugerido:** Avaliar a experiência de uso dos relatórios essenciais e definir a próxima prioridade de evolução do sistema.
 
 ---
 
@@ -85,6 +88,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-09-02 | v0.16.0 — Relatórios essenciais com 4 novas visões estruturadas | Relatórios / UX financeira / Exportações |
 | 2026-08-27 | v0.15.5 — Runtime inicial com fronteiras estáveis de cache | Performance / PWA / Build |
 | 2026-08-27 | v0.15.4 — Catálogo financeiro de ícones otimizado | Performance / PWA / Categorias |
 | 2026-08-27 | v0.15.3 — Migração do modelo Groq descontinuado | Groq / Produção / IA |
@@ -143,9 +147,10 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 9 | Testes automatizados (integração + unitários) | ✅ Concluído | 74 testes locais + regras e pagamentos atômicos no Firebase Emulator/CI |
 | 10 | Gestão de versão / releases | ✅ Concluído | v0.7.0; exibida no Login e Dashboard |
 | 11 | Central de Importacao Assistida - Fases 1 e 2 | ✅ Concluído | Entregues em v0.6.0 |
-| 12 | Central de Importação Assistida — Fase 3 | 🔄 Parcialmente retomada | Autorizado somente o Companion Android/TWA para C6 e Itaú; e-mail, Open Finance e perfis avançados permanecem fora do escopo |
+| 12 | Central de Importação Assistida — Fase 3 | ⏸️ Pendente | Importador de notificações Android colocado em espera para estudos mais aprofundados; e-mail e Open Finance fora do escopo |
 | 13 | CI/CD — GitHub Actions | ✅ Concluído | v0.7.0 — `.github/workflows/ci.yml`: lint + test + build |
 | 14 | Chave Groq em proxy | ✅ Concluído | v0.8.0 — Vercel Function autenticada por Firebase ID token |
+| 15 | Quatro relatórios essenciais | 📋 Planejado | Plano de execução em `docs/plano-relatorios-essenciais.md`; implementação não iniciada |
 
 ---
 
@@ -194,6 +199,7 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 | `docs/ia-conciliacao-inteligente.md` | Spec IA Conciliação | ✅ Status "IMPLEMENTADO" adicionado em v0.4.0 |
 | `docs/plano-de-melhorias.md` | Diagnóstico e plano de correções | ⚠️ Parcialmente resolvido; inventário revisado em v0.4.0 |
 | `docs/plano-evolucao-previsao-caixa.md` | Spec evolução previsão de caixa | ✅ Criado em v0.4.0 |
+| `docs/plano-relatorios-essenciais.md` | Execução dos quatro relatórios essenciais, regras e critérios de aceite | 📋 Planejamento concluído; implementação não iniciada |
 | `docs/plano-migracao-firebase-supabase.md` | Plano de contingência para eventual migração do banco | 📋 Proposta não autorizada |
 | `docs/ARQUITETURA_ANDROID.md` | Arquitetura, privacidade, build e roteiro do APK diagnóstico | 🧪 Aguarda validação em aparelho real |
 | `docs/archive/sessions/` | Arquivo de sessões concluídas | ✅ Ativo |
@@ -218,8 +224,12 @@ Itens entregues em v0.7.0 a v0.8.0 (2026-08-04):
 Pendências para sessão futura:
 - Ampliar testes de interface em navegador
 - Monitorar os fluxos Groq sob demanda
-- Validar alertas reais do C6 e Itaú no APK diagnóstico já instalado no Samsung SM-S918B
-- Após a validação, definir assinatura release, Digital Asset Links e fila autenticada de candidatos no Firebase
+- Importador de notificações Android (C6/Itaú): congelado em estado pendente para estudos mais aprofundados
+- Implementação dos quatro relatórios essenciais conforme `docs/plano-relatorios-essenciais.md`, quando solicitada; planejamento concluído em 2026-09-02
 
 Fora do escopo atual:
 - Central de Importação Fase 3 — e-mail, Open Finance e perfis avançados; sem previsão de retomada.
+
+---
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode
