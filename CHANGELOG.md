@@ -5,26 +5,27 @@
 
 ---
 
-## [0.16.0] — 2026-09-02 — Relatórios Essenciais
+## [0.16.0] — 2026-09-02 — Relatórios Essenciais e Conformidade Financeira
 
-**Resultado:** A central de relatórios passa a responder diretamente às quatro principais perguntas financeiras do usuário (Despesas por Categoria, Receitas por Categoria, Entradas × Saídas e Fluxo por Conta), com navegação mensal sincronizada, filtros combináveis de categoria e origem, gráficos de distribuição e evolução temporal, detalhamento de lançamentos (drill-down), reconciliação de contas bancárias e exportação fiel em CSV e PDF. As análises avançadas anteriores permanecem acessíveis e intactas no menu secundário "Mais relatórios".
+**Resultado:** A central de relatórios passa a responder diretamente às quatro principais perguntas financeiras do usuário (Despesas por Categoria, Receitas por Categoria, Entradas × Saídas e Fluxo por Conta), com navegação mensal sincronizada, filtros combináveis de categoria e origem isolados por aba, suporte a intervalo personalizado, gráficos de distribuição e evolução temporal, detalhamento de lançamentos (drill-down), reconciliação de contas bancárias, cálculo de faturas multi-mês e exportação fiel em CSV e PDF para todos os relatórios essenciais. As análises avançadas anteriores permanecem acessíveis e intactas no menu secundário "Mais relatórios".
 
 **Alterações técnicas:**
-- `src/types/reports.ts` — tipos normalizados para filtros, transações em centavos inteiros, buckets de agrupamento (dia, semana com início na segunda-feira, mês), distribuição e evolução de categorias, fluxo de caixa e diagnósticos de faturas residuais.
-- `src/lib/reports/normalize.ts` — normalização de transações bancárias e de cartão, créditos/estornos, identificação de pagamentos oficiais de fatura e resolução de categorias legadas em memória.
-- `src/lib/reports/periods.ts` — geração determinística de limites de mês civil e buckets diários, semanais recortados no mês e mensais.
-- `src/lib/reports/categoryReport.ts` — agregação de despesas e receitas por categoria, cálculo de percentuais, suporte a seleção hierárquica pai/filhas, tratamento de categorias líquidas negativas e evolução no tempo.
-- `src/lib/reports/accountFlow.ts` — reconstrução de saldo inicial histórico a partir do saldo de abertura somado às transações realizadas anteriores, efeito de transferências internas (neutralizadas no consolidado) e faturas residuais com conta a definir.
-- `src/lib/reports/invoiceEvents.ts` — cálculo de saldo residual de faturas de cartão sem duplicar agendamentos pendentes já cadastrados no banco.
-- `src/lib/reports/reportExport.ts` — exportação limpa e segura contra injeção de fórmulas para CSV e exportação estruturada para PDF com metadados de filtros.
-- `src/components/reports/` — conjunto de componentes reutilizáveis: `ReportHeader` (navegação mensal e filtros), `ReportFilterDrawer` (painel de filtros com busca), `CategoryDistributionChart` (alternância pizza/barras e tabela conferível), `CategoryEvolutionChart` (séries temporais e matriz), `CashFlowChart` (cards, gráfico comparativo e saldo em escala separada), `AccountFlowView` (visão Consolidada e Por Conta) e `ReportDetailsDialog` (drill-down de lançamentos com edição direta).
-- `src/pages/Reports.tsx` — reestruturação da página principal com 4 abas prioritárias e menu "Mais relatórios" (Extrato Mensal, Orçamento, Projeção Futura, Análise de Faturas e IA), preservando navegação externa do Dashboard.
-- Versão incrementada para `0.16.0` em `package.json`, `package-lock.json`, `src/lib/utils.ts` e `README.md`.
+- `src/pages/Reports.tsx` — filtros isolados por relatório (`tabFilters`), evitando contaminação cruzada entre abas; botões de exportação PDF habilitados para todos os relatórios essenciais.
+- `src/components/reports/ReportFilterDrawer.tsx` e `ReportHeader.tsx` — suporte visual completo a intervalos personalizados (`customRange`), com alternância entre "Mês Civil" e datas arbitrárias de início e fim.
+- `src/lib/reports/periods.ts` — implementação de `getMonthsInRange` para enumeração determinística de múltiplos meses cobertos por um intervalo.
+- `src/lib/reports/invoiceEvents.ts` — faturas multi-mês calculadas sobre todos os meses interceptados pelo `customRange`; isolamento de compras e detecção precisa de pagamentos bancários pendentes e faturas sem documento.
+- `src/lib/reports/accountFlow.ts` — pertinência estrita de transações por conta no saldo histórico e diário, respeito a data de abertura e verificação real de reconciliação.
+- `src/lib/reports/categoryReport.ts` — evolução mensal de cartão alinhada com o período da fatura (`invoicePeriod`).
+- `src/lib/reports/reportExport.ts` — implementação de `exportCashFlowReportToPdf` e `exportAccountFlowReportToPdf` estruturados via `jsPDF` e `autoTable`.
+- `src/components/reports/ReportDetailsDialog.tsx` — tratamento contextual de sinais para estornos (- R$ X,XX) e transferências.
+- Suíte de testes expandida para 139 testes unitários aprovados cobrindo todos os cenários da auditoria.
 
 **Validações locais:**
-- `npm run lint` — 0 erros.
-- `npm run test -- --maxWorkers=1` — 19 arquivos de teste e 114 testes aprovados (3 cenários de emulador ignorados localmente).
+- Reprodutor sintético de auditoria: 21 verificações aprovadas, 0 divergências.
+- `npm run lint` — 0 erros (`tsc --noEmit`).
+- `npm run test -- --maxWorkers=1` — 21 arquivos de teste e 139 testes aprovados (3 cenários de emulador ignorados localmente).
 - `npm run build` — build de produção concluído com sucesso e sem ciclos.
+- Validação visual responsiva em desktop (1440x900) e mobile (390x844).
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 

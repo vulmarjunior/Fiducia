@@ -2,6 +2,7 @@ import type { CreditCard, Invoice } from '../../types';
 import type { NormalizedTransaction, UnallocatedInvoiceObligation } from '../../types/reports';
 import { getInvoiceFinancialSummary, getInvoicePaymentTransactionIds } from '../invoicePayment';
 import { fromCents, toCents } from './normalize';
+import { getMonthsInRange } from './periods';
 
 export interface InvoiceResidualAnalysis {
   obligations: UnallocatedInvoiceObligation[];
@@ -71,11 +72,20 @@ export function buildInvoiceObligations(
     }
   }
 
+  // Faturas multi-mês: se houver customRange, considera todos os meses que o intervalo intercepta
+  const allowedPeriods = new Set<string>();
+  if (customRange) {
+    const months = getMonthsInRange(customRange.startDate, customRange.endDate);
+    for (const m of months) allowedPeriods.add(m);
+  } else {
+    allowedPeriods.add(targetPeriod);
+  }
+
   // Coletar todos os pares (cardId, period) existentes em invoices ou em compras de cartão
   const cardPeriods = new Map<string, { cardId: string; period: string; inv?: Invoice }>();
 
   for (const inv of invoices) {
-    if (inv.period === targetPeriod) {
+    if (allowedPeriods.has(inv.period)) {
       cardPeriods.set(`${inv.cardId}_${inv.period}`, { cardId: inv.cardId, period: inv.period, inv });
     }
   }
@@ -83,7 +93,7 @@ export function buildInvoiceObligations(
   for (const tx of transactions) {
     if (tx.isCard && !tx.isInvoicePayment) {
       const period = tx.invoicePeriod || tx.month;
-      if (period === targetPeriod) {
+      if (period && allowedPeriods.has(period)) {
         const cardId = tx.cardId || tx.raw.creditCardId || '';
         if (cardId) {
           const key = `${cardId}_${period}`;

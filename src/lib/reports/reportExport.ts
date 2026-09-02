@@ -199,5 +199,138 @@ export function exportCategoryReportToPdf(
     headStyles: { fillColor: result.type === 'expenses' ? [220, 38, 38] : [16, 185, 129] },
   });
 
-  doc.save(`fiducia-${result.type}-${filters.selectedMonth}.pdf`);
+  const filename = `fiducia-${result.type}-${filters.selectedMonth}.pdf`;
+  doc.save(filename);
 }
+
+export function exportCashFlowReportToPdf(
+  result: CashFlowReportResult,
+  filters: ReportFilters
+) {
+  const doc = new jsPDF();
+  const periodLabel = filters.customRange
+    ? `${filters.customRange.startDate} a ${filters.customRange.endDate}`
+    : filters.selectedMonth;
+
+  doc.setFontSize(16);
+  doc.text('Relatório de Entradas × Saídas', 14, 20);
+
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(
+    `Período: ${periodLabel}  |  Agrupamento: ${filters.intervalType}  |  Pendentes: ${filters.includePending ? 'Sim' : 'Não'}`,
+    14,
+    28
+  );
+  doc.text(
+    `Entradas: ${formatCurrency(result.totalInflow)}  |  Saídas: ${formatCurrency(result.totalOutflow)}  |  Resultado: ${formatCurrency(result.netResult)}`,
+    14,
+    34
+  );
+  if (result.startingBalance !== undefined && result.endingBalance !== undefined) {
+    doc.text(
+      `Saldo Inicial: ${formatCurrency(result.startingBalance)}  |  Saldo Final: ${formatCurrency(result.endingBalance)}`,
+      14,
+      40
+    );
+  }
+
+  const startY = result.startingBalance !== undefined ? 46 : 40;
+
+  const tableData = result.points.map(pt => [
+    pt.label,
+    formatCurrency(pt.inflow),
+    formatCurrency(pt.outflow),
+    formatCurrency(pt.result),
+    pt.endingBalance !== undefined ? formatCurrency(pt.endingBalance) : '-',
+  ]);
+
+  autoTable(doc, {
+    startY,
+    head: [['Período', 'Entradas', 'Saídas', 'Resultado Líquido', 'Saldo']],
+    body: tableData,
+    theme: 'striped',
+    headStyles: { fillColor: [59, 130, 246] },
+  });
+
+  const filename = `fiducia-entradas-saidas-${filters.selectedMonth}.pdf`;
+  doc.save(filename);
+}
+
+export function exportAccountFlowReportToPdf(
+  result: AccountFlowReportResult,
+  filters: ReportFilters
+) {
+  const doc = new jsPDF();
+  const periodLabel = filters.customRange
+    ? `${filters.customRange.startDate} a ${filters.customRange.endDate}`
+    : filters.selectedMonth;
+
+  doc.setFontSize(16);
+  doc.text('Relatório de Fluxo por Conta', 14, 20);
+
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Período: ${periodLabel}`, 14, 28);
+  doc.text(
+    `Saldo Inicial: ${formatCurrency(result.consolidatedStartingBalance)}  |  Saldo Final: ${formatCurrency(result.consolidatedEndingBalance)}  |  Previsto: ${formatCurrency(result.consolidatedProjectedEndingBalance)}`,
+    14,
+    34
+  );
+
+  const tableData = result.accounts.map(acc => [
+    acc.accountName,
+    acc.accountType === 'checking'
+      ? 'Corrente'
+      : acc.accountType === 'savings'
+      ? 'Poupança'
+      : acc.accountType === 'investment'
+      ? 'Investimento'
+      : acc.accountType === 'wallet'
+      ? 'Carteira'
+      : acc.accountType,
+    formatCurrency(acc.startingBalance),
+    formatCurrency(acc.inflow),
+    formatCurrency(acc.outflow),
+    formatCurrency(acc.netResult),
+    formatCurrency(acc.endingBalance),
+    formatCurrency(acc.projectedEndingBalance),
+    acc.isReconciled ? 'Sim' : 'Não',
+  ]);
+
+  autoTable(doc, {
+    startY: 42,
+    head: [['Conta', 'Tipo', 'Inicial', 'Entradas', 'Saídas', 'Resultado', 'Final', 'Previsto', 'Conciliado']],
+    body: tableData,
+    theme: 'striped',
+    headStyles: { fillColor: [99, 102, 241] },
+  });
+
+  if (result.unallocatedInvoices.length > 0) {
+    const finalY = (doc as any).lastAutoTable?.finalY || 100;
+    doc.setFontSize(12);
+    doc.setTextColor(30);
+    doc.text('Faturas com Conta a Definir (Obrigações Previstas)', 14, finalY + 12);
+
+    const invData = result.unallocatedInvoices.map(inv => [
+      inv.cardName,
+      inv.period,
+      inv.dueDate || '-',
+      formatCurrency(inv.totalAmountCents / 100),
+      formatCurrency(inv.paidAmountCents / 100),
+      formatCurrency(inv.remainingAmountCents / 100),
+    ]);
+
+    autoTable(doc, {
+      startY: finalY + 16,
+      head: [['Cartão', 'Período', 'Vencimento', 'Total', 'Pago', 'Residual']],
+      body: invData,
+      theme: 'striped',
+      headStyles: { fillColor: [245, 158, 11] },
+    });
+  }
+
+  const filename = `fiducia-fluxo-contas-${filters.selectedMonth}.pdf`;
+  doc.save(filename);
+}
+

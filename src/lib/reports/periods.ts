@@ -124,3 +124,22 @@ export function generateBuckets(
 
   return buckets;
 }
+
+export function getMonthsInRange(startDate: string, endDate: string): string[] {
+  const [startY, startM] = startDate.slice(0, 7).split('-').map(Number);
+  const [endY, endM] = endDate.slice(0, 7).split('-').map(Number);
+
+  const months: string[] = [];
+  let currentY = startY;
+  let currentM = startM;
+
+  while (currentY < endY || (currentY === endY && currentM <= endM)) {
+    months.push(`${currentY}-${String(currentM).padStart(2, '0')}`);
+    currentM++;
+    if (currentM > 12) {
+      currentM = 1;
+      currentY++;
+    }
+  }
+  return months;
+}

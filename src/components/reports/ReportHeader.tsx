@@ -10,6 +10,7 @@ import {
   FileSpreadsheet,
   FileText,
   RotateCcw,
+  X,
 } from 'lucide-react';
 
 interface ReportHeaderProps {
@@ -41,6 +42,15 @@ export function ReportHeader({
   const monthIdx = parseInt(mStr, 10) - 1;
   const monthName = MONTH_NAMES[monthIdx] || '';
 
+  const formatIsoToBr = (iso: string) => {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
+  const handleClearCustomRange = () => {
+    onFilterChange({ ...filters, customRange: undefined });
+  };
+
   const handlePrevMonth = () => {
     let y = year;
     let m = monthIdx - 1;
@@ -50,7 +60,7 @@ export function ReportHeader({
     }
     const newMonth = `${y}-${String(m + 1).padStart(2, '0')}`;
     setSelectedMonth(newMonth);
-    onFilterChange({ ...filters, selectedMonth: newMonth });
+    onFilterChange({ ...filters, selectedMonth: newMonth, customRange: undefined });
   };
 
   const handleNextMonth = () => {
@@ -62,14 +72,14 @@ export function ReportHeader({
     }
     const newMonth = `${y}-${String(m + 1).padStart(2, '0')}`;
     setSelectedMonth(newMonth);
-    onFilterChange({ ...filters, selectedMonth: newMonth });
+    onFilterChange({ ...filters, selectedMonth: newMonth, customRange: undefined });
   };
 
   const handleCurrentMonth = () => {
     resetToCurrentMonth();
     const now = new Date();
     const cur = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    onFilterChange({ ...filters, selectedMonth: cur });
+    onFilterChange({ ...filters, selectedMonth: cur, customRange: undefined });
   };
 
   // Contagem de filtros ativos
@@ -79,6 +89,7 @@ export function ReportHeader({
   if (filters.originIds !== undefined) activeFilterCount += 1;
   if (filters.includePending) activeFilterCount += 1;
   if (filters.accumulated) activeFilterCount += 1;
+  if (filters.customRange) activeFilterCount += 1;
 
   const setIntervalType = (intervalType: ReportIntervalType) => {
     onFilterChange({ ...filters, intervalType });
@@ -86,44 +97,63 @@ export function ReportHeader({
 
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 py-3 border-b border-border mb-6">
-      {/* Navegação mensal */}
+      {/* Navegação mensal ou Intervalo Personalizado */}
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center bg-card border border-border rounded-lg p-1 shadow-xs">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePrevMonth}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            title="Mês anterior"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-
-          <div className="px-3 flex items-center gap-1.5 font-semibold text-sm min-w-[140px] justify-center text-foreground">
-            <Calendar className="w-4 h-4 text-primary" />
-            <span>{monthName} {year}</span>
+        {filters.customRange ? (
+          <div className="flex items-center bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 gap-2 text-xs font-semibold text-primary shadow-xs">
+            <Calendar className="w-4 h-4" />
+            <span>
+              Intervalo: {formatIsoToBr(filters.customRange.startDate)} a {formatIsoToBr(filters.customRange.endDate)}
+            </span>
+            <button
+              type="button"
+              onClick={handleClearCustomRange}
+              className="ml-1 p-0.5 rounded-full hover:bg-primary/20 text-primary transition-colors cursor-pointer"
+              title="Voltar ao mês civil"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
+        ) : (
+          <>
+            <div className="flex items-center bg-card border border-border rounded-lg p-1 shadow-xs">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handlePrevMonth}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                title="Mês anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleNextMonth}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            title="Próximo mês"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
+              <div className="px-3 flex items-center gap-1.5 font-semibold text-sm min-w-[140px] justify-center text-foreground">
+                <Calendar className="w-4 h-4 text-primary" />
+                <span>{monthName} {year}</span>
+              </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleCurrentMonth}
-          className="h-9 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <RotateCcw className="w-3 h-3 mr-1" />
-          Mês atual
-        </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleNextMonth}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                title="Próximo mês"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCurrentMonth}
+              className="h-9 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw className="w-3 h-3 mr-1" />
+              Mês atual
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Controles de agrupamento, filtros e exportações */}

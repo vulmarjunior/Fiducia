@@ -46,6 +46,8 @@ import {
   exportCashFlowReportToCsv,
   exportAccountFlowReportToCsv,
   exportCategoryReportToPdf,
+  exportCashFlowReportToPdf,
+  exportAccountFlowReportToPdf,
 } from '../lib/reports/reportExport';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
@@ -83,19 +85,47 @@ export function Reports() {
   const [activeTab, setActiveTab] = useState<Tab>('expenses');
   const [statementFilter, setStatementFilter] = useState<'all' | 'income' | 'expense'>('all');
 
-  // Estados dos novos Relatórios Essenciais
-  const [reportFilters, setReportFilters] = useState<ReportFilters>({
-    selectedMonth,
+  // Estados dos novos Relatórios Essenciais (isolados por aba)
+  type EssentialTab = 'expenses' | 'income' | 'cashflow' | 'accounts';
+
+  const defaultReportFilters = (month: string): ReportFilters => ({
+    selectedMonth: month,
     status: 'all',
     intervalType: 'day',
     accumulated: false,
     includePending: false,
   });
+
+  const [tabFilters, setTabFilters] = useState<Record<EssentialTab, ReportFilters>>({
+    expenses: defaultReportFilters(selectedMonth),
+    income: defaultReportFilters(selectedMonth),
+    cashflow: defaultReportFilters(selectedMonth),
+    accounts: defaultReportFilters(selectedMonth),
+  });
+
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [catDistributionView, setCatDistributionView] = useState<'distribution' | 'evolution'>('distribution');
 
+  const currentEssentialTab: EssentialTab = (['expenses', 'income', 'cashflow', 'accounts'].includes(activeTab)
+    ? activeTab
+    : 'expenses') as EssentialTab;
+
+  const activeReportFilters = tabFilters[currentEssentialTab];
+
+  const setTabFilter = (tab: EssentialTab, newFilters: ReportFilters) => {
+    setTabFilters(prev => ({
+      ...prev,
+      [tab]: newFilters,
+    }));
+  };
+
   useEffect(() => {
-    setReportFilters(prev => ({ ...prev, selectedMonth }));
+    setTabFilters(prev => ({
+      expenses: { ...prev.expenses, selectedMonth },
+      income: { ...prev.income, selectedMonth },
+      cashflow: { ...prev.cashflow, selectedMonth },
+      accounts: { ...prev.accounts, selectedMonth },
+    }));
   }, [selectedMonth]);
 
   useEffect(() => {
@@ -233,34 +263,42 @@ export function Reports() {
   }, [transactions, categories, creditCards, invoices]);
 
   const expensesReport = useMemo(() => {
-    return buildCategoryReport('expenses', normalizedTransactions, categories, invoices, reportFilters);
-  }, [normalizedTransactions, categories, invoices, reportFilters]);
+    return buildCategoryReport('expenses', normalizedTransactions, categories, invoices, tabFilters.expenses);
+  }, [normalizedTransactions, categories, invoices, tabFilters.expenses]);
 
   const incomeReport = useMemo(() => {
-    return buildCategoryReport('income', normalizedTransactions, categories, invoices, reportFilters);
-  }, [normalizedTransactions, categories, invoices, reportFilters]);
+    return buildCategoryReport('income', normalizedTransactions, categories, invoices, tabFilters.income);
+  }, [normalizedTransactions, categories, invoices, tabFilters.income]);
 
-  const { cashFlowResult, accountFlowResult } = useMemo(() => {
-    return buildAccountFlowReport(accounts, creditCards, invoices, normalizedTransactions, reportFilters);
-  }, [accounts, creditCards, invoices, normalizedTransactions, reportFilters]);
+  const cashFlowResult = useMemo(() => {
+    return buildAccountFlowReport(accounts, creditCards, invoices, normalizedTransactions, tabFilters.cashflow).cashFlowResult;
+  }, [accounts, creditCards, invoices, normalizedTransactions, tabFilters.cashflow]);
+
+  const accountFlowResult = useMemo(() => {
+    return buildAccountFlowReport(accounts, creditCards, invoices, normalizedTransactions, tabFilters.accounts).accountFlowResult;
+  }, [accounts, creditCards, invoices, normalizedTransactions, tabFilters.accounts]);
 
   const handleExportCurrentReportCsv = () => {
     if (activeTab === 'expenses') {
-      exportCategoryReportToCsv(expensesReport, reportFilters);
+      exportCategoryReportToCsv(expensesReport, tabFilters.expenses);
     } else if (activeTab === 'income') {
-      exportCategoryReportToCsv(incomeReport, reportFilters);
+      exportCategoryReportToCsv(incomeReport, tabFilters.income);
     } else if (activeTab === 'cashflow') {
-      exportCashFlowReportToCsv(cashFlowResult, reportFilters);
+      exportCashFlowReportToCsv(cashFlowResult, tabFilters.cashflow);
     } else if (activeTab === 'accounts') {
-      exportAccountFlowReportToCsv(accountFlowResult, reportFilters);
+      exportAccountFlowReportToCsv(accountFlowResult, tabFilters.accounts);
     }
   };
 
   const handleExportCurrentReportPdf = () => {
     if (activeTab === 'expenses') {
-      exportCategoryReportToPdf(expensesReport, reportFilters);
+      exportCategoryReportToPdf(expensesReport, tabFilters.expenses);
     } else if (activeTab === 'income') {
-      exportCategoryReportToPdf(incomeReport, reportFilters);
+      exportCategoryReportToPdf(incomeReport, tabFilters.income);
+    } else if (activeTab === 'cashflow') {
+      exportCashFlowReportToPdf(cashFlowResult, tabFilters.cashflow);
+    } else if (activeTab === 'accounts') {
+      exportAccountFlowReportToPdf(accountFlowResult, tabFilters.accounts);
     }
   };
 
@@ -724,8 +762,8 @@ export function Reports() {
       {(activeTab === 'expenses' || activeTab === 'income') && (
         <div className="space-y-6">
           <ReportHeader
-            filters={reportFilters}
-            onFilterChange={setReportFilters}
+            filters={tabFilters[activeTab as EssentialTab]}
+            onFilterChange={(f) => setTabFilter(activeTab as EssentialTab, f)}
             onOpenFilterDrawer={() => setFilterDrawerOpen(true)}
             onExportCsv={handleExportCurrentReportCsv}
             onExportPdf={handleExportCurrentReportPdf}
@@ -761,7 +799,7 @@ export function Reports() {
             catDistributionView === 'distribution' ? (
               <CategoryDistributionChart
                 reportResult={expensesReport}
-                title={reportFilters.status === 'paid' ? 'Despesas Realizadas' : 'Despesas Registradas'}
+                title={tabFilters.expenses.status === 'paid' ? 'Despesas Realizadas' : 'Despesas Registradas'}
               />
             ) : (
               <CategoryEvolutionChart reportResult={expensesReport} />
@@ -770,7 +808,7 @@ export function Reports() {
             catDistributionView === 'distribution' ? (
               <CategoryDistributionChart
                 reportResult={incomeReport}
-                title={reportFilters.status === 'paid' ? 'Receitas Realizadas' : 'Receitas Registradas'}
+                title={tabFilters.income.status === 'paid' ? 'Receitas Realizadas' : 'Receitas Registradas'}
               />
             ) : (
               <CategoryEvolutionChart reportResult={incomeReport} />
@@ -785,15 +823,16 @@ export function Reports() {
       {activeTab === 'cashflow' && (
         <div className="space-y-6">
           <ReportHeader
-            filters={reportFilters}
-            onFilterChange={setReportFilters}
+            filters={tabFilters.cashflow}
+            onFilterChange={(f) => setTabFilter('cashflow', f)}
             onOpenFilterDrawer={() => setFilterDrawerOpen(true)}
             onExportCsv={handleExportCurrentReportCsv}
+            onExportPdf={handleExportCurrentReportPdf}
             showIntervalSelector={true}
           />
           <CashFlowChart
             reportResult={cashFlowResult}
-            showPending={reportFilters.includePending}
+            showPending={tabFilters.cashflow.includePending}
           />
         </div>
       )}
@@ -804,15 +843,16 @@ export function Reports() {
       {activeTab === 'accounts' && (
         <div className="space-y-6">
           <ReportHeader
-            filters={reportFilters}
-            onFilterChange={setReportFilters}
+            filters={tabFilters.accounts}
+            onFilterChange={(f) => setTabFilter('accounts', f)}
             onOpenFilterDrawer={() => setFilterDrawerOpen(true)}
             onExportCsv={handleExportCurrentReportCsv}
+            onExportPdf={handleExportCurrentReportPdf}
             showIntervalSelector={true}
           />
           <AccountFlowView
             reportResult={accountFlowResult}
-            showPending={reportFilters.includePending}
+            showPending={tabFilters.accounts.includePending}
           />
         </div>
       )}
@@ -1982,9 +2022,9 @@ export function Reports() {
       <ReportFilterDrawer
         open={filterDrawerOpen}
         onOpenChange={setFilterDrawerOpen}
-        activeTab={activeTab as ReportTab}
-        filters={reportFilters}
-        onApplyFilters={setReportFilters}
+        activeTab={currentEssentialTab}
+        filters={activeReportFilters}
+        onApplyFilters={(f) => setTabFilter(currentEssentialTab, f)}
         categories={categories}
         accounts={accounts}
         creditCards={creditCards}

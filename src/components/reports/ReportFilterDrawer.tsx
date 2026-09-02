@@ -4,7 +4,8 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import type { Account, Category, CreditCard } from '../../types';
 import type { PaymentStatusFilter, ReportFilters, ReportTab } from '../../types/reports';
-import { Search, CheckSquare, Square, Filter, X } from 'lucide-react';
+import { Search, CheckSquare, Square, Filter, X, Calendar } from 'lucide-react';
+import { getMonthBounds } from '../../lib/reports/periods';
 
 interface ReportFilterDrawerProps {
   open: boolean;
@@ -27,7 +28,18 @@ export function ReportFilterDrawer({
   accounts,
   creditCards,
 }: ReportFilterDrawerProps) {
+  const defaultBounds = getMonthBounds(filters.selectedMonth);
+
   // Estado local (rascunho)
+  const [periodMode, setPeriodMode] = useState<'month' | 'custom'>(
+    filters.customRange ? 'custom' : 'month'
+  );
+  const [draftStartDate, setDraftStartDate] = useState(
+    filters.customRange?.startDate || defaultBounds.startDate
+  );
+  const [draftEndDate, setDraftEndDate] = useState(
+    filters.customRange?.endDate || defaultBounds.endDate
+  );
   const [draftCategoryIds, setDraftCategoryIds] = useState<string[] | undefined>(filters.categoryIds);
   const [draftOriginIds, setDraftOriginIds] = useState<string[] | undefined>(filters.originIds);
   const [draftStatus, setDraftStatus] = useState<PaymentStatusFilter>(filters.status);
@@ -38,6 +50,10 @@ export function ReportFilterDrawer({
   // Ao abrir, sincroniza o rascunho com os filtros aplicados atuais
   useEffect(() => {
     if (open) {
+      const bounds = getMonthBounds(filters.selectedMonth);
+      setPeriodMode(filters.customRange ? 'custom' : 'month');
+      setDraftStartDate(filters.customRange?.startDate || bounds.startDate);
+      setDraftEndDate(filters.customRange?.endDate || bounds.endDate);
       setDraftCategoryIds(filters.categoryIds);
       setDraftOriginIds(filters.originIds);
       setDraftStatus(filters.status);
@@ -105,8 +121,14 @@ export function ReportFilterDrawer({
   };
 
   const handleApply = () => {
+    const customRange =
+      periodMode === 'custom' && draftStartDate && draftEndDate && draftStartDate <= draftEndDate
+        ? { startDate: draftStartDate, endDate: draftEndDate }
+        : undefined;
+
     onApplyFilters({
       ...filters,
+      customRange,
       categoryIds: draftCategoryIds,
       originIds: draftOriginIds,
       status: draftStatus,
@@ -117,6 +139,9 @@ export function ReportFilterDrawer({
   };
 
   const handleResetDefaults = () => {
+    setPeriodMode('month');
+    setDraftStartDate(defaultBounds.startDate);
+    setDraftEndDate(defaultBounds.endDate);
     setDraftCategoryIds(undefined);
     setDraftOriginIds(undefined);
     setDraftStatus('all');
@@ -143,6 +168,71 @@ export function ReportFilterDrawer({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto py-4 space-y-6 pr-1">
+          {/* Período: Mês Civil vs Intervalo Personalizado */}
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-2">
+              Período
+            </label>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setPeriodMode('month')}
+                className={`py-2 px-3 rounded-lg text-xs font-medium border transition-colors ${
+                  periodMode === 'month'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                }`}
+              >
+                Mês Civil ({filters.selectedMonth})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodMode('custom')}
+                className={`py-2 px-3 rounded-lg text-xs font-medium border transition-colors ${
+                  periodMode === 'custom'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                }`}
+              >
+                Intervalo Personalizado
+              </button>
+            </div>
+
+            {periodMode === 'custom' && (
+              <div className="p-3 bg-muted/40 rounded-lg border border-border/60 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                      Data Inicial
+                    </label>
+                    <Input
+                      type="date"
+                      value={draftStartDate}
+                      onChange={(e) => setDraftStartDate(e.target.value)}
+                      className="h-8 text-xs bg-background"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                      Data Final
+                    </label>
+                    <Input
+                      type="date"
+                      value={draftEndDate}
+                      onChange={(e) => setDraftEndDate(e.target.value)}
+                      className="h-8 text-xs bg-background"
+                    />
+                  </div>
+                </div>
+                {draftStartDate && draftEndDate && draftStartDate > draftEndDate && (
+                  <p className="text-[11px] text-rose-500 font-medium">
+                    A data inicial não pode ser posterior à data final.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Situação de Pagamento */}
           <div>
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-2">

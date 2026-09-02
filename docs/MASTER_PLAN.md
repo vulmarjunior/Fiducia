@@ -67,17 +67,17 @@ npm run build      # vite build
 | PWA | ✅ Instalável | iOS meta tags, update com toast; cache antigo pode exigir recarga forçada após deploy |
 | Android | ⏸️ Pendente | Protótipo diagnóstico compilado; importador de notificações pausado para estudos mais aprofundados |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
-| Testes | ✅ Automatizados | 131 testes locais + 3 cenários com Firebase Emulator no CI |
+| Testes | ✅ Automatizados | 139 testes locais + 3 cenários com Firebase Emulator no CI |
 
 ---
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Segunda vistoria da v0.16.0 concluída em 2026-09-02. Os achados financeiros F1 a F8 foram corrigidos e o reprodutor independente passou 21 verificações sem divergências. Permanecem quatro pendências de produto: intervalo personalizado não exposto na UI, faturas em intervalos que atravessam meses, filtros compartilhados entre abas e PDF ausente para entradas × saídas e fluxo por conta.
+**Foco atual:** Resolução integral dos quatro pontos da segunda vistoria da v0.16.0 concluída em 2026-09-02 (isolamento de filtros por relatório, intervalo personalizado na UI, faturas em intervalos multi-mês e exportação em PDF para fluxo e contas). O reprodutor sintético preservou 21/21 verificações aprovadas com 0 divergências.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 
-**Próximo passo sugerido:** Corrigir as quatro pendências registradas na segunda vistoria, validar no navegador com dados reais e só então definir autorização para deploy.
+**Próximo passo sugerido:** Usuário validar os relatórios localmente e fornecer autorização explícita antes de qualquer deploy em produção.
 
 ---
 

@@ -70,4 +70,42 @@ describe('invoiceEvents - conformidade com auditoria', () => {
     expect(res.obligations[0].totalAmountCents).toBe(100000);
     expect(res.obligations[0].remainingAmountCents).toBe(100000);
   });
+
+  it('faturas em intervalos que atravessam multiplos meses incluem todas as faturas com vencimento no intervalo', () => {
+    const cardJulyAugust: CreditCard = {
+      id: 'card-1',
+      name: 'Cartão 1',
+      userId: 'u1',
+      limit: 5000,
+      closingDay: 20,
+      dueDay: 27, // Vencimento no dia 27 do mês da fatura
+      createdAt: '',
+    };
+
+    const invJuly: Invoice = {
+      id: 'inv-july',
+      userId: 'u1',
+      cardId: 'card-1',
+      period: '2026-07',
+      status: 'aberta',
+      totalAmount: 300,
+    };
+
+    const invAugust: Invoice = {
+      id: 'inv-august',
+      userId: 'u1',
+      cardId: 'card-1',
+      period: '2026-08',
+      status: 'aberta',
+      totalAmount: 500,
+    };
+
+    // customRange de 2026-07-25 a 2026-08-28 (atravessa julho e agosto, e engloba o vencimento 27/07 e 27/08)
+    const customRange = { startDate: '2026-07-25', endDate: '2026-08-28' };
+    const res = buildInvoiceObligations([invJuly, invAugust], [cardJulyAugust], [], '2026-07', customRange);
+
+    // Ambas as faturas devem ser incluídas nas obrigações (R$ 300 + R$ 500 = R$ 800)
+    expect(res.obligations).toHaveLength(2);
+    expect(res.totalResidualCents).toBe(80000);
+  });
 });
