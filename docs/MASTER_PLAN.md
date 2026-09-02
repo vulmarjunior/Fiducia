@@ -1,5 +1,4 @@
 # Fiducia — Plano Mestre
-# Fiducia — Plano Mestre
 
 > Fonte única de verdade estratégica.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
@@ -58,7 +57,7 @@ npm run build      # vite build
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
 | Conciliação | ✅ Funcional | OFX/CSV, auto-match, AI match, AI análise de divergências |
-| Relatórios | ✅ Funcional | 4 relatórios essenciais (Despesas, Receitas, Entradas × saídas e Fluxo por conta) + Mais relatórios (Extrato, Orçamento, Futuro, Faturas, IA) |
+| Relatórios | ⚠️ Em revisão | v0.16.0 com erros reproduzidos de saldo, faturas, pendências e detalhamento; auditoria em `docs/archive/sessions/2026-09-02-auditoria-relatorios.md` |
 | Auditoria | ✅ Funcional | Diagnóstico, correção de saldo, reabertura de períodos |
 | Orçamentos | ✅ Funcional | Metas por categoria, tabela Orçado x Realizado |
 | Metas | ✅ Funcional | Metas financeiras com progresso |
@@ -68,17 +67,17 @@ npm run build      # vite build
 | PWA | ✅ Instalável | iOS meta tags, update com toast; cache antigo pode exigir recarga forçada após deploy |
 | Android | ⏸️ Pendente | Protótipo diagnóstico compilado; importador de notificações pausado para estudos mais aprofundados |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
-| Testes | ✅ Automatizados | 114 testes locais + 3 cenários com Firebase Emulator no CI |
+| Testes | ✅ Automatizados | 131 testes locais + 3 cenários com Firebase Emulator no CI |
 
 ---
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Entrega dos quatro relatórios essenciais concluída com sucesso na v0.16.0 (Despesas, Receitas, Entradas × saídas e Fluxo por conta), com distribuição, evolução temporal, drill-down de lançamentos, cálculo de saldo em escala separada e exportações CSV/PDF.
+**Foco atual:** Segunda vistoria da v0.16.0 concluída em 2026-09-02. Os achados financeiros F1 a F8 foram corrigidos e o reprodutor independente passou 21 verificações sem divergências. Permanecem quatro pendências de produto: intervalo personalizado não exposto na UI, faturas em intervalos que atravessam meses, filtros compartilhados entre abas e PDF ausente para entradas × saídas e fluxo por conta.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 
-**Próximo passo sugerido:** Avaliar a experiência de uso dos relatórios essenciais e definir a próxima prioridade de evolução do sistema.
+**Próximo passo sugerido:** Corrigir as quatro pendências registradas na segunda vistoria, validar no navegador com dados reais e só então definir autorização para deploy.
 
 ---
 
@@ -150,7 +149,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 12 | Central de Importação Assistida — Fase 3 | ⏸️ Pendente | Importador de notificações Android colocado em espera para estudos mais aprofundados; e-mail e Open Finance fora do escopo |
 | 13 | CI/CD — GitHub Actions | ✅ Concluído | v0.7.0 — `.github/workflows/ci.yml`: lint + test + build |
 | 14 | Chave Groq em proxy | ✅ Concluído | v0.8.0 — Vercel Function autenticada por Firebase ID token |
-| 15 | Quatro relatórios essenciais | 📋 Planejado | Plano de execução em `docs/plano-relatorios-essenciais.md`; implementação não iniciada |
+| 15 | Quatro relatórios essenciais | ⚠️ Em validação | v0.16.0 com cálculos financeiros corrigidos; quatro pendências de produto registradas em `2026-09-02-segunda-auditoria-relatorios.md` |
 
 ---
 
@@ -160,6 +159,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 |-------|-----------|-----------|
 | Testes dependentes de emulador | Baixa | Suíte configurada no CI com Java 21; execução local exige Java instalado |
 | Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard |
+| Relatórios v0.16.0 — aceite de produto | Média | Cálculos financeiros corrigidos, mas faltam intervalo personalizado na UI, travessia de meses, filtros isolados e PDF para duas visões; ver segunda vistoria de 2026-09-02 |
 | IA server-side | Baixa | Roteamento corrigido na v0.15.2; modelo e parâmetros migrados na v0.15.3, com chamada autenticada HTTP 200 em produção |
 | Formato de notificações Android | Média | C6 e Itaú podem alterar textos/pacotes sem contrato público; parser deve ser calibrado com alertas reais antes de integrar ao Firebase |
 | Single developer | Alta | Todo conhecimento está em um único desenvolvedor (documentação atenua) |
@@ -199,7 +199,8 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 | `docs/ia-conciliacao-inteligente.md` | Spec IA Conciliação | ✅ Status "IMPLEMENTADO" adicionado em v0.4.0 |
 | `docs/plano-de-melhorias.md` | Diagnóstico e plano de correções | ⚠️ Parcialmente resolvido; inventário revisado em v0.4.0 |
 | `docs/plano-evolucao-previsao-caixa.md` | Spec evolução previsão de caixa | ✅ Criado em v0.4.0 |
-| `docs/plano-relatorios-essenciais.md` | Execução dos quatro relatórios essenciais, regras e critérios de aceite | 📋 Planejamento concluído; implementação não iniciada |
+| `docs/plano-relatorios-essenciais.md` | Execução dos quatro relatórios essenciais, regras e critérios de aceite | ⚠️ Implementação v0.16.0 auditada; critérios ainda não atendidos |
+| `docs/archive/sessions/2026-09-02-auditoria-relatorios.md` | Achados, reproduções e ordem de correção dos relatórios v0.16.0 | ✅ Auditoria concluída; correções pendentes |
 | `docs/plano-migracao-firebase-supabase.md` | Plano de contingência para eventual migração do banco | 📋 Proposta não autorizada |
 | `docs/ARQUITETURA_ANDROID.md` | Arquitetura, privacidade, build e roteiro do APK diagnóstico | 🧪 Aguarda validação em aparelho real |
 | `docs/archive/sessions/` | Arquivo de sessões concluídas | ✅ Ativo |
@@ -225,7 +226,7 @@ Pendências para sessão futura:
 - Ampliar testes de interface em navegador
 - Monitorar os fluxos Groq sob demanda
 - Importador de notificações Android (C6/Itaú): congelado em estado pendente para estudos mais aprofundados
-- Implementação dos quatro relatórios essenciais conforme `docs/plano-relatorios-essenciais.md`, quando solicitada; planejamento concluído em 2026-09-02
+- Fechar as quatro pendências da segunda vistoria em `docs/archive/sessions/2026-09-02-segunda-auditoria-relatorios.md` e cumprir integralmente `docs/plano-relatorios-essenciais.md`
 
 Fora do escopo atual:
 - Central de Importação Fase 3 — e-mail, Open Finance e perfis avançados; sem previsão de retomada.

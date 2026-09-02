@@ -53,18 +53,39 @@ export function CategoryEvolutionChart({ reportResult }: CategoryEvolutionChartP
     return row;
   });
 
-  const handleOpenBucketDetails = (point: typeof evolution[0]) => {
+  const handleOpenBucketDetails = (point: typeof evolution[0], catId?: string) => {
     // Coleta transações que caíram neste bucket
-    const allEntriesInBucket: NormalizedTransaction[] = [];
-    for (const cat of categories) {
+    const targetEntries: NormalizedTransaction[] = [];
+    const catsToInspect = catId
+      ? categories.filter(c => c.categoryId === catId)
+      : categories;
+
+    for (const cat of catsToInspect) {
       for (const entry of cat.entries) {
-        if (entry.date >= point.periodKey && entry.date <= point.periodKey) {
-          allEntriesInBucket.push(entry);
+        let belongs = false;
+        if (point.periodKey.length === 7 && point.periodKey.includes('-')) {
+          // Mês: YYYY-MM
+          const mKey = entry.isCard
+            ? (entry.invoicePeriod || entry.month || entry.date.slice(0, 7))
+            : (entry.month || entry.date.slice(0, 7));
+          belongs = mKey === point.periodKey;
+        } else if (point.periodKey.length === 10) {
+          // Dia: YYYY-MM-DD
+          belongs = entry.date === point.periodKey;
+        } else {
+          // Semana ou genérico: verifica se a data está no período
+          belongs = entry.date.includes(point.periodKey) || (point.label && entry.date >= point.periodKey);
+        }
+
+        if (belongs) {
+          targetEntries.push(entry);
         }
       }
     }
-    setDetailsTitle(`Lançamentos do Período — ${point.label}`);
-    setDetailsEntries(allEntriesInBucket);
+
+    const catName = catId ? categories.find(c => c.categoryId === catId)?.categoryName : '';
+    setDetailsTitle(catName ? `${catName} — ${point.label}` : `Lançamentos do Período — ${point.label}`);
+    setDetailsEntries(targetEntries);
     setDetailsOpen(true);
   };
 
@@ -180,7 +201,13 @@ export function CategoryEvolutionChart({ reportResult }: CategoryEvolutionChartP
                   {evolution.map(pt => {
                     const val = pt.values[cat.categoryId] || 0;
                     return (
-                      <td key={pt.periodKey} className="p-3 text-right text-muted-foreground">
+                      <td
+                        key={pt.periodKey}
+                        onClick={() => {
+                          if (val !== 0) handleOpenBucketDetails(pt, cat.categoryId);
+                        }}
+                        className={`p-3 text-right text-muted-foreground ${val !== 0 ? 'cursor-pointer hover:bg-muted/70 hover:text-foreground font-medium' : ''}`}
+                      >
                         {val !== 0 ? formatCurrency(val) : '-'}
                       </td>
                     );
@@ -195,7 +222,13 @@ export function CategoryEvolutionChart({ reportResult }: CategoryEvolutionChartP
               <tr>
                 <td className="p-3 text-foreground">Total do Período</td>
                 {evolution.map(pt => (
-                  <td key={pt.periodKey} className="p-3 text-right text-foreground">
+                  <td
+                    key={pt.periodKey}
+                    onClick={() => {
+                      if (pt.total !== 0) handleOpenBucketDetails(pt);
+                    }}
+                    className={`p-3 text-right text-foreground ${pt.total !== 0 ? 'cursor-pointer hover:bg-muted/80 font-bold' : ''}`}
+                  >
                     {formatCurrency(pt.total)}
                   </td>
                 ))}
@@ -214,6 +247,7 @@ export function CategoryEvolutionChart({ reportResult }: CategoryEvolutionChartP
         onOpenChange={setDetailsOpen}
         title={detailsTitle}
         entries={detailsEntries}
+        context={{ type: reportResult.type === 'expenses' ? 'expenses' : 'income' }}
       />
     </div>
   );

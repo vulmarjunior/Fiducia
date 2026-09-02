@@ -15,18 +15,38 @@ import { getTransactionEffect } from '../utils';
 export function calculateStartingBalanceCents(
   account: Account,
   transactions: NormalizedTransaction[],
-  startDate: string
+  startDate: string,
+  endDate: string
 ): number {
-  const initialCents = toCents(account.initialBalance || 0);
+  const accountId = account.id || '';
+  if (!accountId) return 0;
 
-  // Considera transações realizadas anteriores à data de início
+  // F4: Data de abertura da conta
+  const openingDate = account.openingDate || (account.createdAt ? account.createdAt.slice(0, 10) : undefined);
+  if (openingDate && openingDate > endDate) {
+    // Conta aberta no futuro em relação ao período consultado: não fornece capital
+    return 0;
+  }
+
+  let initialCents = toCents(account.initialBalance || 0);
+
+  // Se a conta abriu DURANTE o período (startDate <= openingDate <= endDate),
+  // o saldo antes de startDate é 0 (o capital entra na data de abertura)
+  if (openingDate && openingDate >= startDate && openingDate <= endDate) {
+    initialCents = 0;
+  }
+
+  // F1: Considera apenas transações realizadas anteriores a startDate que pertençam a ESTA conta
   let sumCents = 0;
   for (const tx of transactions) {
     if (tx.status !== 'paid') continue;
     if (tx.date >= startDate) continue;
     if (tx.isCard) continue;
 
-    // Efeito bancário usando getTransactionEffect canônico
+    const isOrigin = tx.accountId === accountId;
+    const isDest = tx.destinationAccountId === accountId;
+    if (!isOrigin && !isDest) continue;
+
     const effect = getTransactionEffect(
       {
         type: tx.type,
@@ -34,13 +54,57 @@ export function calculateStartingBalanceCents(
         accountId: tx.accountId,
         destinationAccountId: tx.destinationAccountId,
       },
-      account.id || ''
+      accountId
     );
 
     sumCents += toCents(effect);
   }
 
   return initialCents + sumCents;
+}
+
+export function checkAccountReconciliation(
+  account: Account,
+  transactions: NormalizedTransaction[]
+): boolean {
+  // F4: Ausência de saldo inicial não pode resultar em conciliado
+  if (account.initialBalance === undefined || account.initialBalance === null || isNaN(account.initialBalance)) {
+    return false;
+  }
+
+  // Se o saldo persistido (account.balance) não estiver definido ou for nulo
+  if (account.balance === undefined || account.balance === null || isNaN(account.balance)) {
+    return false;
+  }
+
+  const accountId = account.id || '';
+  if (!accountId) return false;
+
+  // Reconciliação: initialBalance + sum(effect de todos os realizados desta conta) == account.balance
+  let currentCalculatedCents = toCents(account.initialBalance);
+  for (const tx of transactions) {
+    if (tx.status !== 'paid') continue;
+    if (tx.isCard) continue;
+
+    const isOrigin = tx.accountId === accountId;
+    const isDest = tx.destinationAccountId === accountId;
+    if (!isOrigin && !isDest) continue;
+
+    const effect = getTransactionEffect(
+      {
+        type: tx.type,
+        amount: tx.amountCents / 100,
+        accountId: tx.accountId,
+        destinationAccountId: tx.destinationAccountId,
+      },
+      accountId
+    );
+
+    currentCalculatedCents += toCents(effect);
+  }
+
+  const persistedCents = toCents(account.balance);
+  return Math.abs(currentCalculatedCents - persistedCents) <= 1; // tolerância de 1 centavo para arredondamento
 }
 
 export function buildAccountFlowReport(
@@ -56,8 +120,46 @@ export function buildAccountFlowReport(
   const { selectedMonth, customRange, originIds, status, intervalType, accumulated, includePending } = filters;
   const { startDate, endDate } = customRange || getMonthBounds(selectedMonth);
 
-  // Filtragem de contas bancárias (cartões não entram como contas de caixa)
-  const selectedAccountIds = originIds && originIds.length > 0
+  // F6: Seleção vazia não equivale a todas as contas. Se originIds for fornecido e vazio ([]), exibe 0 contas.
+  if (originIds !== undefined && originIds.length === 0) {
+    const emptyCashFlow: CashFlowReportResult = {
+      totalInflowCents: 0,
+      totalOutflowCents: 0,
+      netResultCents: 0,
+      totalInflow: 0,
+      totalOutflow: 0,
+      netResult: 0,
+      startingBalanceCents: 0,
+      endingBalanceCents: 0,
+      startingBalance: 0,
+      endingBalance: 0,
+      points: [],
+    };
+
+    const emptyAccountFlow: AccountFlowReportResult = {
+      consolidatedStartingBalanceCents: 0,
+      consolidatedInflowCents: 0,
+      consolidatedOutflowCents: 0,
+      consolidatedNetResultCents: 0,
+      consolidatedEndingBalanceCents: 0,
+      consolidatedStartingBalance: 0,
+      consolidatedInflow: 0,
+      consolidatedOutflow: 0,
+      consolidatedNetResult: 0,
+      consolidatedEndingBalance: 0,
+      consolidatedProjectedEndingBalanceCents: 0,
+      consolidatedProjectedEndingBalance: 0,
+      unallocatedInvoiceObligationsCents: 0,
+      unallocatedInvoiceObligations: 0,
+      unallocatedInvoices: [],
+      accounts: [],
+      consolidatedPoints: [],
+    };
+
+    return { cashFlowResult: emptyCashFlow, accountFlowResult: emptyAccountFlow };
+  }
+
+  const selectedAccountIds = originIds !== undefined
     ? new Set(originIds)
     : new Set(accounts.map(a => a.id).filter((id): id is string => Boolean(id)));
 
@@ -69,16 +171,10 @@ export function buildAccountFlowReport(
   // Processamento por conta individual
   const accountFlowItems: AccountFlowItem[] = [];
 
-  let totalConsolidatedStartingCents = 0;
-  let totalConsolidatedInflowCents = 0;
-  let totalConsolidatedOutflowCents = 0;
-  let totalConsolidatedResultCents = 0;
-  let totalConsolidatedEndingCents = 0;
-  let totalConsolidatedPendingNetCents = 0;
-
   for (const account of activeAccounts) {
     const accountId = account.id || '';
-    const startingBalanceCents = calculateStartingBalanceCents(account, transactions, startDate);
+    const startingBalanceCents = calculateStartingBalanceCents(account, transactions, startDate, endDate);
+    const isReconciled = checkAccountReconciliation(account, transactions);
 
     let inflowCents = 0;
     let outflowCents = 0;
@@ -105,10 +201,28 @@ export function buildAccountFlowReport(
       entries: [],
     }));
 
+    // F4: Capital de abertura durante o período
+    const openingDate = account.openingDate || (account.createdAt ? account.createdAt.slice(0, 10) : undefined);
+    if (openingDate && openingDate >= startDate && openingDate <= endDate && account.initialBalance) {
+      const openCapitalCents = toCents(account.initialBalance);
+      if (openCapitalCents > 0) {
+        inflowCents += openCapitalCents;
+        const bIdx = buckets.findIndex(b => openingDate >= b.startDate && openingDate <= b.endDate);
+        if (bIdx !== -1) {
+          accountPoints[bIdx].inflowCents += openCapitalCents;
+        }
+      }
+    }
+
     // Movimentações no período
     for (const tx of transactions) {
       if (tx.isCard) continue;
       if (tx.date < startDate || tx.date > endDate) continue;
+
+      // F1: Pertinência estrita a ESTA conta (origem ou destino)
+      const isOrigin = tx.accountId === accountId;
+      const isDest = tx.destinationAccountId === accountId;
+      if (!isOrigin && !isDest) continue;
 
       const effect = getTransactionEffect(
         {
@@ -129,6 +243,11 @@ export function buildAccountFlowReport(
       // Filtro de status da tela
       if (status === 'paid' && !isPaid) continue;
       if (status === 'pending' && !isPending) continue;
+
+      // F3 / Caso 15: se somente realizados (includePending === false), exclui pendências do detalhamento
+      if (!includePending && status !== 'pending' && isPending) {
+        continue;
+      }
 
       accountEntries.push(tx);
 
@@ -168,10 +287,15 @@ export function buildAccountFlowReport(
       }
     }
 
-    const netResultCents = inflowCents - outflowCents;
-    const endingBalanceCents = startingBalanceCents + netResultCents;
+    // F3: Se includePending === true, os totais de fluxo exibidos incorporam as pendências
+    const displayedInflowCents = includePending ? inflowCents + pendingInflowCents : inflowCents;
+    const displayedOutflowCents = includePending ? outflowCents + pendingOutflowCents : outflowCents;
+    const displayedNetResultCents = displayedInflowCents - displayedOutflowCents;
+    const realizedEndingBalanceCents = startingBalanceCents + (inflowCents - outflowCents);
+    const endingBalanceCents = realizedEndingBalanceCents;
+
     const pendingNetCents = pendingInflowCents - pendingOutflowCents;
-    const projectedEndingBalanceCents = endingBalanceCents + pendingNetCents;
+    const projectedEndingBalanceCents = realizedEndingBalanceCents + pendingNetCents;
 
     // Calcula saldos de cada bucket da conta
     let runningBalanceCents = startingBalanceCents;
@@ -180,59 +304,58 @@ export function buildAccountFlowReport(
     let runningAccumResultCents = 0;
 
     for (const pt of accountPoints) {
-      pt.resultCents = pt.inflowCents - pt.outflowCents;
+      const ptInflow = includePending ? pt.inflowCents + pt.pendingInflowCents : pt.inflowCents;
+      const ptOutflow = includePending ? pt.outflowCents + pt.pendingOutflowCents : pt.outflowCents;
+      const ptResult = ptInflow - ptOutflow;
+
+      pt.resultCents = ptResult;
       pt.pendingResultCents = pt.pendingInflowCents - pt.pendingOutflowCents;
-      
-      runningBalanceCents += pt.resultCents;
+
+      runningBalanceCents += ptResult;
       pt.endingBalanceCents = runningBalanceCents;
       pt.endingBalance = fromCents(runningBalanceCents);
 
       if (accumulated) {
-        runningAccumInflowCents += pt.inflowCents;
-        runningAccumOutflowCents += pt.outflowCents;
-        runningAccumResultCents += pt.resultCents;
+        runningAccumInflowCents += ptInflow;
+        runningAccumOutflowCents += ptOutflow;
+        runningAccumResultCents += ptResult;
 
         pt.inflow = fromCents(runningAccumInflowCents);
         pt.outflow = fromCents(runningAccumOutflowCents);
         pt.result = fromCents(runningAccumResultCents);
       } else {
-        pt.inflow = fromCents(pt.inflowCents);
-        pt.outflow = fromCents(pt.outflowCents);
-        pt.result = fromCents(pt.resultCents);
+        pt.inflow = fromCents(ptInflow);
+        pt.outflow = fromCents(ptOutflow);
+        pt.result = fromCents(ptResult);
       }
     }
-
-    totalConsolidatedStartingCents += startingBalanceCents;
-    totalConsolidatedEndingCents += endingBalanceCents;
-    totalConsolidatedPendingNetCents += pendingNetCents;
 
     accountFlowItems.push({
       accountId,
       accountName: account.name,
       accountType: account.type,
       startingBalanceCents,
-      inflowCents,
-      outflowCents,
-      netResultCents,
+      inflowCents: displayedInflowCents,
+      outflowCents: displayedOutflowCents,
+      netResultCents: displayedNetResultCents,
       endingBalanceCents,
       startingBalance: fromCents(startingBalanceCents),
-      inflow: fromCents(inflowCents),
-      outflow: fromCents(outflowCents),
-      netResult: fromCents(netResultCents),
+      inflow: fromCents(displayedInflowCents),
+      outflow: fromCents(displayedOutflowCents),
+      netResult: fromCents(displayedNetResultCents),
       endingBalance: fromCents(endingBalanceCents),
       pendingInflowCents,
       pendingOutflowCents,
       pendingNetCents,
       projectedEndingBalanceCents,
       projectedEndingBalance: fromCents(projectedEndingBalanceCents),
-      isReconciled: true,
+      isReconciled,
       points: accountPoints,
       entries: accountEntries,
     });
   }
 
-  // Processamento Consolidado para Entradas × Saídas e Fluxo Geral
-  // No consolidado, transferências entre duas contas da seleção devem ser neutralizadas!
+  // F1 & F3: Processamento Consolidado a partir das contas ativas e neutralização de transferências internas
   const consolidatedPoints: CashFlowPoint[] = buckets.map(b => ({
     periodKey: b.key,
     label: b.label,
@@ -252,6 +375,15 @@ export function buildAccountFlowReport(
   }));
 
   const consolidatedEntries: NormalizedTransaction[] = [];
+  let totalConsolidatedStartingCents = 0;
+  let totalConsolidatedInflowCents = 0;
+  let totalConsolidatedOutflowCents = 0;
+  let totalConsolidatedPendingNetCents = 0;
+
+  for (const item of accountFlowItems) {
+    totalConsolidatedStartingCents += item.startingBalanceCents;
+    totalConsolidatedPendingNetCents += item.pendingNetCents;
+  }
 
   for (const tx of transactions) {
     if (tx.isCard) continue;
@@ -260,7 +392,6 @@ export function buildAccountFlowReport(
     const fromAccSelected = Boolean(tx.accountId && selectedAccountIds.has(tx.accountId));
     const toAccSelected = Boolean(tx.destinationAccountId && selectedAccountIds.has(tx.destinationAccountId));
 
-    // Se nenhuma das contas envolvidas está selecionada, ignora
     if (!fromAccSelected && !toAccSelected) continue;
 
     const isPaid = tx.status === 'paid';
@@ -269,11 +400,16 @@ export function buildAccountFlowReport(
     if (status === 'paid' && !isPaid) continue;
     if (status === 'pending' && !isPending) continue;
 
+    // F3 / Caso 15: se somente realizados, exclui pendências do detalhamento consolidado
+    if (!includePending && status !== 'pending' && isPending) {
+      continue;
+    }
+
     const bIdx = buckets.findIndex(b => tx.date >= b.startDate && tx.date <= b.endDate);
 
     if (tx.type === 'transfer') {
       if (fromAccSelected && toAccSelected) {
-        // Ambas selecionadas: transferência puramente interna -> neutralizada no total consolidado
+        // Transferência interna entre contas selecionadas -> neutralizada no total
         if (bIdx !== -1) {
           consolidatedPoints[bIdx].entries.push(tx);
         }
@@ -282,22 +418,22 @@ export function buildAccountFlowReport(
       }
 
       if (fromAccSelected && !toAccSelected) {
-        // Saindo da seleção para conta externa -> saída consolidada
-        if (isPaid) {
+        // Saída para conta externa
+        if (isPaid || (isPending && includePending)) {
           totalConsolidatedOutflowCents += tx.amountCents;
           if (bIdx !== -1) consolidatedPoints[bIdx].outflowCents += tx.amountCents;
-        } else if (isPending && (includePending || status === 'pending')) {
+        } else if (isPending) {
           if (bIdx !== -1) {
             consolidatedPoints[bIdx].pendingOutflowCents += tx.amountCents;
             consolidatedPoints[bIdx].hasPending = true;
           }
         }
       } else if (!fromAccSelected && toAccSelected) {
-        // Entrando na seleção vindo de conta externa -> entrada consolidada
-        if (isPaid) {
+        // Entrada vinda de conta externa
+        if (isPaid || (isPending && includePending)) {
           totalConsolidatedInflowCents += tx.amountCents;
           if (bIdx !== -1) consolidatedPoints[bIdx].inflowCents += tx.amountCents;
-        } else if (isPending && (includePending || status === 'pending')) {
+        } else if (isPending) {
           if (bIdx !== -1) {
             consolidatedPoints[bIdx].pendingInflowCents += tx.amountCents;
             consolidatedPoints[bIdx].hasPending = true;
@@ -305,20 +441,20 @@ export function buildAccountFlowReport(
         }
       }
     } else if (tx.type === 'income') {
-      if (isPaid) {
+      if (isPaid || (isPending && includePending)) {
         totalConsolidatedInflowCents += tx.amountCents;
         if (bIdx !== -1) consolidatedPoints[bIdx].inflowCents += tx.amountCents;
-      } else if (isPending && (includePending || status === 'pending')) {
+      } else if (isPending) {
         if (bIdx !== -1) {
           consolidatedPoints[bIdx].pendingInflowCents += tx.amountCents;
           consolidatedPoints[bIdx].hasPending = true;
         }
       }
     } else if (tx.type === 'expense') {
-      if (isPaid) {
+      if (isPaid || (isPending && includePending)) {
         totalConsolidatedOutflowCents += tx.amountCents;
         if (bIdx !== -1) consolidatedPoints[bIdx].outflowCents += tx.amountCents;
-      } else if (isPending && (includePending || status === 'pending')) {
+      } else if (isPending) {
         if (bIdx !== -1) {
           consolidatedPoints[bIdx].pendingOutflowCents += tx.amountCents;
           consolidatedPoints[bIdx].hasPending = true;
@@ -332,7 +468,23 @@ export function buildAccountFlowReport(
     consolidatedEntries.push(tx);
   }
 
-  totalConsolidatedResultCents = totalConsolidatedInflowCents - totalConsolidatedOutflowCents;
+  // F4: Capital de abertura durante o período no consolidado
+  for (const acc of activeAccounts) {
+    const openingDate = acc.openingDate || (acc.createdAt ? acc.createdAt.slice(0, 10) : undefined);
+    if (openingDate && openingDate >= startDate && openingDate <= endDate && acc.initialBalance) {
+      const openCapitalCents = toCents(acc.initialBalance);
+      if (openCapitalCents > 0) {
+        totalConsolidatedInflowCents += openCapitalCents;
+        const bIdx = buckets.findIndex(b => openingDate >= b.startDate && openingDate <= b.endDate);
+        if (bIdx !== -1) {
+          consolidatedPoints[bIdx].inflowCents += openCapitalCents;
+        }
+      }
+    }
+  }
+
+  const totalConsolidatedResultCents = totalConsolidatedInflowCents - totalConsolidatedOutflowCents;
+  const totalConsolidatedEndingCents = totalConsolidatedStartingCents + totalConsolidatedResultCents;
 
   let runningConsolidatedBalance = totalConsolidatedStartingCents;
   let runningAccumConsolidatedInflow = 0;
@@ -362,11 +514,20 @@ export function buildAccountFlowReport(
     }
   }
 
-  // Obrigações residuais de faturas de cartão
-  const invoiceObligations = buildInvoiceObligations(invoices, creditCards, transactions, selectedMonth);
-  const unallocatedCents = invoiceObligations.totalResidualCents;
+  // F7: Obrigações residuais de faturas de cartão com respeito a customRange
+  const invoiceObligations = buildInvoiceObligations(invoices, creditCards, transactions, selectedMonth, customRange);
 
-  const consolidatedProjectedEndingCents = totalConsolidatedEndingCents + totalConsolidatedPendingNetCents - unallocatedCents;
+  // F7: Faturas residuais só deduzem do saldo previsto se includePending === true
+  // E no Caso 11: Se seleção for parcial de contas (originIds definido com subconjunto),
+  // faturas sem conta não devem ser atribuídas à conta parcial!
+  const isPartialAccountSelection = originIds !== undefined && originIds.length < accounts.length;
+  const unallocatedCents = (includePending && !isPartialAccountSelection)
+    ? invoiceObligations.totalResidualCents
+    : 0;
+
+  const consolidatedProjectedEndingCents = includePending
+    ? totalConsolidatedEndingCents - unallocatedCents
+    : (totalConsolidatedStartingCents + (totalConsolidatedInflowCents - totalConsolidatedOutflowCents)) + totalConsolidatedPendingNetCents - unallocatedCents;
 
   const cashFlowResult: CashFlowReportResult = {
     totalInflowCents: totalConsolidatedInflowCents,
@@ -395,8 +556,8 @@ export function buildAccountFlowReport(
     consolidatedEndingBalance: fromCents(totalConsolidatedEndingCents),
     consolidatedProjectedEndingBalanceCents: consolidatedProjectedEndingCents,
     consolidatedProjectedEndingBalance: fromCents(consolidatedProjectedEndingCents),
-    unallocatedInvoiceObligationsCents: unallocatedCents,
-    unallocatedInvoiceObligations: fromCents(unallocatedCents),
+    unallocatedInvoiceObligationsCents: invoiceObligations.totalResidualCents,
+    unallocatedInvoiceObligations: fromCents(invoiceObligations.totalResidualCents),
     unallocatedInvoices: invoiceObligations.obligations,
     accounts: accountFlowItems,
     consolidatedPoints,

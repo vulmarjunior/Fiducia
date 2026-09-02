@@ -78,7 +78,7 @@ export function buildCashFlowReportCsv(
   const lines: string[] = [
     '# Entradas x Saidas',
     `# Periodo: ${filters.selectedMonth}`,
-    `# Agrupamento: ${filters.intervalType} (Acumulado: ${filters.accumulated ? 'Sim' : 'Nao'})`,
+    `# Agrupamento: ${filters.intervalType} (Acumulado: ${filters.accumulated ? 'Sim' : 'Nao'}, Incluir Pendentes: ${filters.includePending ? 'Sim' : 'Nao'})`,
     `# Total Entradas: ${formatCurrency(result.totalInflow)}`,
     `# Total Saidas: ${formatCurrency(result.totalOutflow)}`,
     `# Resultado Liquido: ${formatCurrency(result.netResult)}`,

@@ -245,6 +245,7 @@ export function CategoryDistributionChart({
           title={`Lançamentos — ${selectedCategory.categoryName}`}
           subtitle={`${selectedCategory.entriesCount} lançamento(s) na categoria`}
           entries={selectedCategory.entries}
+          context={{ type: reportResult.type === 'expenses' ? 'expenses' : 'income' }}
         />
       )}
     </div>

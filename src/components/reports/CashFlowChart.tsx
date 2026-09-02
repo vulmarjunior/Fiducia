@@ -66,7 +66,7 @@ export function CashFlowChart({ reportResult, showPending }: CashFlowChartProps)
             {formatCurrency(totalInflow)}
           </div>
           <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            Receitas bancárias realizadas
+            {showPending ? 'Entradas realizadas e pendentes' : 'Receitas bancárias realizadas'}
           </span>
         </div>
 
@@ -84,7 +84,7 @@ export function CashFlowChart({ reportResult, showPending }: CashFlowChartProps)
             {formatCurrency(totalOutflow)}
           </div>
           <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            Despesas bancárias e pagamentos de fatura
+            {showPending ? 'Saídas realizadas e pendentes' : 'Despesas bancárias e pagamentos de fatura'}
           </span>
         </div>
 
@@ -106,7 +106,7 @@ export function CashFlowChart({ reportResult, showPending }: CashFlowChartProps)
             {formatCurrency(netResult)}
           </div>
           <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            Entradas menos saídas
+            {showPending ? 'Resultado previsto (inclui pendências)' : 'Entradas menos saídas realizadas'}
           </span>
         </div>
 
@@ -114,7 +114,7 @@ export function CashFlowChart({ reportResult, showPending }: CashFlowChartProps)
         <div className="bg-card p-4 rounded-xl border border-border">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Saldo Final
+              {showPending ? 'Saldo Previsto' : 'Saldo Final'}
             </span>
             <div className="p-1.5 rounded-full bg-blue-500/10 text-blue-500">
               <Wallet className="w-4 h-4" />
@@ -262,6 +262,7 @@ export function CashFlowChart({ reportResult, showPending }: CashFlowChartProps)
           title={`Lançamentos — ${selectedPoint.label}`}
           subtitle={`${selectedPoint.entries.length} lançamento(s) de caixa no período`}
           entries={selectedPoint.entries}
+          context={{ type: 'cashflow' }}
         />
       )}
     </div>

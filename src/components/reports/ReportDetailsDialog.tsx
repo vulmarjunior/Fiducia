@@ -4,7 +4,13 @@ import { Button } from '../ui/button';
 import { formatCurrency } from '../../lib/utils';
 import { useTransactionDialog } from '../../contexts/TransactionDialogContext';
 import type { NormalizedTransaction } from '../../types/reports';
-import { CreditCard, Wallet, ArrowUpRight, ArrowDownRight, CheckCircle2, Clock } from 'lucide-react';
+import { CreditCard, Wallet, CheckCircle2, Clock } from 'lucide-react';
+
+export type ReportDetailsContext =
+  | { type: 'expenses' }
+  | { type: 'income' }
+  | { type: 'cashflow' }
+  | { type: 'account'; accountId: string };
 
 interface ReportDetailsDialogProps {
   open: boolean;
@@ -12,6 +18,53 @@ interface ReportDetailsDialogProps {
   title: string;
   subtitle?: string;
   entries: NormalizedTransaction[];
+  context?: ReportDetailsContext;
+}
+
+function getItemEffect(entry: NormalizedTransaction, context?: ReportDetailsContext): { amount: number; isNegative: boolean; sign: string } {
+  const amount = entry.amountCents / 100;
+
+  if (!context || context.type === 'expenses') {
+    // Em despesas por categoria: compras somam gasto (+), estornos/créditos de cartão reduzem (-)
+    if (entry.isCredit || entry.type === 'income') {
+      return { amount: -amount, isNegative: true, sign: '- ' };
+    }
+    return { amount, isNegative: false, sign: '+ ' };
+  }
+
+  if (context.type === 'income') {
+    return { amount, isNegative: false, sign: '+ ' };
+  }
+
+  if (context.type === 'cashflow') {
+    if (entry.type === 'income') {
+      return { amount, isNegative: false, sign: '+ ' };
+    }
+    if (entry.type === 'expense') {
+      return { amount: -amount, isNegative: true, sign: '- ' };
+    }
+    // Transferência puramente interna neutralizada
+    return { amount: 0, isNegative: false, sign: '' };
+  }
+
+  if (context.type === 'account') {
+    const isOrigin = entry.accountId === context.accountId;
+    const isDest = entry.destinationAccountId === context.accountId;
+
+    if (entry.type === 'transfer') {
+      if (isOrigin) return { amount: -amount, isNegative: true, sign: '- ' };
+      if (isDest) return { amount, isNegative: false, sign: '+ ' };
+      return { amount: 0, isNegative: false, sign: '' };
+    }
+    if (entry.type === 'expense') {
+      return { amount: -amount, isNegative: true, sign: '- ' };
+    }
+    if (entry.type === 'income') {
+      return { amount, isNegative: false, sign: '+ ' };
+    }
+  }
+
+  return { amount, isNegative: false, sign: '' };
 }
 
 export function ReportDetailsDialog({
@@ -20,15 +73,11 @@ export function ReportDetailsDialog({
   title,
   subtitle,
   entries,
+  context,
 }: ReportDetailsDialogProps) {
   const { open: openTxDialog } = useTransactionDialog();
 
-  const total = entries.reduce((sum, e) => {
-    if (e.type === 'expense') {
-      return sum + (e.isCredit ? -e.amountCents : e.amountCents);
-    }
-    return sum + e.amountCents;
-  }, 0) / 100;
+  const total = entries.reduce((sum, e) => sum + getItemEffect(e, context).amount, 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -38,7 +87,8 @@ export function ReportDetailsDialog({
           <DialogDescription className="text-sm text-muted-foreground flex justify-between items-center mt-1">
             <span>{subtitle || `${entries.length} lançamento(s)`}</span>
             <span className="font-semibold text-foreground text-base">
-              Total: {formatCurrency(total)}
+              Total: {formatCurrency(Math.abs(total))}
+              {total < 0 && ' (crédito líquido)'}
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -50,8 +100,9 @@ export function ReportDetailsDialog({
             </div>
           ) : (
             entries.map((entry) => {
+              const effect = getItemEffect(entry, context);
               const isExpense = entry.type === 'expense';
-              const isCredit = entry.isCredit;
+              const isCredit = entry.isCredit || (entry.type === 'income' && entry.isCard);
               const displayAmount = (entry.amountCents / 100);
 
               return (
@@ -66,9 +117,11 @@ export function ReportDetailsDialog({
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1 mr-3">
                     <div className={`p-2 rounded-full shrink-0 ${
-                      isExpense
-                        ? isCredit ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
-                        : 'bg-emerald-500/10 text-emerald-500'
+                      isCredit
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : isExpense
+                          ? 'bg-rose-500/10 text-rose-500'
+                          : 'bg-emerald-500/10 text-emerald-500'
                     }`}>
                       {entry.isCard ? (
                         <CreditCard className="w-4 h-4" />
@@ -95,9 +148,13 @@ export function ReportDetailsDialog({
 
                   <div className="text-right shrink-0 flex flex-col items-end">
                     <span className={`font-semibold ${
-                      isExpense && !isCredit ? 'text-foreground' : 'text-emerald-600 dark:text-emerald-400'
+                      effect.isNegative
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : isCredit
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-foreground'
                     }`}>
-                      {isExpense && !isCredit ? '- ' : '+ '}
+                      {effect.sign}
                       {formatCurrency(displayAmount)}
                     </span>
                     <span className="text-[11px] flex items-center gap-1 text-muted-foreground mt-0.5">

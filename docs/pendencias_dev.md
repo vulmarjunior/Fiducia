@@ -5,11 +5,11 @@
 
 ## Próxima pauta
 
-**Estado:** Aguardando definição de nova pauta de desenvolvimento.
+**Estado:** Segunda vistoria concluída. Correções financeiras principais validadas; quatro pendências de produto/UX permanecem antes do aceite integral (intervalo personalizado na UI, intervalo atravessando meses, filtros isolados por relatório e PDF para fluxo/contas).
 
 **Versão de base:** `0.16.0`.
 
-**Referência da última entrega:** `docs/archive/sessions/2026-09-02-relatorios-essenciais-entrega.md` (v0.16.0 — Relatórios essenciais).
+**Referência da última entrega:** `docs/archive/sessions/2026-09-02-segunda-auditoria-relatorios.md` (Segunda vistoria dos Relatórios v0.16.0).
 
 ### Frente Android pausada
 

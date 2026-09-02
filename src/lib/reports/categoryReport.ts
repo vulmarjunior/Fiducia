@@ -262,9 +262,17 @@ export function buildCategoryReport(
     }
 
     // Encontra o bucket correspondente
-    const bucketIdx = buckets.findIndex(
-      b => targetDate >= b.startDate && targetDate <= b.endDate
-    );
+    let bucketIdx = -1;
+    if (intervalType === 'month') {
+      const monthKey = tx.isCard
+        ? (tx.invoicePeriod || tx.month || tx.date.slice(0, 7))
+        : (tx.month || tx.date.slice(0, 7));
+      bucketIdx = buckets.findIndex(b => b.key === monthKey);
+    } else {
+      bucketIdx = buckets.findIndex(
+        b => targetDate >= b.startDate && targetDate <= b.endDate
+      );
+    }
 
     if (bucketIdx !== -1) {
       const pt = evolution[bucketIdx];

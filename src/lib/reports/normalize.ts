@@ -45,9 +45,16 @@ export function normalizeTransaction(
   const cardIds = new Set(creditCards.map(c => c.id).filter((id): id is string => Boolean(id)));
   const invoicePaymentIds = paymentTxIds || getInvoicePaymentTransactionIds(invoices);
 
-  const isCard = Boolean(tx.creditCardId) || Boolean(tx.accountId && cardIds.has(tx.accountId));
+  const isCardAccount = Boolean(tx.accountId && cardIds.has(tx.accountId));
+  let isInvoicePayment = Boolean(tx.id && invoicePaymentIds.has(tx.id));
+  if (!isInvoicePayment && tx.accountId && !cardIds.has(tx.accountId)) {
+    if (tx.categoryId === 'Pagamento de Cartão' || /pagamento.*fatura/i.test(tx.description || '')) {
+      isInvoicePayment = true;
+    }
+  }
+
+  const isCard = (isCardAccount || Boolean(tx.creditCardId)) && !isInvoicePayment;
   const cardId = tx.creditCardId || (tx.accountId && cardIds.has(tx.accountId) ? tx.accountId : undefined);
-  const isInvoicePayment = Boolean(tx.id && invoicePaymentIds.has(tx.id));
 
   const type = normalizeType(tx.type);
   const status = normalizeStatus(tx.status);

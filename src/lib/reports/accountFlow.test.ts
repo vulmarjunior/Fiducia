@@ -61,7 +61,7 @@ describe('accountFlow', () => {
     ];
 
     const normalized = normalizeTransactions(pastTransactions, categories, creditCards);
-    const startingCents = calculateStartingBalanceCents(account, normalized, '2026-08-01');
+    const startingCents = calculateStartingBalanceCents(account, normalized, '2026-08-01', '2026-08-31');
 
     // 1000 + 300 - 100 = 1200
     expect(startingCents).toBe(120000);
@@ -298,5 +298,113 @@ describe('accountFlow', () => {
     expect(accountFlowResult.unallocatedInvoiceObligations).toBe(400);
     expect(accountFlowResult.unallocatedInvoices).toHaveLength(1);
     expect(accountFlowResult.unallocatedInvoices[0].remainingAmountCents).toBe(40000);
+  });
+
+  describe('conformidade estrita com a auditoria v0.16.0', () => {
+    const acc = (id: string, initialBalance: number, balance = initialBalance, extra: Partial<Account> = {}): Account => ({
+      id, name: id, userId: 'u1', type: 'checking', initialBalance, balance, createdAt: '2026-01-01', openingDate: '2026-01-01', ...extra,
+    });
+    const tx = (overrides: Partial<Transaction>): Transaction => ({
+      id: 'tx-syn', userId: 'u1', type: 'expense', status: 'paid', amount: 100,
+      date: '2026-08-10', description: 'Syn', accountId: 'A', createdAt: '2026-08-10', ...overrides,
+    });
+    const card: CreditCard = { id: 'card', name: 'Card', userId: 'u1', limit: 5000, closingDay: 20, dueDay: 27, createdAt: '' };
+    const inv = (overrides: Partial<Invoice> = {}): Invoice => ({
+      id: 'invoice', userId: 'u1', cardId: 'card', period: '2026-08', status: 'aberta', totalAmount: 1000, ...overrides,
+    });
+    const baseFilters = { selectedMonth: '2026-08', status: 'all' as const, intervalType: 'day' as const, accumulated: false, includePending: false };
+
+    it('01 movimentos de uma conta nao pertencem a outra', () => {
+      const multiTx = [tx({ id: 'income-A', type: 'income', amount: 500 }), tx({ id: 'expense-B', accountId: 'B', amount: 100 })];
+      const multiAccounts = [acc('A', 1000, 1500), acc('B', 2000, 1900)];
+      const res = buildAccountFlowReport(multiAccounts, [card], [], normalizeTransactions(multiTx, [], [card]), baseFilters);
+      expect(res.accountFlowResult.accounts.map(a => a.endingBalance)).toEqual([1500, 1900]);
+    });
+
+    it('02 saldo do indicador coincide com ultimo ponto do grafico', () => {
+      const multiTx = [tx({ id: 'income-A', type: 'income', amount: 500 }), tx({ id: 'expense-B', accountId: 'B', amount: 100 })];
+      const multiAccounts = [acc('A', 1000, 1500), acc('B', 2000, 1900)];
+      const res = buildAccountFlowReport(multiAccounts, [card], [], normalizeTransactions(multiTx, [], [card]), baseFilters);
+      expect(res.cashFlowResult.endingBalance).toBe(3400);
+      expect(res.cashFlowResult.points.at(-1)?.endingBalance).toBe(3400);
+    });
+
+    it('03 identidade saldo inicial + entradas - saidas = saldo final', () => {
+      const multiTx = [tx({ id: 'income-A', type: 'income', amount: 500 }), tx({ id: 'expense-B', accountId: 'B', amount: 100 })];
+      const multiAccounts = [acc('A', 1000, 1500), acc('B', 2000, 1900)];
+      const res = buildAccountFlowReport(multiAccounts, [card], [], normalizeTransactions(multiTx, [], [card]), baseFilters);
+      const calculated = res.cashFlowResult.startingBalance! + res.cashFlowResult.totalInflow - res.cashFlowResult.totalOutflow;
+      expect(res.cashFlowResult.endingBalance).toBe(calculated);
+    });
+
+    it('04 saldo historico nao incorpora movimentos de outras contas', () => {
+      const pastTx = [tx({ id: 'income-A', type: 'income', amount: 500, date: '2026-07-10' }), tx({ id: 'expense-B', accountId: 'B', amount: 100, date: '2026-07-10' })];
+      const multiAccounts = [acc('A', 1000, 1500), acc('B', 2000, 1900)];
+      const res = buildAccountFlowReport(multiAccounts, [card], [], normalizeTransactions(pastTx, [], [card]), baseFilters);
+      expect(res.accountFlowResult.accounts.map(a => a.startingBalance)).toEqual([1500, 1900]);
+    });
+
+    it('05 selecao vazia nao equivale a todas as contas', () => {
+      const multiTx = [tx({ id: 'income-A', type: 'income', amount: 500 })];
+      const multiAccounts = [acc('A', 1000), acc('B', 2000)];
+      const res = buildAccountFlowReport(multiAccounts, [card], [], normalizeTransactions(multiTx, [], [card]), { ...baseFilters, originIds: [] });
+      expect(res.accountFlowResult.accounts).toHaveLength(0);
+    });
+
+    it('07 pagamento oficial pendente reduz residual sem precisar creditCardId', () => {
+      const partial = inv({ status: 'parcial', paidAmount: 400, paymentTransactionIds: ['scheduled'] });
+      const scheduled = tx({ id: 'scheduled', status: 'pending', amount: 200, date: '2026-08-27' });
+      const res = buildAccountFlowReport([acc('A', 1000)], [card], [partial], normalizeTransactions([scheduled], [], [card], [partial]), { ...baseFilters, includePending: true });
+      expect(res.accountFlowResult.unallocatedInvoiceObligations).toBe(400);
+      expect(res.accountFlowResult.consolidatedProjectedEndingBalance).toBe(400);
+    });
+
+    it('10 desativar pendencias nao desconta fatura do saldo previsto', () => {
+      const res = buildAccountFlowReport([acc('A', 1000)], [card], [inv({ totalAmount: 100 })], [], baseFilters);
+      expect(res.accountFlowResult.consolidatedProjectedEndingBalance).toBe(1000);
+    });
+
+    it('11 selecao parcial nao recebe obrigacao sem conta arbitraria', () => {
+      const res = buildAccountFlowReport([acc('A', 1000), acc('B', 2000)], [card], [inv({ totalAmount: 100 })], [], { ...baseFilters, originIds: ['A'], includePending: true });
+      expect(res.accountFlowResult.consolidatedProjectedEndingBalance).toBe(1000);
+    });
+
+    it('12 vencimento fora do intervalo personalizado nao entra', () => {
+      const res = buildAccountFlowReport([acc('A', 1000)], [card], [inv({ totalAmount: 100 })], [], {
+        ...baseFilters,
+        includePending: true,
+        customRange: { startDate: '2026-08-01', endDate: '2026-08-05' },
+      });
+      expect(res.accountFlowResult.unallocatedInvoiceObligations).toBe(0);
+    });
+
+    it('14 incluir pendentes afeta valores exibidos em entradas x saidas', () => {
+      const pendingTx = tx({ id: 'pending', status: 'pending', amount: 100 });
+      const res = buildAccountFlowReport([acc('A', 1000)], [card], [], normalizeTransactions([pendingTx], [], [card]), { ...baseFilters, includePending: true });
+      expect(res.cashFlowResult.totalOutflow).toBe(100);
+    });
+
+    it('15 somente realizados exclui pendencias tambem do detalhamento', () => {
+      const pendingTx = tx({ id: 'pending', status: 'pending', amount: 100 });
+      const res = buildAccountFlowReport([acc('A', 1000)], [card], [], normalizeTransactions([pendingTx], [], [card]), baseFilters);
+      expect(res.cashFlowResult.points.flatMap(p => p.entries)).toHaveLength(0);
+    });
+
+    it('16 nao declarar conciliacao sem comparar saldo persistido', () => {
+      const res = buildAccountFlowReport([acc('A', 1000, 9000)], [card], [], [], baseFilters);
+      expect(res.accountFlowResult.accounts[0].isReconciled).toBe(false);
+    });
+
+    it('17 ausencia de saldo inicial nao pode resultar em conciliado', () => {
+      const noInit = { ...acc('A', 0, 9000), initialBalance: undefined };
+      const res = buildAccountFlowReport([noInit], [card], [], [], baseFilters);
+      expect(res.accountFlowResult.accounts[0].isReconciled).toBe(false);
+    });
+
+    it('18 conta aberta em setembro nao fornece capital em agosto', () => {
+      const futureAcc = { ...acc('A', 1000), openingDate: '2026-09-01', createdAt: '2026-09-01' };
+      const res = buildAccountFlowReport([futureAcc], [card], [], [], baseFilters);
+      expect(res.accountFlowResult.consolidatedStartingBalance).toBe(0);
+    });
   });
 });

@@ -307,6 +307,7 @@ export function AccountFlowView({ reportResult, showPending }: AccountFlowViewPr
           title={`Movimentações — ${selectedAccount.accountName}`}
           subtitle={`${selectedAccount.entries.length} movimentação(ões) no período`}
           entries={selectedAccount.entries}
+          context={{ type: 'account', accountId: selectedAccount.accountId }}
         />
       )}
     </div>

@@ -1,0 +1,152 @@
+{
+  "base": "46bf0f3 / v0.16.0",
+  "data": "synthetic only",
+  "results": [
+    {
+      "case": "01 movimentos de uma conta nao pertencem a outra",
+      "expected": [
+        1500,
+        1900
+      ],
+      "actual": [
+        1500,
+        1900
+      ],
+      "passed": true
+    },
+    {
+      "case": "02 saldo do indicador coincide com ultimo ponto do grafico",
+      "expected": {
+        "indicator": 3400,
+        "chart": 3400
+      },
+      "actual": {
+        "indicator": 3400,
+        "chart": 3400
+      },
+      "passed": true
+    },
+    {
+      "case": "03 identidade saldo inicial + entradas - saidas = saldo final",
+      "expected": 3400,
+      "actual": 3400,
+      "passed": true
+    },
+    {
+      "case": "04 saldo historico nao incorpora movimentos de outras contas",
+      "expected": [
+        1500,
+        1900
+      ],
+      "actual": [
+        1500,
+        1900
+      ],
+      "passed": true
+    },
+    {
+      "case": "05 selecao vazia nao equivale a todas as contas",
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "case": "06 compra pendente nao e agendamento de pagamento de fatura",
+      "expected": 100000,
+      "actual": 100000,
+      "passed": true
+    },
+    {
+      "case": "07 pagamento oficial pendente reduz residual sem precisar creditCardId",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "case": "08 previsao nao duplica agendamento oficial",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "case": "09 compras sem documento de fatura continuam sendo obrigacao",
+      "expected": 100000,
+      "actual": 100000,
+      "passed": true
+    },
+    {
+      "case": "10 desativar pendencias nao desconta fatura do saldo previsto",
+      "expected": 1000,
+      "actual": 1000,
+      "passed": true
+    },
+    {
+      "case": "11 selecao parcial nao recebe obrigacao sem conta arbitraria",
+      "expected": 1000,
+      "actual": 1000,
+      "passed": true
+    },
+    {
+      "case": "12 vencimento fora do intervalo personalizado nao entra",
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "case": "13 evolucao mensal coincide com distribuicao do mes da fatura",
+      "expected": 100,
+      "actual": 100,
+      "passed": true
+    },
+    {
+      "case": "14 incluir pendentes afeta valores exibidos em entradas x saidas",
+      "expected": 100,
+      "actual": 100,
+      "passed": true
+    },
+    {
+      "case": "15 somente realizados exclui pendencias tambem do detalhamento",
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "case": "16 nao declarar conciliacao sem comparar saldo persistido",
+      "expected": false,
+      "actual": false,
+      "passed": true
+    },
+    {
+      "case": "17 ausencia de saldo inicial nao pode resultar em conciliado",
+      "expected": false,
+      "actual": false,
+      "passed": true
+    },
+    {
+      "case": "18 conta aberta em setembro nao fornece capital em agosto",
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "case": "controle 01 uma conta com receita e despesa proprias",
+      "expected": 1300,
+      "actual": 1300,
+      "passed": true
+    },
+    {
+      "case": "controle 02 transferencia interna preserva total",
+      "expected": 3000,
+      "actual": 3000,
+      "passed": true
+    },
+    {
+      "case": "controle 03 credito de cartao reduz consumo",
+      "expected": 250,
+      "actual": 250,
+      "passed": true
+    }
+  ],
+  "total": 21,
+  "divergences": 0
+}

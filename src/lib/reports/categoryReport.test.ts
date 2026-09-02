@@ -238,4 +238,37 @@ describe('categoryReport', () => {
     expect(report.total).toBe(80);
     expect(report.categories).toHaveLength(1);
   });
+
+  it('13 evolucao mensal coincide com distribuicao do mes da fatura (compra de julho na fatura de agosto)', () => {
+    const transactions: Transaction[] = [
+      {
+        id: 'july-purchase',
+        userId: 'u1',
+        description: 'Compra Julho',
+        type: 'expense',
+        amount: 100,
+        date: '2026-07-25',
+        postingDate: '2026-07-25',
+        invoicePeriod: '2026-08',
+        creditCardId: 'card-c6',
+        accountId: 'card-c6',
+        categoryId: 'cat-alimentacao',
+        status: 'paid',
+        createdAt: '',
+      },
+    ];
+
+    const normalized = normalizeTransactions(transactions, categories, creditCards);
+    const report = buildCategoryReport('expenses', normalized, categories, [], {
+      selectedMonth: '2026-08',
+      status: 'all',
+      intervalType: 'month',
+      accumulated: false,
+      includePending: false,
+    });
+
+    expect(report.total).toBe(100);
+    const evolutionSum = report.evolution.reduce((s, p) => s + p.total, 0);
+    expect(evolutionSum).toBe(100);
+  });
 });
