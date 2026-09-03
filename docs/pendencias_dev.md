@@ -5,11 +5,11 @@
 
 ## Próxima pauta
 
-**Estado:** Quatro pontos da segunda auditoria corrigidos e validados localmente; aguardando autorização do usuário antes de realizar o deploy.
+**Estado:** Quatro pontos da segunda auditoria corrigidos e validados localmente; fixture de teste PDF corrigido e lint, testes e build aprovados. Falta validação visual final antes do deploy.
 
 **Versão de base:** `0.16.0`.
 
-**Referência da última entrega:** `docs/archive/sessions/2026-09-02-segunda-auditoria-resolucao.md` (Resolução dos Quatro Pontos da Segunda Auditoria dos Relatórios v0.16.0).
+**Referência da última entrega:** `docs/archive/sessions/2026-09-02-terceira-vistoria-relatorios.md` (Terceira vistoria dos Relatórios v0.16.0).
 
 ### Frente Android pausada
 
