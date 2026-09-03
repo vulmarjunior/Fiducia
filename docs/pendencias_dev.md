@@ -5,15 +5,17 @@
 
 ## Próxima pauta
 
-**Estado:** Plano de relatórios essenciais fechado integralmente em 2026-09-03 (contratos de cálculo, experiência, exportações, estados de UI e matriz de testes completos; lint, 157 testes e build aprovados). Falta a validação visual final antes do deploy.
+**Estado:** v0.16.0 com refinamentos de UX aplicados em 2026-09-03 (seletor de evolução por dropdown, faturas de cartão no Entradas × Saídas, disponibilidade imediata de investimentos nos relatórios e Dashboard, proteção de lançamentos com conta obrigatória). Erro 403 de produção resolvido (10 transações com conta inexistente corrigidas; 0 referências quebradas). Lint, 163 testes e build aprovados. Falta a validação visual final antes do deploy.
 
 **Versão de base:** `0.16.0`.
 
-**Referência da última entrega:** `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md` (Fechamento do Plano de Relatórios Essenciais).
+**Referências da última entrega:**
+- `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md` (fechamento do plano)
+- `docs/archive/sessions/2026-09-03-refinamentos-ux-e-protecao-transacoes.md` (refinamentos e proteção)
 
 ### Próximo passo
 
-1. Validação visual em desktop (1440px) e mobile (390px), temas claro/escuro, dos quatro relatórios essenciais.
+1. Validação visual em desktop (1440px) e mobile (390px), temas claro/escuro, dos quatro relatórios essenciais e do Dashboard (Disponível × Investimentos).
 2. Após aceite do usuário, autorização explícita para deploy em produção.
 
 ### Frente Android pausada

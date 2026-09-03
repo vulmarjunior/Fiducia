@@ -13,7 +13,7 @@
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
 | **Versão atual** | `0.16.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-09-03 (Fechamento do plano de relatórios essenciais v0.16.0) |
+| **Última alteração em código** | 2026-09-03 (Refinamentos de UX, disponibilidade imediata e proteção de lançamentos) |
 | **Último deploy** | v0.15.5 em produção (v0.16.0 pronta para deploy) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -73,7 +73,7 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Validação visual final dos relatórios essenciais v0.16.0 (plano fechado integralmente em 2026-09-03 — `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md`) e autorização explícita do usuário antes do deploy em produção.
+**Foco atual:** Validação visual final dos relatórios essenciais v0.16.0 (plano fechado em 2026-09-03; refinamentos de UX aplicados: seletor de evolução por dropdown, faturas de cartão visíveis no Entradas × Saídas, disponibilidade imediata de investimentos nos relatórios e no Dashboard, e proteção de lançamentos com conta obrigatória — ver `docs/archive/sessions/2026-09-03-refinamentos-ux-e-protecao-transacoes.md`) e autorização explícita do usuário antes do deploy em produção.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 
@@ -158,7 +158,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | Risco | Severidade | Descrição |
 |-------|-----------|-----------|
 | Testes dependentes de emulador | Baixa | Suíte configurada no CI com Java 21; execução local exige Java instalado |
-| Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard |
+| Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard; referências a contas inexistentes corrigidas em 2026-09-03 (10 transações) e prevenidas pela obrigatoriedade de conta em lançamentos |
 | Relatórios v0.16.0 — aceite de produto | Baixa | Plano fechado em 2026-09-03 (cálculos, experiência, exportações e testes); falta apenas a validação visual final antes do deploy |
 | IA server-side | Baixa | Roteamento corrigido na v0.15.2; modelo e parâmetros migrados na v0.15.3, com chamada autenticada HTTP 200 em produção |
 | Formato de notificações Android | Média | C6 e Itaú podem alterar textos/pacotes sem contrato público; parser deve ser calibrado com alertas reais antes de integrar ao Firebase |
@@ -202,6 +202,7 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 | `docs/plano-relatorios-essenciais.md` | Execução dos quatro relatórios essenciais, regras e critérios de aceite | ✅ Concluído em 2026-09-03 |
 | `docs/archive/sessions/2026-09-02-auditoria-relatorios.md` | Achados, reproduções e ordem de correção dos relatórios v0.16.0 | ✅ Auditoria concluída; correções aplicadas |
 | `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md` | Fechamento integral do plano de relatórios essenciais | ✅ Sessão concluída |
+| `docs/archive/sessions/2026-09-03-refinamentos-ux-e-protecao-transacoes.md` | Refinamentos de UX (evolução, faturas no caixa, investimentos), Dashboard e proteção de lançamentos | ✅ Sessão concluída |
 | `docs/plano-migracao-firebase-supabase.md` | Plano de contingência para eventual migração do banco | 📋 Proposta não autorizada |
 | `docs/ARQUITETURA_ANDROID.md` | Arquitetura, privacidade, build e roteiro do APK diagnóstico | 🧪 Aguarda validação em aparelho real |
 | `docs/archive/sessions/` | Arquivo de sessões concluídas | ✅ Ativo |
