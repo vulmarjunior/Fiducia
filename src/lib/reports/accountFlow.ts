@@ -608,6 +608,13 @@ export function buildAccountFlowReport(
   let runningAccumConsolidatedResult = 0;
 
   for (const pt of consolidatedPoints) {
+    // Valores exibidos incluem pendências quando "Incluir pendentes" está ativo,
+    // espelhando o loop por conta. As faturas de cartão injetadas entram via pendingOutflow.
+    const ptInflow = includePending ? pt.inflowCents + pt.pendingInflowCents : pt.inflowCents;
+    const ptOutflow = includePending ? pt.outflowCents + pt.pendingOutflowCents : pt.outflowCents;
+    const ptResult = ptInflow - ptOutflow;
+
+    // Saldo realizado permanece baseado apenas em movimentos realizados
     pt.resultCents = pt.inflowCents - pt.outflowCents;
     pt.pendingResultCents = pt.pendingInflowCents - pt.pendingOutflowCents;
 
@@ -621,19 +628,31 @@ export function buildAccountFlowReport(
       : runningConsolidatedBalance;
 
     if (accumulated) {
-      runningAccumConsolidatedInflow += pt.inflowCents;
-      runningAccumConsolidatedOutflow += pt.outflowCents;
-      runningAccumConsolidatedResult += pt.resultCents;
+      runningAccumConsolidatedInflow += ptInflow;
+      runningAccumConsolidatedOutflow += ptOutflow;
+      runningAccumConsolidatedResult += ptResult;
 
       pt.inflow = fromCents(runningAccumConsolidatedInflow);
       pt.outflow = fromCents(runningAccumConsolidatedOutflow);
       pt.result = fromCents(runningAccumConsolidatedResult);
     } else {
-      pt.inflow = fromCents(pt.inflowCents);
-      pt.outflow = fromCents(pt.outflowCents);
-      pt.result = fromCents(pt.resultCents);
+      pt.inflow = fromCents(ptInflow);
+      pt.outflow = fromCents(ptOutflow);
+      pt.result = fromCents(ptResult);
     }
   }
+
+  // Totais do Entradas × Saídas derivam dos pontos exibidos, para que cards,
+  // gráfico e tabela mostrem o mesmo conjunto (incluindo faturas/pendências previstas).
+  const cashTotalInflowCents = consolidatedPoints.reduce(
+    (s, p) => s + (includePending ? p.inflowCents + p.pendingInflowCents : p.inflowCents),
+    0
+  );
+  const cashTotalOutflowCents = consolidatedPoints.reduce(
+    (s, p) => s + (includePending ? p.outflowCents + p.pendingOutflowCents : p.outflowCents),
+    0
+  );
+  const cashNetResultCents = cashTotalInflowCents - cashTotalOutflowCents;
 
   // O saldo previsto consolidado deriva do último ponto do gráfico, garantindo
   // que cards, curva prevista e tabela usem a mesma base (incluindo faturas injetadas).
@@ -650,12 +669,12 @@ export function buildAccountFlowReport(
   );
 
   const cashFlowResult: CashFlowReportResult = {
-    totalInflowCents: totalConsolidatedInflowCents,
-    totalOutflowCents: totalConsolidatedOutflowCents,
-    netResultCents: totalConsolidatedResultCents,
-    totalInflow: fromCents(totalConsolidatedInflowCents),
-    totalOutflow: fromCents(totalConsolidatedOutflowCents),
-    netResult: fromCents(totalConsolidatedResultCents),
+    totalInflowCents: cashTotalInflowCents,
+    totalOutflowCents: cashTotalOutflowCents,
+    netResultCents: cashNetResultCents,
+    totalInflow: fromCents(cashTotalInflowCents),
+    totalOutflow: fromCents(cashTotalOutflowCents),
+    netResult: fromCents(cashNetResultCents),
     startingBalanceCents: totalConsolidatedStartingCents,
     endingBalanceCents: totalConsolidatedEndingCents,
     startingBalance: fromCents(totalConsolidatedStartingCents),

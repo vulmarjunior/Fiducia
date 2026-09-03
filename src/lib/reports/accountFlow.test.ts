@@ -554,6 +554,31 @@ describe('accountFlow', () => {
       expect(res.cashFlowResult.endingBalance).toBe(1000);
     });
 
+    it('com incluir pendentes, faturas fechadas aparecem no ponto exibido e nos totais do gráfico', () => {
+      const closed = inv({ status: 'fechada', totalAmount: 1000 });
+      const cardFechada: CreditCard = { ...card, dueDay: 10 };
+
+      const res = buildAccountFlowReport([acc('A', 1000)], [cardFechada], [closed], [], {
+        ...baseFilters,
+        includePending: true,
+      });
+
+      // Valor exibido no ponto do vencimento (gráfico/tabela) inclui a fatura
+      const duePoint = res.cashFlowResult.points.find(p => p.periodKey === '2026-08-10');
+      expect(duePoint?.outflow).toBe(1000);
+      expect(duePoint?.result).toBe(-1000);
+      // Totais dos cards refletem a fatura
+      expect(res.cashFlowResult.totalOutflow).toBe(1000);
+      expect(res.cashFlowResult.netResult).toBe(-1000);
+      // Saldo previsto desconta a fatura sobre o realizado
+      expect(res.accountFlowResult.consolidatedProjectedEndingBalance).toBe(0);
+
+      // Sem pendentes, a fatura não aparece no ponto exibido
+      const res2 = buildAccountFlowReport([acc('A', 1000)], [cardFechada], [closed], [], baseFilters);
+      expect(res2.cashFlowResult.points.find(p => p.periodKey === '2026-08-10')?.outflow).toBe(0);
+      expect(res2.cashFlowResult.totalOutflow).toBe(0);
+    });
+
     it('conta de investimento fica fora do saldo por padrão e entra quando selecionada', () => {
       const invest = { ...acc('INV', 5000), type: 'investment' as const };
       const checking = acc('A', 1000);

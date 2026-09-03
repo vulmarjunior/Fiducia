@@ -40,6 +40,10 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
     setDetailsOpen(true);
   };
 
+  const projectedBalance = points.length > 0
+    ? (points[points.length - 1].projectedEndingBalanceCents ?? 0) / 100
+    : undefined;
+
   const chartData = points.map(pt => ({
     label: pt.label,
     periodKey: pt.periodKey,
@@ -111,7 +115,7 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
           </span>
         </div>
 
-        {/* Saldo Final */}
+        {/* Saldo Final / Previsto */}
         <div className="bg-card p-4 rounded-xl border border-border">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -122,7 +126,11 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
             </div>
           </div>
           <div className="mt-2 text-2xl font-bold text-foreground">
-            {endingBalance !== undefined ? formatCurrency(endingBalance) : '-'}
+            {showPending && projectedBalance !== undefined
+              ? formatCurrency(projectedBalance)
+              : endingBalance !== undefined
+                ? formatCurrency(endingBalance)
+                : '-'}
           </div>
           <span className="text-[11px] text-muted-foreground mt-0.5 block">
             Inicial: {startingBalance !== undefined ? formatCurrency(startingBalance) : '-'}
