@@ -203,6 +203,7 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 | `docs/archive/sessions/2026-09-02-auditoria-relatorios.md` | Achados, reproduções e ordem de correção dos relatórios v0.16.0 | ✅ Auditoria concluída; correções aplicadas |
 | `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md` | Fechamento integral do plano de relatórios essenciais | ✅ Sessão concluída |
 | `docs/archive/sessions/2026-09-03-refinamentos-ux-e-protecao-transacoes.md` | Refinamentos de UX (evolução, faturas no caixa, investimentos), Dashboard e proteção de lançamentos | ✅ Sessão concluída |
+| `docs/archive/sessions/2026-09-03-correcoes-grafico-caixa-e-remocao-fluxo-antigo.md` | Correções no gráfico de Entradas × Saídas (faturas/pendências) e remoção do Fluxo de Caixa antigo | ✅ Sessão concluída |
 | `docs/plano-migracao-firebase-supabase.md` | Plano de contingência para eventual migração do banco | 📋 Proposta não autorizada |
 | `docs/ARQUITETURA_ANDROID.md` | Arquitetura, privacidade, build e roteiro do APK diagnóstico | 🧪 Aguarda validação em aparelho real |
 | `docs/archive/sessions/` | Arquivo de sessões concluídas | ✅ Ativo |

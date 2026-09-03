@@ -24,12 +24,14 @@
 - `src/components/TransactionDialog.tsx` — **conta obrigatória** na criação e edição de lançamentos (inclusive agendados); transferência exige origem e destino; previne referências a contas inexistentes que causavam 403 em produção.
 - `src/components/reports/ReportDetailsDialog.tsx` — tratamento contextual de sinais para estornos (- R$ X,XX) e transferências (origem → destino); rótulo Parcial para fatura com pagamento parcial.
 - `src/components/reports/` — cores estáveis por ID de categoria; grupo "Outros" na rosca com composição acessível; fatias clicáveis; curva prevista tracejada no fluxo por conta; badges de reconciliação; composição realizado/pendente na tabela de caixa.
-- Suíte de testes expandida para **163 testes unitários aprovados** cobrindo todos os cenários da auditoria, os casos de fechamento da matriz do plano, faturas injetadas no caixa, disponibilidade imediata de investimentos e projeção.
+- `src/pages/Reports.tsx` — **remoção da seção antiga do Fluxo de Caixa** duplicada na aba Entradas × Saídas (KPIs antigos, "Movimento por dia", "Movimentos diários", "Resultado acumulado do mês" e "Resumo por Mês"); código órfão removido (`cashKpis`, `dailyCashFlow`, Dialog "Movimento do dia", `handleExportCashFlowPDF`); `cashFlowData`/`cashTotals` preservados para a aba IA.
+- `src/lib/reports/accountFlow.ts` e `src/components/reports/CashFlowChart.tsx` — **gráfico "Comparativo de Movimentação (Entradas × Saídas)" agora exibe faturas de cartão e pendências previstas** no vencimento quando "Incluir pendentes" está ativo: o loop consolidado passou a somar pendências nos valores exibidos (espelhando o por-conta), os totais dos cards derivam dos pontos exibidos e o card "Saldo Previsto" usa o último ponto projetado.
+- Suíte de testes expandida para **164 testes unitários aprovados** cobrindo todos os cenários da auditoria, os casos de fechamento da matriz do plano, faturas injetadas no caixa (incluindo exibição no ponto e nos totais), disponibilidade imediata de investimentos e projeção.
 
 **Validações locais:**
 - Reprodutor sintético de auditoria: 21 verificações aprovadas, 0 divergências.
 - `npm run lint` — 0 erros (`tsc --noEmit`).
-- `npm run test -- --maxWorkers=1` — 21 arquivos de teste e **163 testes aprovados** (3 cenários de emulador ignorados localmente).
+- `npm run test -- --maxWorkers=1` — 21 arquivos de teste e **164 testes aprovados** (3 cenários de emulador ignorados localmente).
 - `npm run build` — build de produção concluído com sucesso e sem ciclos.
 - Validação visual responsiva em desktop (1440x900) e mobile (390x844).
 - Dados de produção verificados via REST API (referências quebradas 0/907 transações, 0/8 faturas).

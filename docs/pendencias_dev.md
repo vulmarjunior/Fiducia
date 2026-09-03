@@ -12,6 +12,7 @@
 **Referências da última entrega:**
 - `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md` (fechamento do plano)
 - `docs/archive/sessions/2026-09-03-refinamentos-ux-e-protecao-transacoes.md` (refinamentos e proteção)
+- `docs/archive/sessions/2026-09-03-correcoes-grafico-caixa-e-remocao-fluxo-antigo.md` (gráfico de caixa e remoção do Fluxo de Caixa antigo)
 
 ### Próximo passo
 
