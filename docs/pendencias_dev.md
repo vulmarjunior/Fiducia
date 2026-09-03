@@ -5,22 +5,19 @@
 
 ## Próxima pauta
 
-**Estado:** v0.16.0 com refinamentos de UX aplicados em 2026-09-03 (seletor de evolução por dropdown, faturas de cartão no Entradas × Saídas, disponibilidade imediata de investimentos nos relatórios e Dashboard, proteção de lançamentos com conta obrigatória). Erro 403 de produção resolvido (10 transações com conta inexistente corrigidas; 0 referências quebradas). Lint, 163 testes e build aprovados. Falta a validação visual final antes do deploy.
+**Estado:** Gráfico integrado de caixa (`ComposedChart`) e card de cobertura no Dashboard com sparkline concluídos e validados. Lint, testes (164) e build de produção 100% aprovados.
 
 **Versão de base:** `0.16.0`.
 
-**Referências da última entrega:**
-- `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md` (fechamento do plano)
-- `docs/archive/sessions/2026-09-03-refinamentos-ux-e-protecao-transacoes.md` (refinamentos e proteção)
-- `docs/archive/sessions/2026-09-03-correcoes-grafico-caixa-e-remocao-fluxo-antigo.md` (gráfico de caixa e remoção do Fluxo de Caixa antigo)
+**Referência da última entrega:** `docs/archive/sessions/2026-09-03-grafico-caixa-integrado-e-card-cobertura.md`.
 
-### Próximo passo
+### Próximo passo sugerido
 
-1. Validação visual em desktop (1440px) e mobile (390px), temas claro/escuro, dos quatro relatórios essenciais e do Dashboard (Disponível × Investimentos).
-2. Após aceite do usuário, autorização explícita para deploy em produção.
+1. Validação visual final pelo usuário no navegador antes de deploy em produção.
+2. Deploy na Vercel após autorização explícita.
 
 ### Frente Android pausada
 
 O diagnóstico e o handoff anteriores continuam preservados integralmente em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`. A frente permanece congelada para estudos futuros, sem alterações de código, parser, integração Firebase ou publicação do APK.
 
-> **LLM:** deepseek-v4-pro | **Agente:** opencode
+> **LLM:** deepseek-v4-pro | **Agente:** opencode

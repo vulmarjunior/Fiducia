@@ -1234,13 +1234,17 @@ export function Reports() {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
                 <div className={`text-[11px] font-bold uppercase tracking-wider ${projKPIs.cashMargin < 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
-                  {projKPIs.cashMargin < 0 ? 'Margem de caixa insuficiente' : 'Margem disponível para novos compromissos'}
+                  {projKPIs.minimumBalance < 0
+                    ? 'Risco de déficit projetado'
+                    : projKPIs.cashMargin < 0
+                      ? 'Consome reserva protegida'
+                      : 'Folga livre para novos compromissos'}
                 </div>
                 <div className={`mt-1 font-mono text-3xl font-bold ${projKPIs.cashMargin >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
                   {fmt(projKPIs.cashMargin)}
                 </div>
                 <div className="text-[12px] text-muted-foreground mt-1">
-                  Menor saldo previsto: {fmt(projKPIs.minimumBalance)} em {projKPIs.minimumBalanceDate.split('-').reverse().join('/')} · reserva protegida: {fmt(projKPIs.safetyReserve)}.
+                  Menor saldo previsto: <strong>{fmt(projKPIs.minimumBalance)}</strong> em {projKPIs.minimumBalanceDate ? projKPIs.minimumBalanceDate.split('-').reverse().join('/') : '—'} · reserva protegida: <strong>{fmt(projKPIs.safetyReserve)}</strong>.
                   {projKPIs.daysAtRisk > 0 && (
                     <span className="block mt-1 text-fiducia-red font-semibold">
                       ⚠️ {projKPIs.daysAtRisk} dia{projKPIs.daysAtRisk > 1 ? 's' : ''} com saldo negativo no periodo

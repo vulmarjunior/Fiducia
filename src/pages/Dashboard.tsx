@@ -6,7 +6,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, ReferenceLine } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
 import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLocalDate, projectDailyBalance, getBudgetImpact } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
@@ -164,6 +164,14 @@ export function Dashboard() {
   );
   const cashSafetyReserve = Math.max(0, Number(localStorage.getItem(CASH_SAFETY_RESERVE_KEY)) || 0);
   const cashMargin = calculateCashMargin(cashCoverage.minimumBalance, cashSafetyReserve);
+
+  const sparklineData = useMemo(() => {
+    if (!cashCoverage?.dailyProjection?.length) return [];
+    return cashCoverage.dailyProjection.map((d: any) => ({
+      date: d.date,
+      balance: d.endingBalance,
+    }));
+  }, [cashCoverage]);
 
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -542,52 +550,130 @@ export function Dashboard() {
             }
           }}
         >
-          <div className="flex items-center justify-between mb-4">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${cashMargin < 0 ? 'bg-fiducia-red/10 text-fiducia-red' : 'bg-fiducia-purple/10 text-fiducia-purple'}`}>
-              {cashMargin < 0 ? <ShieldAlert className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+          {/* Header com ícone dinâmico e badge de status claro */}
+          <div className="flex items-center justify-between mb-2">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${
+              cashCoverage.minimumBalance < 0
+                ? 'bg-fiducia-red/10 text-fiducia-red'
+                : cashMargin < 0
+                  ? 'bg-amber-500/10 text-amber-500'
+                  : 'bg-fiducia-green/10 text-fiducia-green'
+            }`}>
+              {cashCoverage.minimumBalance < 0 ? (
+                <ShieldAlert className="w-5 h-5" />
+              ) : cashMargin < 0 ? (
+                <ShieldAlert className="w-5 h-5" />
+              ) : (
+                <ShieldCheck className="w-5 h-5" />
+              )}
             </div>
-            <div className="relative group/tip">
-              <Info className="w-4 h-4 text-muted-foreground cursor-help" />
-              <div className="absolute right-0 top-6 w-60 max-w-[calc(100vw-3rem)] sm:w-72 p-3 bg-popover border border-border rounded-xl shadow-lg text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-10">
-                <strong className="block mb-1">Margem de Caixa</strong>
-                Mostra quanto pode ser assumido em novos compromissos sem reduzir o menor saldo previsto abaixo da reserva protegida.
-                <br /><br />
-                Inclui contas pendentes, faturas abertas e fechadas e parcelas futuras já registradas. Recorrências ainda não geradas ficam fora do card.
-                <br /><br />
-                Clique para ver a projeção completa nos Relatórios.
+
+            <div className="flex items-center gap-1.5">
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-tight uppercase ${
+                cashCoverage.minimumBalance < 0
+                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                  : cashMargin < 0
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+              }`}>
+                {cashCoverage.minimumBalance < 0
+                  ? 'Risco de Déficit'
+                  : cashMargin < 0
+                    ? 'Consome Reserva'
+                    : 'Contas Cobertas'}
+              </span>
+
+              <div className="relative group/tip" onClick={e => e.stopPropagation()}>
+                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                <div className="absolute right-0 top-6 w-64 max-w-[calc(100vw-3rem)] sm:w-72 p-3 bg-popover border border-border rounded-xl shadow-xl text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-20">
+                  <strong className="block mb-1 font-semibold text-foreground">Folga de Caixa (90 dias)</strong>
+                  Mostra a sua folga líquida estimada para novos compromissos após pagar todas as contas pendentes e faturas previstas nos próximos 90 dias, mantendo a sua reserva protegida.
+                  <br /><br />
+                  <strong>Equação transparente:</strong>
+                  <br />
+                  (+) Menor saldo previsto no período
+                  <br />
+                  (-) Reserva protegida definida por você
+                  <br />
+                  (=) Folga líquida livre para novos gastos
+                </div>
               </div>
             </div>
           </div>
-          <div className="text-[13px] text-muted-foreground font-medium mb-1">Margem de Caixa (90 dias)</div>
-          <div className={`text-[24px] font-bold tracking-tight font-mono ${cashMargin < 0 ? 'text-fiducia-red' : 'text-fiducia-purple'}`}>
+
+          <div className="text-[13px] text-muted-foreground font-medium mb-0.5">
+            Folga Livre (90 dias)
+          </div>
+
+          <div className={`text-[24px] font-bold tracking-tight font-mono ${
+            cashMargin < 0 ? 'text-fiducia-red' : 'text-fiducia-green'
+          }`}>
             {formatCurrency(cashMargin)}
           </div>
-          <div className="mt-2 text-[12px] text-muted-foreground leading-relaxed">
-            {cashMargin < 0
-              ? <>⚠️ A projeção consome {formatCurrency(Math.abs(cashMargin))} além da reserva protegida.</>
-              : <>Disponível para novos compromissos sem consumir a reserva protegida.</>
-            }
-          </div>
-          <div className="mt-3 pt-3 border-t border-border space-y-1.5">
-            <div className="flex items-center justify-between text-[12px]">
-              <span className="flex items-center gap-1.5 text-fiducia-blue">
-                <span className="w-2 h-2 rounded-full bg-fiducia-blue shrink-0" />
-                Menor saldo previsto
-              </span>
-              <span className="font-mono font-semibold text-fiducia-blue">{formatCurrency(cashCoverage.minimumBalance)}</span>
-            </div>
-            <div className="flex items-center justify-between text-[12px]">
-              <span className="text-muted-foreground">Reserva protegida</span>
-              <span className="font-mono font-semibold">{formatCurrency(cashSafetyReserve)}</span>
-            </div>
-          </div>
-          <div className="mt-2 text-[11px] text-muted-foreground">Ponto mais apertado: {cashCoverage.minimumBalanceDate.split('-').reverse().join('/')}</div>
-          {cashCoverage.excludedOverdueIncome > 0 && <div className="mt-2 text-[11px] text-fiducia-amber">Receitas vencidas não foram consideradas como disponíveis.</div>}
-          {cashCoverage.daysAtRisk > 0 && (
-            <div className="mt-2 text-[12px] text-fiducia-red leading-relaxed">
-              ⚠️ {cashCoverage.daysAtRisk} dia{cashCoverage.daysAtRisk > 1 ? 's' : ''} com saldo negativo nos próximos 90 dias
+
+          {/* Mini Sparkline da trajetória de 90 dias */}
+          {sparklineData.length > 1 && (
+            <div className="h-9 w-full my-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={sparklineData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+                  <defs>
+                    <linearGradient id="dashCashSpark" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="0%"
+                        stopColor={cashCoverage.minimumBalance < 0 ? '#ef4444' : cashMargin < 0 ? '#f59e0b' : '#10b981'}
+                        stopOpacity={0.25}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor={cashCoverage.minimumBalance < 0 ? '#ef4444' : cashMargin < 0 ? '#f59e0b' : '#10b981'}
+                        stopOpacity={0.0}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <ReferenceLine y={0} stroke="currentColor" strokeOpacity={0.25} strokeDasharray="2 2" />
+                  <Area
+                    type="monotone"
+                    dataKey="balance"
+                    stroke={cashCoverage.minimumBalance < 0 ? '#ef4444' : cashMargin < 0 ? '#f59e0b' : '#10b981'}
+                    strokeWidth={1.8}
+                    fill="url(#dashCashSpark)"
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           )}
+
+          {/* Equação Transparente */}
+          <div className="mt-2 pt-2 border-t border-border/60 space-y-1 text-[11px]">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">
+                Menor saldo ({cashCoverage.minimumBalanceDate ? cashCoverage.minimumBalanceDate.split('-').reverse().join('/') : '—'}):
+              </span>
+              <span className={`font-mono font-semibold ${cashCoverage.minimumBalance < 0 ? 'text-fiducia-red' : 'text-foreground'}`}>
+                {formatCurrency(cashCoverage.minimumBalance)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">(-) Reserva protegida:</span>
+              <span className="font-mono font-medium text-muted-foreground">
+                {formatCurrency(cashSafetyReserve)}
+              </span>
+            </div>
+          </div>
+
+          {/* Alertas contextuais se houver risco */}
+          {cashCoverage.daysAtRisk > 0 && (
+            <div className="mt-2 p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-600 dark:text-rose-400 font-medium leading-snug">
+              ⚠️ {cashCoverage.daysAtRisk} dia{cashCoverage.daysAtRisk > 1 ? 's' : ''} com saldo negativo projetado
+            </div>
+          )}
+          {cashCoverage.daysAtRisk === 0 && cashMargin < 0 && (
+            <div className="mt-2 p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 font-medium leading-snug">
+              ⚠️ Contas consom {formatCurrency(Math.abs(cashMargin))} além da reserva protegida
+            </div>
+          )}
+
           <div className="mt-3 pt-2 border-t border-border text-[10px] text-fiducia-blue font-semibold text-right">
             Ver projeção completa →
           </div>

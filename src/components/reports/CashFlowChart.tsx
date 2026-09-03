@@ -1,25 +1,58 @@
 import React, { useState } from 'react';
 import {
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  Legend,
-  LineChart,
-  Line,
+  ReferenceLine,
 } from 'recharts';
 import type { CashFlowPoint, CashFlowReportResult, NormalizedTransaction } from '../../types/reports';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
-import { ArrowUpRight, ArrowDownRight, Scale, Wallet, Clock, ArrowLeftRight, Info, CreditCard } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Scale, Wallet, Clock, ArrowLeftRight, Info, CreditCard, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 interface CashFlowChartProps {
   reportResult: CashFlowReportResult;
   showPending: boolean;
   entityNames?: Record<string, string>;
+}
+
+function CustomCashFlowTooltip({ active, payload, showPending }: any) {
+  if (!active || !payload || !payload.length) return null;
+  const data = payload[0]?.payload;
+  if (!data) return null;
+
+  return (
+    <div className="bg-popover border border-border p-3 rounded-xl shadow-xl text-xs space-y-2 min-w-[210px]">
+      <div className="font-semibold text-foreground pb-1 border-b border-border/60">
+        {data.label}
+      </div>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-3 text-emerald-600 dark:text-emerald-400">
+          <span>Entradas:</span>
+          <span className="font-mono font-medium">+{formatCurrency(data.entradas)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 text-rose-600 dark:text-rose-400">
+          <span>Saídas:</span>
+          <span className="font-mono font-medium">-{formatCurrency(data.saidas)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 text-muted-foreground pt-1 border-t border-border/40 font-medium">
+          <span>Resultado:</span>
+          <span className={`font-mono ${data.resultado >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+            {data.resultado >= 0 ? '+' : ''}{formatCurrency(data.resultado)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3 text-blue-600 dark:text-blue-400 pt-1 border-t border-border/40 font-semibold">
+          <span>{showPending ? 'Saldo Previsto:' : 'Saldo Acumulado:'}</span>
+          <span className="font-mono">{formatCurrency(data.saldo)}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function CashFlowChart({ reportResult, showPending, entityNames }: CashFlowChartProps) {
@@ -44,14 +77,40 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
     ? (points[points.length - 1].projectedEndingBalanceCents ?? 0) / 100
     : undefined;
 
-  const chartData = points.map(pt => ({
-    label: pt.label,
-    periodKey: pt.periodKey,
-    entradas: pt.inflow,
-    saidas: pt.outflow,
-    resultado: pt.result,
-    saldo: pt.endingBalance,
-  }));
+  // Derivação correta da curva de saldo: quando showPending estiver ativo,
+  // utiliza o saldo projetado acumulado (que já incorpora as faturas e pendências).
+  const chartData = points.map(pt => {
+    const ptSaldo = showPending && pt.projectedEndingBalanceCents !== undefined
+      ? pt.projectedEndingBalanceCents / 100
+      : (pt.endingBalance ?? 0);
+    return {
+      label: pt.label,
+      periodKey: pt.periodKey,
+      entradas: pt.inflow,
+      saidas: pt.outflow,
+      resultado: pt.result,
+      saldo: ptSaldo,
+    };
+  });
+
+  // Diagnóstico de menor saldo do período para conferência de cobertura
+  const minSaldoPoint = points.length > 0
+    ? points.reduce((min, curr) => {
+        const currVal = showPending && curr.projectedEndingBalanceCents !== undefined
+          ? curr.projectedEndingBalanceCents / 100
+          : (curr.endingBalance ?? 0);
+        const minVal = showPending && min.projectedEndingBalanceCents !== undefined
+          ? min.projectedEndingBalanceCents / 100
+          : (min.endingBalance ?? 0);
+        return currVal < minVal ? curr : min;
+      }, points[0])
+    : null;
+
+  const minSaldoVal = minSaldoPoint
+    ? (showPending && minSaldoPoint.projectedEndingBalanceCents !== undefined
+        ? minSaldoPoint.projectedEndingBalanceCents / 100
+        : (minSaldoPoint.endingBalance ?? 0))
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -138,6 +197,48 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
         </div>
       </div>
 
+      {/* Banner de Diagnóstico de Cobertura */}
+      {minSaldoVal !== undefined && (
+        <div className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+          minSaldoVal >= 0
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-950 dark:text-emerald-200'
+            : 'bg-rose-500/10 border-rose-500/20 text-rose-950 dark:text-rose-200'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <div className={`p-1.5 rounded-lg shrink-0 ${
+              minSaldoVal >= 0 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
+            }`}>
+              {minSaldoVal >= 0 ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+            </div>
+            <div>
+              <span className="font-semibold block">
+                {minSaldoVal >= 0
+                  ? 'Cobertura total de pagamentos no período'
+                  : 'Atenção: risco de insuficiência de saldo no período'}
+              </span>
+              <span className="text-muted-foreground text-[11px]">
+                {minSaldoVal >= 0
+                  ? 'Todas as obrigações e contas previstas mantêm o saldo bancário positivo ao longo do intervalo.'
+                  : 'Em determinado ponto do período as despesas e faturas previstas superam a liquidez disponível.'}
+              </span>
+            </div>
+          </div>
+          <div className="sm:text-right shrink-0">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+              Menor saldo {showPending ? 'previsto' : 'atingido'}
+            </span>
+            <span className={`text-sm font-mono font-bold ${minSaldoVal >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              {formatCurrency(minSaldoVal)}
+            </span>
+            {minSaldoPoint && (
+              <span className="text-[10px] text-muted-foreground block">
+                em {minSaldoPoint.label}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {(reportResult.openingCapitalCents !== 0 || reportResult.priorPendingCents !== 0 || reportResult.diagnostics.invalidCount > 0 || (showPending && reportResult.invoiceObligationsCents > 0)) && (
         <div className="flex flex-col gap-1.5 p-3 bg-muted/40 border border-border rounded-lg text-xs text-muted-foreground">
           {reportResult.openingCapitalCents !== 0 && (
@@ -175,53 +276,84 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
         </div>
       )}
 
-      {/* Gráfico 1: Entradas x Saídas */}
-      <div className="bg-card p-4 rounded-xl border border-border space-y-2">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-          Comparativo de Movimentação (Entradas × Saídas)
-        </span>
-        <div className="h-72 w-full">
+      {/* Gráfico Integrado: Movimentações (Barras) + Evolução do Saldo (Linha Contínua) */}
+      <div className="bg-card p-4 sm:p-5 rounded-xl border border-border space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+              Visão Integrada de Caixa
+            </span>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {showPending
+                ? 'Barras mostram receitas e despesas/faturas previstas no período; a linha indica o nível de saldo resultante.'
+                : 'Barras mostram receitas e despesas realizadas; a linha indica a evolução do saldo de caixa.'}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 shrink-0" />
+              Entradas (Esq.)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-rose-500 shrink-0" />
+              Saídas (Esq.)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-0.5 bg-blue-500 shrink-0" />
+              Saldo {showPending ? 'Previsto' : 'de Caixa'} (Dir.)
+            </span>
+          </div>
+        </div>
+
+        <div className="h-80 sm:h-96 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+            <ComposedChart data={chartData} margin={{ top: 20, right: 15, left: -5, bottom: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.25} />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `R$ ${v}`} />
-              <Tooltip formatter={(val: any) => [formatCurrency(Number(val)), '']} />
-              <Legend />
-              <Bar dataKey="entradas" name="Entradas" fill="#10b981" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="saidas" name="Saídas" fill="#ef4444" radius={[3, 3, 0, 0]} />
-            </BarChart>
+              <YAxis
+                yAxisId="movimento"
+                orientation="left"
+                tick={{ fontSize: 11 }}
+                tickFormatter={v => `R$ ${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
+              />
+              <YAxis
+                yAxisId="saldo"
+                orientation="right"
+                tick={{ fontSize: 11 }}
+                tickFormatter={v => `R$ ${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
+              />
+              <Tooltip content={<CustomCashFlowTooltip showPending={showPending} />} />
+              <ReferenceLine y={0} yAxisId="saldo" stroke="currentColor" strokeOpacity={0.35} strokeDasharray="3 3" />
+              <Bar
+                yAxisId="movimento"
+                dataKey="entradas"
+                name="Entradas"
+                fill="#10b981"
+                radius={[3, 3, 0, 0]}
+                maxBarSize={36}
+              />
+              <Bar
+                yAxisId="movimento"
+                dataKey="saidas"
+                name="Saídas"
+                fill="#ef4444"
+                radius={[3, 3, 0, 0]}
+                maxBarSize={36}
+              />
+              <Line
+                yAxisId="saldo"
+                type="monotone"
+                dataKey="saldo"
+                name={showPending ? 'Saldo Previsto' : 'Saldo de Caixa'}
+                stroke="#3b82f6"
+                strokeWidth={2.5}
+                dot={{ r: 3.5, fill: '#3b82f6' }}
+                activeDot={{ r: 6 }}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
-
-      {/* Gráfico 2: Evolução de Saldo em Escala Separada */}
-      {endingBalance !== undefined && (
-        <div className="bg-card p-4 rounded-xl border border-border space-y-2">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-            Evolução do Saldo de Caixa
-          </span>
-          <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `R$ ${v}`} />
-                <Tooltip formatter={(val: any) => [formatCurrency(Number(val)), 'Saldo']} />
-                <Line
-                  type="monotone"
-                  dataKey="saldo"
-                  name="Saldo de Caixa"
-                  stroke="#3b82f6"
-                  strokeWidth={2.5}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
 
       {/* Tabela de Conferência */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
