@@ -602,7 +602,7 @@ describe('accountFlow', () => {
       const invest = { ...acc('INV', 5000), type: 'investment' as const };
       const checking = acc('A', 1000);
       const cardFechada = { ...card, id: 'card-1', name: 'Nubank', dueDay: 10 };
-      const closedInv = inv({ id: 'inv-1', cardId: 'card-1', period: '2026-08', totalAmount: 800, dueDate: '2026-08-10', status: 'fechada' });
+      const closedInv = inv({ id: 'inv-1', cardId: 'card-1', period: '2026-08', totalAmount: 800, status: 'fechada' });
 
       // Sem reservas (padrão): apenas conta corrente, mas fatura de cartão DEVE estar incluída
       const resSemReserva = buildAccountFlowReport([checking, invest], [cardFechada], [closedInv], [], {
