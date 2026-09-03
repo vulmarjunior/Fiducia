@@ -374,7 +374,7 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
                 <th className="p-3 font-semibold text-right">Entradas</th>
                 <th className="p-3 font-semibold text-right">Saídas</th>
                 <th className="p-3 font-semibold text-right">Resultado</th>
-                <th className="p-3 font-semibold text-right">Saldo Final</th>
+                <th className="p-3 font-semibold text-right">Saldo {showPending ? 'Previsto' : 'Final'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
@@ -422,7 +422,11 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
                       {formatCurrency(pt.result)}
                     </td>
                     <td className="p-3 text-right text-foreground font-medium">
-                      {pt.endingBalance !== undefined ? formatCurrency(pt.endingBalance) : '-'}
+                      {showPending && pt.projectedEndingBalanceCents !== undefined
+                        ? formatCurrency(pt.projectedEndingBalanceCents / 100)
+                        : pt.endingBalance !== undefined
+                          ? formatCurrency(pt.endingBalance)
+                          : '-'}
                     </td>
                   </tr>
                 );
@@ -443,7 +447,11 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
                   {formatCurrency(netResult)}
                 </td>
                 <td className="p-3 text-right text-foreground font-bold">
-                  {endingBalance !== undefined ? formatCurrency(endingBalance) : '-'}
+                  {showPending && projectedBalance !== undefined
+                    ? formatCurrency(projectedBalance)
+                    : endingBalance !== undefined
+                      ? formatCurrency(endingBalance)
+                      : '-'}
                 </td>
               </tr>
             </tfoot>

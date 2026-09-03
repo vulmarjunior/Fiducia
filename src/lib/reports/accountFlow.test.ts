@@ -626,5 +626,42 @@ describe('accountFlow', () => {
       expect(resComReserva.cashFlowResult.totalOutflow).toBe(800);
       expect(resComReserva.cashFlowResult.points.find(p => p.periodKey === '2026-08-10')?.outflow).toBe(800);
     });
+
+    it('transferência pendente da reserva para conta corrente entra como receita de giro prevista quando reservas não estão incluídas', () => {
+      const invest = { ...acc('INV', 70000), type: 'investment' as const };
+      const checking = acc('SICOOB', 5000);
+      const pendingTransfer = tx({
+        id: 'tx-transf-reserva',
+        type: 'transfer',
+        accountId: 'INV',
+        destinationAccountId: 'SICOOB',
+        amount: 2663.83,
+        date: '2026-08-11',
+        status: 'pending',
+        description: 'Resgate Reserva',
+      });
+
+      // Sem reservas (includeSavings: false): a reserva é externa, logo o resgate é uma entrada prevista no giro
+      const res = buildAccountFlowReport(
+        [checking, invest],
+        [card],
+        [],
+        normalizeTransactions([pendingTransfer], [], [card]),
+        {
+          ...baseFilters,
+          includePending: true,
+          includeSavings: false,
+        }
+      );
+
+      const pt11 = res.cashFlowResult.points.find(p => p.periodKey === '2026-08-11');
+      expect(pt11).toBeDefined();
+      expect(pt11?.hasPending).toBe(true);
+      expect(pt11?.pendingInflowCents).toBe(266383);
+      expect(pt11?.inflow).toBe(2663.83);
+      expect(res.cashFlowResult.totalInflow).toBe(2663.83);
+      // Saldo projetado sobe em 2663.83 sobre o inicial de 5000
+      expect(pt11?.projectedEndingBalanceCents).toBe(766383);
+    });
   });
 });

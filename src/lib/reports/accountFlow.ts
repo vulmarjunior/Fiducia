@@ -497,8 +497,8 @@ export function buildAccountFlowReport(
       }
 
       if (fromAccSelected && !toAccSelected) {
-        // Saída para conta externa
-        if (isPaid || (isPending && includePending)) {
+        // Saída para conta externa (ex: aplicação em reserva/investimento fora da seleção)
+        if (isPaid) {
           totalConsolidatedOutflowCents += tx.amountCents;
           if (bIdx !== -1) consolidatedPoints[bIdx].outflowCents += tx.amountCents;
         } else if (isPending) {
@@ -508,8 +508,8 @@ export function buildAccountFlowReport(
           }
         }
       } else if (!fromAccSelected && toAccSelected) {
-        // Entrada vinda de conta externa
-        if (isPaid || (isPending && includePending)) {
+        // Entrada vinda de conta externa (ex: resgate de reserva/investimento para conta corrente)
+        if (isPaid) {
           totalConsolidatedInflowCents += tx.amountCents;
           if (bIdx !== -1) consolidatedPoints[bIdx].inflowCents += tx.amountCents;
         } else if (isPending) {
@@ -520,7 +520,7 @@ export function buildAccountFlowReport(
         }
       }
     } else if (tx.type === 'income') {
-      if (isPaid || (isPending && includePending)) {
+      if (isPaid) {
         totalConsolidatedInflowCents += tx.amountCents;
         if (bIdx !== -1) consolidatedPoints[bIdx].inflowCents += tx.amountCents;
       } else if (isPending) {
@@ -530,7 +530,7 @@ export function buildAccountFlowReport(
         }
       }
     } else if (tx.type === 'expense') {
-      if (isPaid || (isPending && includePending)) {
+      if (isPaid) {
         totalConsolidatedOutflowCents += tx.amountCents;
         if (bIdx !== -1) consolidatedPoints[bIdx].outflowCents += tx.amountCents;
       } else if (isPending) {

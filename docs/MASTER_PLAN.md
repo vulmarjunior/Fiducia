@@ -13,7 +13,7 @@
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
 | **Versão atual** | `0.16.1` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-09-03 (Correção de reservas/faturas de cartão e barra de filtros rápidos v0.16.1) |
+| **Última alteração em código** | 2026-09-03 (Correção de reservas/faturas de cartão, resgates pendentes de reservas e barra de filtros rápidos v0.16.1) |
 | **Último deploy** | v0.15.5 em produção (v0.16.1 pronta para deploy) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
