@@ -13,3 +13,5 @@ android/**/build/
 artifacts/*.apk
 *.jks
 *.keystore
+# Scripts locais de diagnóstico/migração (contêm credenciais do CLI)
+scripts/

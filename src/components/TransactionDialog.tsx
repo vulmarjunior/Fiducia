@@ -284,6 +284,14 @@ export function TransactionDialog() {
     const amount = formData.amount;
     if (amount <= 0) { toast.error('Valor deve ser positivo'); return; }
 
+    // Conta é obrigatória para lançamentos, inclusive os agendados/pendentes
+    if (formData.type === 'transferencia') {
+      if (!formData.accountId) { toast.error('Selecione a conta de origem da transferência.'); return; }
+      if (!formData.destinationAccountId) { toast.error('Selecione a conta de destino da transferência.'); return; }
+    } else if (!formData.accountId) {
+      toast.error('Selecione a conta do lançamento — é obrigatória, inclusive para lançamentos agendados.'); return;
+    }
+
     if (isPeriodClosed(formData.date, formData.accountId, creditCards, invoices, closedPeriods, formData.invoicePeriod)) {
       toast.error('Período fechado para esta conta.'); return;
     }
@@ -533,6 +541,14 @@ export function TransactionDialog() {
 
     const amount = formData.amount;
     if (amount <= 0) { toast.error('Valor deve ser positivo'); return; }
+
+    // Conta é obrigatória para lançamentos, inclusive os agendados/pendentes
+    if (formData.type === 'transferencia') {
+      if (!formData.accountId) { toast.error('Selecione a conta de origem da transferência.'); return; }
+      if (!formData.destinationAccountId) { toast.error('Selecione a conta de destino da transferência.'); return; }
+    } else if (!formData.accountId) {
+      toast.error('Selecione a conta do lançamento — é obrigatória, inclusive para lançamentos agendados.'); return;
+    }
 
     const targetAccount = accounts.find((a: any) => a.id === editingTx.accountId);
     if (targetAccount?.openingDate && formData.date < targetAccount.openingDate) {
