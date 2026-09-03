@@ -129,7 +129,13 @@ export function Dashboard() {
     }).catch(() => {});
   }, [user, categories.length, transactions.length]);
 
+  const isInvestmentAccount = (acc: any) => acc?.type === 'investment' || acc?.type === 'investimento';
+
   const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+  const liquidAccounts = accounts.filter(acc => !isInvestmentAccount(acc));
+  const investmentAccounts = accounts.filter(isInvestmentAccount);
+  const availableBalance = liquidAccounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+  const investmentBalance = investmentAccounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
   
   const now = new Date();
   const currentMonthStr = selectedMonth;
@@ -449,17 +455,25 @@ export function Dashboard() {
               Ativo
             </div>
           </div>
-          <div className="mb-1 flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
+<div className="mb-1 flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
             Saldo Geral
             <MetricExplanationDialog
               title="Saldo Geral"
-              description="Mostra quanto existe agora nas contas cadastradas. Compras no cartão só reduzem esse saldo quando a fatura é paga."
+              description="Mostra quanto existe agora nas contas cadastradas. Compras no cartão só reduzem esse saldo quando a fatura é paga. O valor 'Disponível' considera apenas contas com liquidez imediata (sem investimentos)."
               formula="Saldo Geral = soma dos saldos atuais das contas"
-              lines={accounts.map((account) => ({ label: account.name, value: formatCurrency(account.balance || 0) }))}
-              note={`${accounts.length} conta(s) incluída(s). Contas marcadas fora do fluxo de caixa continuam no patrimônio total.`}
+              lines={[
+                { label: 'Disponível (sem investimentos)', value: formatCurrency(availableBalance) },
+                ...liquidAccounts.map((account) => ({ label: account.name, value: formatCurrency(account.balance || 0) })),
+                ...(investmentAccounts.length > 0 ? [{ label: 'Investimentos', value: formatCurrency(investmentBalance) }] : []),
+              ]}
+              note={`${accounts.length} conta(s) incluída(s). Contas de investimento entram no patrimônio total, mas ficam fora do Disponível por não terem liquidez imediata.`}
             />
           </div>
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(totalBalance)}</div>
+          <div className="mt-2 flex items-center justify-between gap-2 border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
+            <span>Disponível (sem investimentos)</span>
+            <span className="font-mono font-semibold text-fiducia-green">{formatCurrency(availableBalance)}</span>
+          </div>
         </div>
 
         {/* Receitas */}
@@ -675,22 +689,41 @@ export function Dashboard() {
                   <h3 className="text-[15px] font-bold text-foreground">Minhas Contas</h3>
                 </div>
                 <div className="text-right">
-                  <div className="text-[14px] font-bold font-mono text-foreground">{formatCurrency(totalBalance)}</div>
-                  <div className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Saldo Total</div>
+                  <div className="text-[14px] font-bold font-mono text-fiducia-green">{formatCurrency(availableBalance)}</div>
+                  <div className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Disponível</div>
                 </div>
               </div>
               <div className="divide-y divide-border">
-                {accounts.map(acc => (
+                {liquidAccounts.map(acc => (
                   <div key={acc.id} onClick={() => navigate('/transactions', { state: { presetAccountId: acc.id, presetMonth: currentMonthStr } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
                     <div className="flex-1 min-w-0">
                       <div className="text-[13px] font-bold text-foreground truncate">{acc.name}</div>
-                      <div className="text-[11px] text-muted-foreground truncate capitalize">{acc.type === 'checking' || acc.type === 'corrente' ? 'Conta Corrente' : acc.type === 'savings' || acc.type === 'poupanca' ? 'Poupança' : acc.type === 'wallet' || acc.type === 'carteira' ? 'Carteira' : 'Investimento'}</div>
+                      <div className="text-[11px] text-muted-foreground truncate capitalize">{acc.type === 'checking' || acc.type === 'corrente' ? 'Conta Corrente' : acc.type === 'savings' || acc.type === 'poupanca' ? 'Poupança' : acc.type === 'wallet' || acc.type === 'carteira' ? 'Carteira' : 'Conta'}</div>
                     </div>
                     <div className={`text-[15px] font-bold font-mono ${acc.balance >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
                       {formatCurrency(acc.balance)}
                     </div>
                   </div>
                 ))}
+                {investmentAccounts.length > 0 && (
+                  <>
+                    <div className="px-4 py-2 bg-muted/40 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span>Investimentos (liquidez não imediata)</span>
+                      <span className="font-mono">{formatCurrency(investmentBalance)}</span>
+                    </div>
+                    {investmentAccounts.map(acc => (
+                      <div key={acc.id} onClick={() => navigate('/transactions', { state: { presetAccountId: acc.id, presetMonth: currentMonthStr } })} className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] font-bold text-foreground truncate">{acc.name}</div>
+                          <div className="text-[11px] text-muted-foreground truncate capitalize">Investimento</div>
+                        </div>
+                        <div className={`text-[15px] font-bold font-mono ${acc.balance >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
+                          {formatCurrency(acc.balance)}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
                 {accounts.length === 0 && (
                   <div className="text-center p-6 text-[13px] text-muted-foreground italic">Nenhuma conta cadastrada</div>
                 )}

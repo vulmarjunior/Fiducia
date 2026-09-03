@@ -280,13 +280,23 @@ export function Reports() {
     return normalizeTransactions(transactions, categories, creditCards, invoices);
   }, [transactions, categories, creditCards, invoices]);
 
+  // Origens com disponibilidade imediata (contas não-investimento + cartões):
+  // usadas como padrão quando o usuário não selecionou origens explicitamente.
+  const availableOriginIds = useMemo(
+    () => [
+      ...accounts.filter((a: any) => a.type !== 'investment').map((a: any) => a.id).filter(Boolean),
+      ...creditCards.map((c: any) => c.id).filter(Boolean),
+    ],
+    [accounts, creditCards]
+  );
+
   const expensesReport = useMemo(() => {
-    return buildCategoryReport('expenses', normalizedTransactions, categories, invoices, tabFilters.expenses);
-  }, [normalizedTransactions, categories, invoices, tabFilters.expenses]);
+    return buildCategoryReport('expenses', normalizedTransactions, categories, invoices, tabFilters.expenses, availableOriginIds);
+  }, [normalizedTransactions, categories, invoices, tabFilters.expenses, availableOriginIds]);
 
   const incomeReport = useMemo(() => {
-    return buildCategoryReport('income', normalizedTransactions, categories, invoices, tabFilters.income);
-  }, [normalizedTransactions, categories, invoices, tabFilters.income]);
+    return buildCategoryReport('income', normalizedTransactions, categories, invoices, tabFilters.income, availableOriginIds);
+  }, [normalizedTransactions, categories, invoices, tabFilters.income, availableOriginIds]);
 
   const cashFlowResult = useMemo(() => {
     return buildAccountFlowReport(accounts, creditCards, invoices, normalizedTransactions, tabFilters.cashflow).cashFlowResult;
@@ -313,19 +323,19 @@ export function Reports() {
     return buildCategoryReport(tab, normalizedTransactions, categories, invoices, {
       ...tabFilters[tab],
       customRange: { startDate: `${startMonth}-01`, endDate },
-    });
+    }, availableOriginIds);
   };
 
   const expensesEvolutionReport = useMemo(
     () => buildWindowedEvolution('expenses', expensesReport),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [expensesReport, evolutionWindow, normalizedTransactions, categories, invoices, tabFilters.expenses]
+    [expensesReport, evolutionWindow, normalizedTransactions, categories, invoices, tabFilters.expenses, availableOriginIds]
   );
 
   const incomeEvolutionReport = useMemo(
     () => buildWindowedEvolution('income', incomeReport),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [incomeReport, evolutionWindow, normalizedTransactions, categories, invoices, tabFilters.income]
+    [incomeReport, evolutionWindow, normalizedTransactions, categories, invoices, tabFilters.income, availableOriginIds]
   );
 
   const handleExportCurrentReportCsv = () => {

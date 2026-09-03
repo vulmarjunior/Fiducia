@@ -10,6 +10,13 @@ export type CashCoverageCertainty = 'confirmed' | 'expected' | 'projected';
 
 export const CASH_SAFETY_RESERVE_KEY = 'fiducia_cashSafetyReserve';
 
+// Contas de investimento não representam disponibilidade imediata de caixa:
+// ficam fora da projeção/margem por padrão, exceto quando includeSavings é ativo.
+const isLiquidAccount = (account: any): boolean => {
+  const t = String(account?.type || '').toLowerCase().trim();
+  return t !== 'investment' && t !== 'investimento';
+};
+
 export const calculateCashMargin = (minimumBalance: number, safetyReserve: number) =>
   minimumBalance - Math.max(0, Number.isFinite(safetyReserve) ? safetyReserve : 0);
 
@@ -214,7 +221,10 @@ export function buildCashCoverageProjection({
   const endStr = formatLocalDate(endDate);
 
   const startingBalance = accounts
-    .filter((account: any) => options.includeSavings || !account.excludeFromCashFlow)
+    .filter((account: any) =>
+      options.includeSavings ||
+      (isLiquidAccount(account) && !account.excludeFromCashFlow)
+    )
     .reduce((sum: number, account: any) => sum + (account.balance || 0), 0);
 
   const includeRecurrences = options.includeRecurrences ?? false;

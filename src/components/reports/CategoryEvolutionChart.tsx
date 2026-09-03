@@ -13,7 +13,12 @@ import type { CategoryReportResult, NormalizedTransaction } from '../../types/re
 import type { Invoice } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
-import { Calendar, HelpCircle, Info } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from '../ui/popover';
+import {
+  Calendar, HelpCircle, Info, Search, X, ChevronDown, CheckSquare, Square,
+} from 'lucide-react';
 
 interface CategoryEvolutionChartProps {
   reportResult: CategoryReportResult;
@@ -54,6 +59,9 @@ export function CategoryEvolutionChart({
   const [detailsTitle, setDetailsTitle] = useState('');
   const [detailsEntries, setDetailsEntries] = useState<NormalizedTransaction[]>([]);
 
+  const [seriesMenuOpen, setSeriesMenuOpen] = useState(false);
+  const [seriesSearch, setSeriesSearch] = useState('');
+
   const isMonthGrouping = evolution.length > 0 && evolution[0].periodKey.length === 7;
 
   const toggleCategorySeries = (id: string) => {
@@ -61,6 +69,27 @@ export function CategoryEvolutionChart({
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
+
+  const selectTopN = (n: number) => {
+    setSelectedCatIds(categories.slice(0, n).map(c => c.categoryId));
+    setSeriesSearch('');
+  };
+
+  const selectAllCategories = () => {
+    setSelectedCatIds(categories.map(c => c.categoryId));
+    setSeriesSearch('');
+  };
+
+  const clearAllCategories = () => {
+    setSelectedCatIds([]);
+    setSeriesSearch('');
+  };
+
+  const filteredCategories = categories.filter(c =>
+    c.categoryName.toLowerCase().includes(seriesSearch.toLowerCase())
+  );
+
+  const selectedCategories = categories.filter(c => selectedCatIds.includes(c.categoryId));
 
   const chartData = evolution.map(pt => {
     const row: Record<string, any> = {
@@ -128,7 +157,7 @@ export function CategoryEvolutionChart({
       <div className="bg-card p-4 rounded-xl border border-border space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-            Categorias em Destaque na Evolução
+            Categorias na Evolução
           </span>
           {isMonthGrouping && onEvolutionWindowChange && (
             <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border text-xs">
@@ -150,30 +179,129 @@ export function CategoryEvolutionChart({
             </div>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((cat) => {
-            const isSelected = selectedCatIds.includes(cat.categoryId);
-            const color = getColorForCategory(cat.categoryId);
-            return (
-              <button
-                key={cat.categoryId}
-                type="button"
-                onClick={() => toggleCategorySeries(cat.categoryId)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
-                  isSelected
-                    ? 'border-transparent text-white font-medium shadow-xs'
-                    : 'border-border text-muted-foreground hover:bg-muted'
-                }`}
-                style={{
-                  backgroundColor: isSelected ? color : undefined,
-                }}
+
+        {/* Seleção por dropdown: busca, checkboxes e atalhos em massa */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Popover open={seriesMenuOpen} onOpenChange={setSeriesMenuOpen}>
+            <PopoverTrigger render={(props) => (
+              <Button
+                {...props}
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                title="Escolher categorias exibidas no gráfico"
               >
-                <span>{cat.categoryName}</span>
-                <span className="opacity-75">({formatCurrency(cat.total)})</span>
-              </button>
-            );
-          })}
+                <span>{selectedCatIds.length} de {categories.length} categorias</span>
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              </Button>
+            )} />
+            <PopoverContent className="w-80 p-2.5">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Séries exibidas
+                </span>
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <button type="button" onClick={selectAllCategories} className="text-primary hover:underline">
+                    Todas
+                  </button>
+                  <span className="text-muted-foreground">•</span>
+                  <button type="button" onClick={() => selectTopN(5)} className="text-primary hover:underline">
+                    Top 5
+                  </button>
+                  <span className="text-muted-foreground">•</span>
+                  <button type="button" onClick={() => selectTopN(10)} className="text-primary hover:underline">
+                    Top 10
+                  </button>
+                  <span className="text-muted-foreground">•</span>
+                  <button type="button" onClick={clearAllCategories} className="text-muted-foreground hover:underline">
+                    Limpar
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative mt-2">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Buscar categoria..."
+                  value={seriesSearch}
+                  onChange={e => setSeriesSearch(e.target.value)}
+                  className="pl-8 text-xs h-8"
+                />
+              </div>
+
+              <div className="mt-2 space-y-0.5 max-h-56 overflow-y-auto pr-1">
+                {filteredCategories.length === 0 ? (
+                  <p className="py-4 text-center text-xs text-muted-foreground">
+                    Nenhuma categoria encontrada.
+                  </p>
+                ) : (
+                  filteredCategories.map(cat => {
+                    const isSelected = selectedCatIds.includes(cat.categoryId);
+                    const color = getColorForCategory(cat.categoryId);
+                    return (
+                      <button
+                        key={cat.categoryId}
+                        type="button"
+                        onClick={() => toggleCategorySeries(cat.categoryId)}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
+                          isSelected ? 'bg-muted/60' : 'hover:bg-muted/40'
+                        }`}
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+                        ) : (
+                          <Square className="w-4 h-4 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <span className="truncate flex-1 text-left">{cat.categoryName}</span>
+                        <span className="text-muted-foreground shrink-0">{formatCurrency(cat.total)}</span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="pt-2 mt-2 border-t border-border/60 flex justify-end">
+                <PopoverClose render={(props) => (
+                  <Button {...props} size="sm" className="h-8 text-xs">
+                    Concluir
+                  </Button>
+                )} />
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <span className="text-[11px] text-muted-foreground">
+            A seleção de séries não altera os totais financeiros — a matriz abaixo sempre mostra todas as categorias.
+          </span>
         </div>
+
+        {/* Badges das categorias selecionadas (remoção rápida) */}
+        {selectedCategories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {selectedCategories.map(cat => {
+              const color = getColorForCategory(cat.categoryId);
+              return (
+                <span
+                  key={cat.categoryId}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium border border-border bg-muted/40 rounded-full px-2 py-1"
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <span className="text-foreground">{cat.categoryName}</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleCategorySeries(cat.categoryId)}
+                    className="p-0.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    title={`Remover ${cat.categoryName}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Gráfico de Evolução */}

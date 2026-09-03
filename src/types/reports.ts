@@ -123,6 +123,8 @@ export interface CashFlowReportResult {
   endingBalance?: number;
   openingCapitalCents: number;
   priorPendingCents: number;
+  invoiceObligationsCents: number;
+  invoiceObligationsIncludedInPoints: boolean;
   diagnostics: ReportDiagnostics;
   points: CashFlowPoint[];
 }

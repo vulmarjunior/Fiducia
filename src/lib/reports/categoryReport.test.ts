@@ -477,4 +477,59 @@ describe('categoryReport', () => {
     expect(bucketTotalCents).toBe(report.totalCents);
     expect(bucketTotalCents).toBe(30030); // R$ 300,30 em centavos, sem drift de arredondamento
   });
+
+  it('fechamento: origem de investimento excluída por padrão e incluída quando selecionada', () => {
+    const transactions: Transaction[] = [
+      {
+        id: 'tx-inv',
+        userId: 'u1',
+        type: 'expense',
+        amount: 100,
+        date: '2026-08-05',
+        accountId: 'inv-1',
+        categoryId: 'cat-alimentacao',
+        status: 'paid',
+        description: 'Aporte',
+        createdAt: '',
+      },
+      {
+        id: 'tx-check',
+        userId: 'u1',
+        type: 'expense',
+        amount: 50,
+        date: '2026-08-05',
+        accountId: 'acc-1',
+        categoryId: 'cat-alimentacao',
+        status: 'paid',
+        description: 'Mercado',
+        createdAt: '',
+      },
+    ];
+
+    const normalized = normalizeTransactions(transactions, categories, creditCards);
+
+    // Padrão: availableOriginIds não inclui investimentos
+    const reportDefault = buildCategoryReport('expenses', normalized, categories, [], {
+      selectedMonth: '2026-08',
+      status: 'all',
+      intervalType: 'day',
+      accumulated: false,
+      includePending: false,
+    }, ['acc-1']);
+
+    expect(reportDefault.total).toBe(50);
+    expect(reportDefault.categories[0].entries).toHaveLength(1);
+
+    // Seleção explícita: investimento incluído
+    const reportExplicit = buildCategoryReport('expenses', normalized, categories, [], {
+      selectedMonth: '2026-08',
+      status: 'all',
+      intervalType: 'day',
+      accumulated: false,
+      includePending: false,
+      originIds: ['inv-1', 'acc-1'],
+    });
+
+    expect(reportExplicit.total).toBe(150);
+  });
 });

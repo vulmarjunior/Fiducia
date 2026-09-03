@@ -7,7 +7,7 @@ import type {
   NormalizedTransaction,
   ReportFilters,
 } from '../../types/reports';
-import { fromCents, getReportDiagnostics, toCents } from './normalize';
+import { fromCents, getAvailableAccountIds, getReportDiagnostics, toCents } from './normalize';
 import { generateBuckets, getMonthBounds } from './periods';
 import { buildInvoiceObligations } from './invoiceEvents';
 import { getTransactionEffect } from '../utils';
@@ -153,6 +153,8 @@ export function buildAccountFlowReport(
       endingBalance: 0,
       openingCapitalCents: 0,
       priorPendingCents: 0,
+      invoiceObligationsCents: 0,
+      invoiceObligationsIncludedInPoints: false,
       diagnostics: { invalidCount: 0, excludedCount: 0 },
       points: [],
     };
@@ -185,9 +187,11 @@ export function buildAccountFlowReport(
     return { cashFlowResult: emptyCashFlow, accountFlowResult: emptyAccountFlow };
   }
 
+  // Padrão: todas as contas com disponibilidade imediata (investimentos ficam fora do saldo real por padrão).
+  // Se o usuário selecionar explicitamente (originIds definido), a seleção vale — inclusive investimentos.
   const selectedAccountIds = originIds !== undefined
     ? new Set(originIds)
-    : new Set(accounts.map(a => a.id).filter((id): id is string => Boolean(id)));
+    : new Set(getAvailableAccountIds(accounts));
 
   const activeAccounts = accounts.filter(a => selectedAccountIds.has(a.id || ''));
 
@@ -349,6 +353,8 @@ export function buildAccountFlowReport(
 
     // Calcula saldos de cada bucket da conta
     let runningBalanceCents = startingBalanceCents;
+    let runningPendingInflowCents = 0;
+    let runningPendingOutflowCents = 0;
     let runningAccumInflowCents = 0;
     let runningAccumOutflowCents = 0;
     let runningAccumResultCents = 0;
@@ -362,10 +368,12 @@ export function buildAccountFlowReport(
       pt.pendingResultCents = pt.pendingInflowCents - pt.pendingOutflowCents;
 
       runningBalanceCents += pt.openingCapitalCents + ptResult;
+      runningPendingInflowCents += pt.pendingInflowCents;
+      runningPendingOutflowCents += pt.pendingOutflowCents;
       pt.endingBalanceCents = runningBalanceCents;
       pt.endingBalance = fromCents(runningBalanceCents);
       pt.projectedEndingBalanceCents = includePending
-        ? runningBalanceCents + pt.pendingInflowCents - pt.pendingOutflowCents
+        ? runningBalanceCents + runningPendingInflowCents - runningPendingOutflowCents
         : runningBalanceCents;
 
       if (accumulated) {
@@ -549,10 +557,52 @@ export function buildAccountFlowReport(
     }
   }
 
+  // F7: Obrigações residuais de faturas de cartão com respeito a customRange
+  // F7/Caso 11: em seleção parcial de contas, faturas sem conta não são atribuídas a nenhuma conta
+  const invoiceObligations = buildInvoiceObligations(invoices, creditCards, transactions, selectedMonth, customRange);
+  const isPartialAccountSelection = originIds !== undefined && originIds.length < accounts.length;
+  const invoiceObligationsIncludedInPoints = includePending && !isPartialAccountSelection;
+
+  // Injetar as obrigações residuais como saídas pendentes no bucket de vencimento,
+  // para que faturas fechadas/abertas apareçam no gráfico e na tabela de Entradas × Saídas.
+  // Em seleção parcial, as obrigações sem conta ficam expostas como nota, sem débito arbitrário.
+  if (invoiceObligationsIncludedInPoints) {
+    for (const obl of invoiceObligations.obligations) {
+      const due = obl.dueDate || `${obl.period}-10`;
+      const bIdx = buckets.findIndex(b => due >= b.startDate && due <= b.endDate);
+      if (bIdx === -1) continue;
+
+      const syntheticEntry: NormalizedTransaction = {
+        id: `invoice-obl-${obl.cardId}-${obl.period}`,
+        date: due,
+        month: due.slice(0, 7),
+        invoicePeriod: obl.period,
+        amountCents: obl.remainingAmountCents,
+        description: `Fatura ${obl.cardName}`,
+        type: 'expense',
+        status: 'pending',
+        categoryId: 'sem_categoria',
+        categoryName: 'Fatura de Cartão',
+        isCard: true,
+        cardId: obl.cardId,
+        isInvoicePayment: false,
+        isCredit: false,
+        isValid: true,
+        raw: { id: '' } as import('../../types').Transaction,
+      };
+
+      consolidatedPoints[bIdx].pendingOutflowCents += obl.remainingAmountCents;
+      consolidatedPoints[bIdx].hasPending = true;
+      consolidatedPoints[bIdx].entries.push(syntheticEntry);
+    }
+  }
+
   const totalConsolidatedResultCents = totalConsolidatedInflowCents - totalConsolidatedOutflowCents;
   const totalConsolidatedEndingCents = totalConsolidatedStartingCents + totalConsolidatedOpeningCapitalCents + totalConsolidatedResultCents;
 
   let runningConsolidatedBalance = totalConsolidatedStartingCents;
+  let runningPendingInflowCents = 0;
+  let runningPendingOutflowCents = 0;
   let runningAccumConsolidatedInflow = 0;
   let runningAccumConsolidatedOutflow = 0;
   let runningAccumConsolidatedResult = 0;
@@ -562,10 +612,12 @@ export function buildAccountFlowReport(
     pt.pendingResultCents = pt.pendingInflowCents - pt.pendingOutflowCents;
 
     runningConsolidatedBalance += pt.openingCapitalCents + pt.resultCents;
+    runningPendingInflowCents += pt.pendingInflowCents;
+    runningPendingOutflowCents += pt.pendingOutflowCents;
     pt.endingBalanceCents = runningConsolidatedBalance;
     pt.endingBalance = fromCents(runningConsolidatedBalance);
     pt.projectedEndingBalanceCents = includePending
-      ? runningConsolidatedBalance + pt.pendingInflowCents - pt.pendingOutflowCents
+      ? runningConsolidatedBalance + runningPendingInflowCents - runningPendingOutflowCents
       : runningConsolidatedBalance;
 
     if (accumulated) {
@@ -583,20 +635,14 @@ export function buildAccountFlowReport(
     }
   }
 
-  // F7: Obrigações residuais de faturas de cartão com respeito a customRange
-  const invoiceObligations = buildInvoiceObligations(invoices, creditCards, transactions, selectedMonth, customRange);
-
-  // F7: Faturas residuais só deduzem do saldo previsto se includePending === true
-  // E no Caso 11: Se seleção for parcial de contas (originIds definido com subconjunto),
-  // faturas sem conta não devem ser atribuídas à conta parcial!
-  const isPartialAccountSelection = originIds !== undefined && originIds.length < accounts.length;
-  const unallocatedCents = (includePending && !isPartialAccountSelection)
-    ? invoiceObligations.totalResidualCents
-    : 0;
-
-  const consolidatedProjectedEndingCents = includePending
-    ? totalConsolidatedEndingCents - unallocatedCents
-    : (totalConsolidatedStartingCents + totalConsolidatedOpeningCapitalCents + (totalConsolidatedInflowCents - totalConsolidatedOutflowCents)) + totalConsolidatedPendingNetCents - unallocatedCents;
+  // O saldo previsto consolidado deriva do último ponto do gráfico, garantindo
+  // que cards, curva prevista e tabela usem a mesma base (incluindo faturas injetadas).
+  const lastPointProjected = consolidatedPoints.length > 0
+    ? consolidatedPoints[consolidatedPoints.length - 1].projectedEndingBalanceCents
+    : undefined;
+  const consolidatedProjectedEndingCents = lastPointProjected !== undefined
+    ? lastPointProjected
+    : totalConsolidatedEndingCents;
 
   const diagnostics = getReportDiagnostics(
     transactions.map(tx => tx.raw),
@@ -616,6 +662,8 @@ export function buildAccountFlowReport(
     endingBalance: fromCents(totalConsolidatedEndingCents),
     openingCapitalCents: totalConsolidatedOpeningCapitalCents,
     priorPendingCents: totalConsolidatedPriorPendingCents,
+    invoiceObligationsCents: invoiceObligations.totalResidualCents,
+    invoiceObligationsIncludedInPoints,
     diagnostics,
     points: consolidatedPoints,
   };

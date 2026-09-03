@@ -1,10 +1,22 @@
-import type { Category, CreditCard, Invoice, Transaction } from '../../types';
+import type { Account, Category, CreditCard, Invoice, Transaction } from '../../types';
 import type { NormalizedTransaction, ReportDiagnostics } from '../../types/reports';
 import { getInvoicePaymentTransactionIds } from '../invoicePayment';
 import { calculateInvoicePeriod, resolveCategoryId } from '../utils';
 
 export const toCents = (val: number): number => Math.round((Number.isFinite(val) ? val : 0) * 100);
 export const fromCents = (cents: number): number => cents / 100;
+
+// Contas de investimento não representam disponibilidade imediata de caixa.
+// Por padrão, os relatórios essenciais consideram apenas contas com liquidez imediata,
+// mas o filtro permite incluí-las explicitamente.
+export function isImmediatelyAvailable(account: Pick<Account, 'type'>): boolean {
+  const t = (account?.type || '').toLowerCase().trim();
+  return t !== 'investment' && t !== 'investimento';
+}
+
+export function getAvailableAccountIds(accounts: Pick<Account, 'id' | 'type'>[]): string[] {
+  return accounts.filter(isImmediatelyAvailable).map(a => a.id || '').filter(Boolean);
+}
 
 export function normalizeStatus(status?: string): 'paid' | 'pending' | 'cancelled' {
   if (!status) return 'pending';

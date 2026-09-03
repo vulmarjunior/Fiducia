@@ -14,7 +14,7 @@ import {
 import type { CashFlowPoint, CashFlowReportResult, NormalizedTransaction } from '../../types/reports';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
-import { ArrowUpRight, ArrowDownRight, Scale, Wallet, Clock, ArrowLeftRight, Info } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Scale, Wallet, Clock, ArrowLeftRight, Info, CreditCard } from 'lucide-react';
 
 interface CashFlowChartProps {
   reportResult: CashFlowReportResult;
@@ -130,7 +130,7 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
         </div>
       </div>
 
-      {(reportResult.openingCapitalCents !== 0 || reportResult.priorPendingCents !== 0 || reportResult.diagnostics.invalidCount > 0) && (
+      {(reportResult.openingCapitalCents !== 0 || reportResult.priorPendingCents !== 0 || reportResult.diagnostics.invalidCount > 0 || (showPending && reportResult.invoiceObligationsCents > 0)) && (
         <div className="flex flex-col gap-1.5 p-3 bg-muted/40 border border-border rounded-lg text-xs text-muted-foreground">
           {reportResult.openingCapitalCents !== 0 && (
             <span className="flex items-center gap-1.5">
@@ -142,6 +142,20 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
             <span className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               Pendentes anteriores ao período: <strong>{formatCurrency(reportResult.priorPendingCents / 100)}</strong> — sinalizados fora do período, sem incorporação silenciosa.
+            </span>
+          )}
+          {showPending && reportResult.invoiceObligationsCents > 0 && (
+            <span className="flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              {reportResult.invoiceObligationsIncludedInPoints ? (
+                <>
+                  Faturas de cartão (valor residual) incluídas nas pendências: <strong>{formatCurrency(reportResult.invoiceObligationsCents / 100)}</strong> — distribuídas pelo vencimento.
+                </>
+              ) : (
+                <>
+                  Faturas de cartão com conta a definir, não alocadas à seleção: <strong>{formatCurrency(reportResult.invoiceObligationsCents / 100)}</strong> — não debitadas de nenhuma conta selecionada.
+                </>
+              )}
             </span>
           )}
           {reportResult.diagnostics.invalidCount > 0 && (

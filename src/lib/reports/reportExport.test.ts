@@ -151,6 +151,8 @@ describe('reportExport', () => {
       netResult: 300,
       openingCapitalCents: 0,
       priorPendingCents: 0,
+      invoiceObligationsCents: 0,
+      invoiceObligationsIncludedInPoints: false,
       diagnostics: { invalidCount: 0, excludedCount: 0 },
       points: [
         {
@@ -265,6 +267,8 @@ describe('reportExport', () => {
       endingBalance: 1300,
       openingCapitalCents: 0,
       priorPendingCents: 0,
+      invoiceObligationsCents: 0,
+      invoiceObligationsIncludedInPoints: false,
       diagnostics: { invalidCount: 0, excludedCount: 0 },
       points: [
         {

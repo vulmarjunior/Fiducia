@@ -70,6 +70,19 @@ export function ReportFilterDrawer({
     return true;
   });
 
+  // Padrão de disponibilidade imediata: contas não-investimento (+ cartões em categorias).
+  // Investimentos ficam visíveis no filtro, mas desmarcados por padrão.
+  const availableAccountIds = accounts
+    .filter(a => a.type !== 'investment')
+    .map(a => a.id || '')
+    .filter(Boolean);
+  const allOrigins = isCategoryTab
+    ? [...accounts.map(a => a.id || ''), ...creditCards.map(c => c.id || '')]
+    : accounts.map(a => a.id || '');
+  const defaultOriginIds = isCategoryTab
+    ? [...availableAccountIds, ...creditCards.map(c => c.id || '')]
+    : availableAccountIds;
+
   const filteredCategories = relevantCategories.filter(c =>
     c.name.toLowerCase().includes(searchCategory.toLowerCase())
   );
@@ -97,10 +110,7 @@ export function ReportFilterDrawer({
   // Toggle origin
   const toggleOrigin = (origId: string) => {
     setDraftOriginIds(prev => {
-      const allOrigins = isCategoryTab
-        ? [...accounts.map(a => a.id || ''), ...creditCards.map(c => c.id || '')]
-        : accounts.map(a => a.id || '');
-      const current = prev !== undefined ? prev : allOrigins;
+      const current = prev !== undefined ? prev : defaultOriginIds;
       if (current.includes(origId)) {
         return current.filter(id => id !== origId);
       } else {
@@ -110,9 +120,6 @@ export function ReportFilterDrawer({
   };
 
   const selectAllOrigins = () => {
-    const allOrigins = isCategoryTab
-      ? [...accounts.map(a => a.id || ''), ...creditCards.map(c => c.id || '')]
-      : accounts.map(a => a.id || '');
     setDraftOriginIds(allOrigins);
   };
 
@@ -317,7 +324,7 @@ export function ReportFilterDrawer({
 
           {/* Origens (Contas e Cartões) */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Origem ({isCategoryTab ? 'Contas e Cartões' : 'Contas Bancárias'})
               </label>
@@ -331,6 +338,9 @@ export function ReportFilterDrawer({
                 </button>
               </div>
             </div>
+            <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed">
+              Por padrão, contas de <strong>investimento</strong> ficam fora do saldo por não terem disponibilidade imediata. Marque-as se quiser incluí-las.
+            </p>
 
             <div className="space-y-2 border border-border rounded-lg p-3 max-h-48 overflow-y-auto">
               {accounts.length > 0 && (
@@ -339,7 +349,7 @@ export function ReportFilterDrawer({
                   <div className="space-y-1">
                     {accounts.map(acc => {
                       const id = acc.id || '';
-                      const isSelected = draftOriginIds === undefined || draftOriginIds.includes(id);
+                      const isSelected = draftOriginIds === undefined ? defaultOriginIds.includes(id) : draftOriginIds.includes(id);
                       return (
                         <div
                           key={id}
@@ -352,6 +362,9 @@ export function ReportFilterDrawer({
                             <Square className="w-4 h-4 text-muted-foreground shrink-0" />
                           )}
                           <span className="truncate">{acc.name}</span>
+                          {acc.type === 'investment' && (
+                            <span className="ml-auto text-[10px] text-muted-foreground shrink-0">Investimento</span>
+                          )}
                         </div>
                       );
                     })}
@@ -365,7 +378,7 @@ export function ReportFilterDrawer({
                   <div className="space-y-1">
                     {creditCards.map(card => {
                       const id = card.id || '';
-                      const isSelected = draftOriginIds === undefined || draftOriginIds.includes(id);
+                      const isSelected = draftOriginIds === undefined ? defaultOriginIds.includes(id) : draftOriginIds.includes(id);
                       return (
                         <div
                           key={id}

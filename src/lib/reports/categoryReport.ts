@@ -72,7 +72,8 @@ export function buildCategoryReport(
   transactions: NormalizedTransaction[],
   categories: Category[],
   invoices: Invoice[],
-  filters: ReportFilters
+  filters: ReportFilters,
+  availableOriginIds?: string[]
 ): CategoryReportResult {
   const { selectedMonth, customRange, categoryIds, originIds, status, intervalType } = filters;
   const { startDate, endDate } = customRange || getMonthBounds(selectedMonth);
@@ -92,7 +93,15 @@ export function buildCategoryReport(
     }
   }
 
-  const allowedOrigins = originIds ? new Set(originIds) : null;
+  // Padrão: quando o usuário não selecionou origens explicitamente,
+// considera apenas as origens com disponibilidade imediata (contas não-investimento + cartões),
+// que chegam via availableOriginIds. Se o usuário selecionar, a seleção vale integralmente.
+  let allowedOrigins: Set<string> | null = null;
+  if (originIds !== undefined) {
+    allowedOrigins = new Set(originIds);
+  } else if (availableOriginIds && availableOriginIds.length > 0) {
+    allowedOrigins = new Set(availableOriginIds);
+  }
 
   // Compras de cartão sem período de fatura derivável: expostas como diagnóstico,
   // nunca somadas a um mês inventado

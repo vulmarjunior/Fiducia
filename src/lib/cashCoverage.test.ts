@@ -119,6 +119,25 @@ describe('buildCashCoverageProjection', () => {
     }).startingBalance).toBe(6000);
   });
 
+  it('conta de investimento fica fora da projecao por padrao, mas entra com includeSavings', () => {
+    const base = {
+      accounts: [
+        { id: 'checking', balance: 1000 },
+        { id: 'invest', balance: 8000, type: 'investment' },
+      ],
+      creditCards: [],
+      invoices: [],
+      transactions: [],
+      options: { startDate, endDate: '2026-06-30' },
+    };
+
+    expect(buildCashCoverageProjection(base).startingBalance).toBe(1000);
+    expect(buildCashCoverageProjection({
+      ...base,
+      options: { ...base.options, includeSavings: true },
+    }).startingBalance).toBe(9000);
+  });
+
   it('move itens atrasados para hoje na simulacao mantendo a data original', () => {
     const projection = buildCashCoverageProjection({
       accounts: [{ id: 'acc-1', balance: 1000 }],

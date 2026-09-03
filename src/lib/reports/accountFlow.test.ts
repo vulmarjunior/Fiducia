@@ -508,5 +508,69 @@ describe('accountFlow', () => {
       expect(res.cashFlowResult.diagnostics.excludedCount).toBe(1);
       expect(res.cashFlowResult.diagnostics.invalidCount).toBe(1);
     });
+
+    it('fatura fechada com residual aparece como saída pendente no vencimento e no saldo previsto', () => {
+      // Fatura fechada (total 1000, sem pagamento) → obrigação residual R$ 1.000
+      const closed = inv({ status: 'fechada', totalAmount: 1000 });
+      const cardFechada: CreditCard = { ...card, dueDay: 10 };
+      const res = buildAccountFlowReport([acc('A', 1000)], [cardFechada], [closed], [], {
+        ...baseFilters,
+        includePending: true,
+      });
+
+      // A obrigação é injetada no ponto do vencimento (10/08)
+      const duePoint = res.cashFlowResult.points.find(p => p.periodKey === '2026-08-10');
+      expect(duePoint?.pendingOutflowCents).toBe(100000);
+      expect(duePoint?.hasPending).toBe(true);
+      expect(res.cashFlowResult.invoiceObligationsCents).toBe(100000);
+      expect(res.cashFlowResult.invoiceObligationsIncludedInPoints).toBe(true);
+      // O saldo previsto final desconta a fatura: 1000 - 1000 = 0
+      expect(res.cashFlowResult.endingBalance).toBe(1000);
+      expect(res.accountFlowResult.consolidatedProjectedEndingBalance).toBe(0);
+    });
+
+    it('fatura fechada aparece como nota sem débito em seleção parcial de contas', () => {
+      const closed = inv({ status: 'fechada', totalAmount: 1000 });
+      const cardFechada: CreditCard = { ...card, dueDay: 10 };
+      const res = buildAccountFlowReport([acc('A', 1000), acc('B', 500)], [cardFechada], [closed], [], {
+        ...baseFilters,
+        originIds: ['A'],
+        includePending: true,
+      });
+
+      // Não é debitada de nenhuma conta da seleção parcial
+      expect(res.cashFlowResult.invoiceObligationsCents).toBe(100000);
+      expect(res.cashFlowResult.invoiceObligationsIncludedInPoints).toBe(false);
+      expect(res.cashFlowResult.points.every(p => p.pendingOutflowCents === 0)).toBe(true);
+      expect(res.accountFlowResult.consolidatedProjectedEndingBalance).toBe(1000);
+    });
+
+    it('sem incluir pendentes, faturas não são injetadas nos pontos', () => {
+      const closed = inv({ status: 'fechada', totalAmount: 1000 });
+      const cardFechada: CreditCard = { ...card, dueDay: 10 };
+      const res = buildAccountFlowReport([acc('A', 1000)], [cardFechada], [closed], [], baseFilters);
+      expect(res.cashFlowResult.invoiceObligationsIncludedInPoints).toBe(false);
+      expect(res.cashFlowResult.points.every(p => p.pendingOutflowCents === 0)).toBe(true);
+      expect(res.cashFlowResult.endingBalance).toBe(1000);
+    });
+
+    it('conta de investimento fica fora do saldo por padrão e entra quando selecionada', () => {
+      const invest = { ...acc('INV', 5000), type: 'investment' as const };
+      const checking = acc('A', 1000);
+
+      // Padrão (originIds undefined): só contas com disponibilidade imediata
+      const resDefault = buildAccountFlowReport([checking, invest], [card], [], [], baseFilters);
+      expect(resDefault.accountFlowResult.accounts.map(a => a.accountId)).toEqual(['A']);
+      expect(resDefault.accountFlowResult.consolidatedStartingBalance).toBe(1000);
+      expect(resDefault.cashFlowResult.startingBalance).toBe(1000);
+
+      // Seleção explícita: investimento entra
+      const resExpl = buildAccountFlowReport([checking, invest], [card], [], [], {
+        ...baseFilters,
+        originIds: ['A', 'INV'],
+      });
+      expect(resExpl.accountFlowResult.accounts.map(a => a.accountId).sort()).toEqual(['A', 'INV']);
+      expect(resExpl.accountFlowResult.consolidatedStartingBalance).toBe(6000);
+    });
   });
 });
