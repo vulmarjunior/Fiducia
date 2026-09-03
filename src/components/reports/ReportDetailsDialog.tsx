@@ -3,8 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '../ui/button';
 import { formatCurrency } from '../../lib/utils';
 import { useTransactionDialog } from '../../contexts/TransactionDialogContext';
+import type { Invoice, Transaction } from '../../types';
 import type { NormalizedTransaction } from '../../types/reports';
-import { CreditCard, Wallet, CheckCircle2, Clock } from 'lucide-react';
+import { CreditCard, Wallet, CheckCircle2, Clock, ArrowLeftRight } from 'lucide-react';
 
 export type ReportDetailsContext =
   | { type: 'expenses' }
@@ -19,6 +20,22 @@ interface ReportDetailsDialogProps {
   subtitle?: string;
   entries: NormalizedTransaction[];
   context?: ReportDetailsContext;
+  invoices?: Invoice[];
+  entityNames?: Record<string, string>;
+}
+
+function getInvoiceStatusForEntry(
+  entry: NormalizedTransaction,
+  invoices?: Invoice[]
+): 'paga' | 'a_quitar' | 'parcial' | undefined {
+  if (!entry.isCard || !invoices) return undefined;
+  const invoice = invoices.find(
+    i => i.cardId === entry.cardId && i.period === entry.invoicePeriod
+  );
+  if (!invoice) return undefined;
+  if (invoice.status === 'paga') return 'paga';
+  if (invoice.status === 'parcial') return 'parcial';
+  return 'a_quitar';
 }
 
 function getItemEffect(entry: NormalizedTransaction, context?: ReportDetailsContext): { amount: number; isNegative: boolean; sign: string } {
@@ -74,10 +91,14 @@ export function ReportDetailsDialog({
   subtitle,
   entries,
   context,
+  invoices,
+  entityNames,
 }: ReportDetailsDialogProps) {
   const { open: openTxDialog } = useTransactionDialog();
 
   const total = entries.reduce((sum, e) => sum + getItemEffect(e, context).amount, 0);
+
+  const resolveName = (id?: string) => (id ? entityNames?.[id] || id : undefined);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -104,6 +125,11 @@ export function ReportDetailsDialog({
               const isExpense = entry.type === 'expense';
               const isCredit = entry.isCredit || (entry.type === 'income' && entry.isCard);
               const displayAmount = (entry.amountCents / 100);
+              const isTransfer = entry.type === 'transfer';
+              const invoiceStatus = getInvoiceStatusForEntry(entry, invoices);
+              const originName = resolveName(entry.accountId);
+              const destName = resolveName(entry.destinationAccountId);
+              const cardName = resolveName(entry.cardId);
 
               return (
                 <div
@@ -121,10 +147,14 @@ export function ReportDetailsDialog({
                         ? 'bg-emerald-500/10 text-emerald-500'
                         : isExpense
                           ? 'bg-rose-500/10 text-rose-500'
-                          : 'bg-emerald-500/10 text-emerald-500'
+                          : isTransfer
+                            ? 'bg-blue-500/10 text-blue-500'
+                            : 'bg-emerald-500/10 text-emerald-500'
                     }`}>
                       {entry.isCard ? (
                         <CreditCard className="w-4 h-4" />
+                      ) : isTransfer ? (
+                        <ArrowLeftRight className="w-4 h-4" />
                       ) : (
                         <Wallet className="w-4 h-4" />
                       )}
@@ -137,11 +167,36 @@ export function ReportDetailsDialog({
                             Estorno/Crédito
                           </span>
                         )}
+                        {isTransfer && (
+                          <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-medium">
+                            Transferência
+                          </span>
+                        )}
+                        {invoiceStatus === 'parcial' && (
+                          <span className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded font-medium">
+                            Parcial
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                      <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
                         <span>{entry.date.split('-').reverse().join('/')}</span>
                         <span>•</span>
                         <span>{entry.categoryName}</span>
+                        {isTransfer && (originName || destName) && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <ArrowLeftRight className="w-3 h-3" />
+                              {originName || 'Origem desconhecida'} → {destName || 'Destino desconhecido'}
+                            </span>
+                          </>
+                        )}
+                        {entry.isCard && cardName && (
+                          <>
+                            <span>•</span>
+                            <span>{cardName}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -158,7 +213,12 @@ export function ReportDetailsDialog({
                       {formatCurrency(displayAmount)}
                     </span>
                     <span className="text-[11px] flex items-center gap-1 text-muted-foreground mt-0.5">
-                      {entry.status === 'paid' ? (
+                      {invoiceStatus === 'parcial' ? (
+                        <>
+                          <Clock className="w-3 h-3 text-amber-500" />
+                          <span>Fatura com pagamento parcial</span>
+                        </>
+                      ) : entry.status === 'paid' ? (
                         <>
                           <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                           <span>Realizado</span>

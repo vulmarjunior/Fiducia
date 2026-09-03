@@ -10,12 +10,17 @@ import {
   Legend,
 } from 'recharts';
 import type { CategoryReportResult, NormalizedTransaction } from '../../types/reports';
+import type { Invoice } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
-import { Calendar, HelpCircle } from 'lucide-react';
+import { Calendar, HelpCircle, Info } from 'lucide-react';
 
 interface CategoryEvolutionChartProps {
   reportResult: CategoryReportResult;
+  evolutionWindow?: 1 | 3 | 6 | 12;
+  onEvolutionWindowChange?: (window: 1 | 3 | 6 | 12) => void;
+  invoices?: Invoice[];
+  entityNames?: Record<string, string>;
 }
 
 const PALETTE = [
@@ -23,8 +28,22 @@ const PALETTE = [
   '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6',
 ];
 
-export function CategoryEvolutionChart({ reportResult }: CategoryEvolutionChartProps) {
-  const { evolution, categories, itemsWithoutInvoiceDayTotal, itemsWithoutInvoiceDayEntries } = reportResult;
+function getColorForCategory(catId: string): string {
+  let hash = 0;
+  for (let i = 0; i < catId.length; i++) {
+    hash = catId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return PALETTE[Math.abs(hash) % PALETTE.length];
+}
+
+export function CategoryEvolutionChart({
+  reportResult,
+  evolutionWindow = 1,
+  onEvolutionWindowChange,
+  invoices,
+  entityNames,
+}: CategoryEvolutionChartProps) {
+  const { evolution, categories, itemsWithoutInvoiceDayTotal, itemsWithoutInvoiceDayEntries, itemsWithoutInvoicePeriodTotal, itemsWithoutInvoicePeriodEntries } = reportResult;
 
   // Seleção de séries: por padrão, as top 5 categorias ou todas se <= 5
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>(() =>
@@ -34,6 +53,8 @@ export function CategoryEvolutionChart({ reportResult }: CategoryEvolutionChartP
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsTitle, setDetailsTitle] = useState('');
   const [detailsEntries, setDetailsEntries] = useState<NormalizedTransaction[]>([]);
+
+  const isMonthGrouping = evolution.length > 0 && evolution[0].periodKey.length === 7;
 
   const toggleCategorySeries = (id: string) => {
     setSelectedCatIds(prev =>
@@ -95,17 +116,44 @@ export function CategoryEvolutionChart({ reportResult }: CategoryEvolutionChartP
     setDetailsOpen(true);
   };
 
+  const handleOpenNoInvoicePeriod = () => {
+    setDetailsTitle('Compras de Cartão sem período de fatura derivável');
+    setDetailsEntries(itemsWithoutInvoicePeriodEntries);
+    setDetailsOpen(true);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Seletor de séries ativas */}
+      {/* Seletor de séries ativas e janela da evolução */}
       <div className="bg-card p-4 rounded-xl border border-border space-y-3">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-          Categorias em Destaque na Evolução
-        </span>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+            Categorias em Destaque na Evolução
+          </span>
+          {isMonthGrouping && onEvolutionWindowChange && (
+            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border text-xs">
+              {([1, 3, 6, 12] as const).map(w => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => onEvolutionWindowChange(w)}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    evolutionWindow === w
+                      ? 'bg-background font-semibold text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {w === 1 ? '1M' : `${w}M`}
+                </button>
+              ))}
+              <span className="px-1 text-[10px] text-muted-foreground">janela</span>
+            </div>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
-          {categories.map((cat, idx) => {
+          {categories.map((cat) => {
             const isSelected = selectedCatIds.includes(cat.categoryId);
-            const color = PALETTE[idx % PALETTE.length];
+            const color = getColorForCategory(cat.categoryId);
             return (
               <button
                 key={cat.categoryId}
@@ -138,9 +186,9 @@ export function CategoryEvolutionChart({ reportResult }: CategoryEvolutionChartP
               <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `R$ ${v}`} />
               <Tooltip formatter={(val: any) => [formatCurrency(Number(val)), 'Valor']} />
               <Legend />
-              {selectedCatIds.map((catId, idx) => {
+              {selectedCatIds.map((catId) => {
                 const catObj = categories.find(c => c.categoryId === catId);
-                const color = PALETTE[idx % PALETTE.length];
+                const color = getColorForCategory(catId);
                 return (
                   <Bar
                     key={catId}
@@ -167,6 +215,22 @@ export function CategoryEvolutionChart({ reportResult }: CategoryEvolutionChartP
             <HelpCircle className="w-4 h-4 text-primary" />
             <span>
               Compras de fatura com data de compra fora do mês civil: <strong>{formatCurrency(itemsWithoutInvoiceDayTotal)}</strong>
+            </span>
+          </div>
+          <span className="text-primary font-medium underline">Ver compras</span>
+        </div>
+      )}
+
+      {/* Alerta de itens de cartão sem período de fatura */}
+      {itemsWithoutInvoicePeriodTotal !== 0 && (
+        <div
+          onClick={handleOpenNoInvoicePeriod}
+          className="p-3 bg-muted/50 border border-border rounded-lg flex items-center justify-between text-xs text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-primary" />
+            <span>
+              Compras de cartão sem período de fatura derivável: <strong>{formatCurrency(itemsWithoutInvoicePeriodTotal)}</strong> — não somadas a meses inventados
             </span>
           </div>
           <span className="text-primary font-medium underline">Ver compras</span>
@@ -248,6 +312,8 @@ export function CategoryEvolutionChart({ reportResult }: CategoryEvolutionChartP
         title={detailsTitle}
         entries={detailsEntries}
         context={{ type: reportResult.type === 'expenses' ? 'expenses' : 'income' }}
+        invoices={invoices}
+        entityNames={entityNames}
       />
     </div>
   );

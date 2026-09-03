@@ -9,6 +9,7 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 import type {
   AccountFlowItem,
   AccountFlowReportResult,
@@ -16,11 +17,12 @@ import type {
 } from '../../types/reports';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
-import { Wallet, AlertCircle, CreditCard, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
+import { Wallet, AlertCircle, CreditCard, ArrowUpRight, ArrowDownRight, Clock, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
 
 interface AccountFlowViewProps {
   reportResult: AccountFlowReportResult;
   showPending: boolean;
+  entityNames?: Record<string, string>;
 }
 
 const PALETTE = [
@@ -28,7 +30,8 @@ const PALETTE = [
   '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6',
 ];
 
-export function AccountFlowView({ reportResult, showPending }: AccountFlowViewProps) {
+export function AccountFlowView({ reportResult, showPending, entityNames }: AccountFlowViewProps) {
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'consolidated' | 'by_account'>('consolidated');
   const [selectedAccount, setSelectedAccount] = useState<AccountFlowItem | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -40,10 +43,13 @@ export function AccountFlowView({ reportResult, showPending }: AccountFlowViewPr
     consolidatedNetResult,
     consolidatedEndingBalance,
     consolidatedProjectedEndingBalance,
+    consolidatedOpeningCapital,
+    consolidatedPriorPending,
     unallocatedInvoiceObligations,
     unallocatedInvoices,
     accounts,
     consolidatedPoints,
+    diagnostics,
   } = reportResult;
 
   const handleOpenAccountDetails = (acc: AccountFlowItem) => {
@@ -55,6 +61,7 @@ export function AccountFlowView({ reportResult, showPending }: AccountFlowViewPr
   const consolidatedChartData = consolidatedPoints.map(pt => ({
     label: pt.label,
     saldo: pt.endingBalance,
+    previsto: pt.projectedEndingBalanceCents !== undefined ? pt.projectedEndingBalanceCents / 100 : undefined,
   }));
 
   // Dados do gráfico por conta
@@ -63,6 +70,7 @@ export function AccountFlowView({ reportResult, showPending }: AccountFlowViewPr
     for (const acc of accounts) {
       const accPt = acc.points[idx];
       row[acc.accountId] = accPt?.endingBalance || 0;
+      row[`${acc.accountId}_prev`] = accPt?.projectedEndingBalanceCents !== undefined ? accPt.projectedEndingBalanceCents / 100 : undefined;
     }
     return row;
   });
@@ -174,32 +182,69 @@ export function AccountFlowView({ reportResult, showPending }: AccountFlowViewPr
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
                 {unallocatedInvoices.map((inv, i) => (
-                  <div key={i} className="p-2.5 bg-card rounded-lg border border-border/80 text-xs flex justify-between items-center">
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => navigate('/cards')}
+                    title={`Ver faturas do cartão ${inv.cardName}`}
+                    className="p-2.5 bg-card rounded-lg border border-border/80 text-xs flex justify-between items-center hover:border-primary/50 transition-colors text-left"
+                  >
                     <div>
                       <span className="font-semibold block">{inv.cardName}</span>
-                      <span className="text-muted-foreground text-[11px]">Venc: {inv.dueDate || inv.period}</span>
+                      <span className="text-muted-foreground text-[11px]">Venc: {inv.dueDate || inv.period} · {inv.invoiceStatus === 'parcial' ? 'Pagamento parcial' : 'Aberta'}</span>
                     </div>
-                    <span className="font-bold text-rose-600 dark:text-rose-400">
+                    <span className="font-bold text-rose-600 dark:text-rose-400 shrink-0 ml-2">
                       {formatCurrency(inv.remainingAmountCents / 100)}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
           )}
 
+          {(consolidatedOpeningCapital !== 0 || consolidatedPriorPending !== 0 || diagnostics.invalidCount > 0) && (
+            <div className="flex flex-col gap-1.5 p-3 bg-muted/40 border border-border rounded-lg text-xs text-muted-foreground">
+              {consolidatedOpeningCapital !== 0 && (
+                <span className="flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-primary shrink-0" />
+                  Capital de abertura de contas abertas no período: <strong>{formatCurrency(consolidatedOpeningCapital)}</strong> — Saldo de abertura, separado de receitas.
+                </span>
+              )}
+              {consolidatedPriorPending !== 0 && (
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  Pendentes anteriores ao período: <strong>{formatCurrency(consolidatedPriorPending)}</strong> — sinalizados fora do período.
+                </span>
+              )}
+              {diagnostics.invalidCount > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  Diagnóstico: {diagnostics.invalidCount} registro(s) não contabilizado(s) por data/valor inválido; {diagnostics.excludedCount} cancelado(s) excluído(s).
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Gráfico Consolidado */}
           <div className="bg-card p-4 rounded-xl border border-border space-y-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-              Evolução do Saldo Consolidado
-            </span>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                Evolução do Saldo Consolidado
+              </span>
+              {showPending && (
+                <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" />Realizado</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" />Previsto (com pendências)</span>
+                </div>
+              )}
+            </div>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={consolidatedChartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `R$ ${v}`} />
-                  <Tooltip formatter={(val: any) => [formatCurrency(Number(val)), 'Saldo Consolidado']} />
+                  <Tooltip formatter={(val: any, name: any) => [formatCurrency(Number(val)), name === 'previsto' ? 'Saldo Previsto' : 'Saldo Consolidado']} />
                   <Line
                     type="monotone"
                     dataKey="saldo"
@@ -208,6 +253,17 @@ export function AccountFlowView({ reportResult, showPending }: AccountFlowViewPr
                     strokeWidth={2.5}
                     dot={{ r: 3 }}
                   />
+                  {showPending && (
+                    <Line
+                      type="monotone"
+                      dataKey="previsto"
+                      name="Saldo Previsto"
+                      stroke="#f59e0b"
+                      strokeWidth={2}
+                      strokeDasharray="6 4"
+                      dot={false}
+                    />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -242,6 +298,18 @@ export function AccountFlowView({ reportResult, showPending }: AccountFlowViewPr
                       dot={false}
                     />
                   ))}
+                  {showPending && accounts.map((acc, idx) => (
+                    <Line
+                      key={`${acc.accountId}_prev`}
+                      type="monotone"
+                      dataKey={`${acc.accountId}_prev`}
+                      name={`${acc.accountName} (previsto)`}
+                      stroke={PALETTE[idx % PALETTE.length]}
+                      strokeWidth={1.5}
+                      strokeDasharray="6 4"
+                      dot={false}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -270,6 +338,39 @@ export function AccountFlowView({ reportResult, showPending }: AccountFlowViewPr
                     <span className="text-base font-bold text-foreground">{formatCurrency(acc.endingBalance)}</span>
                   </div>
                 </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {acc.isReconciled ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full">
+                      <ShieldCheck className="w-3 h-3" />
+                      Saldo conciliado
+                    </span>
+                  ) : acc.isReconciledToday ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                      <ShieldAlert className="w-3 h-3" />
+                      Posição até hoje conciliada; divergência com lançamentos futuros pagos
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full">
+                      <ShieldAlert className="w-3 h-3" />
+                      Saldo não conciliado — ver detalhes
+                    </span>
+                  )}
+                  {acc.divergenceMessage && <span className="text-[10px] text-muted-foreground">{acc.divergenceMessage}</span>}
+                </div>
+
+                {acc.openingCapital !== 0 && (
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-primary" />
+                    Saldo de abertura no período: <strong className="text-foreground">{formatCurrency(acc.openingCapital)}</strong> (não conta como receita)
+                  </div>
+                )}
+                {acc.priorPending !== 0 && (
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    Pendentes anteriores ao período: <strong className="text-foreground">{formatCurrency(acc.priorPending)}</strong>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/40 text-xs">
                   <div>
@@ -308,6 +409,7 @@ export function AccountFlowView({ reportResult, showPending }: AccountFlowViewPr
           subtitle={`${selectedAccount.entries.length} movimentação(ões) no período`}
           entries={selectedAccount.entries}
           context={{ type: 'account', accountId: selectedAccount.accountId }}
+          entityNames={entityNames}
         />
       )}
     </div>

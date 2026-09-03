@@ -12,6 +12,7 @@ import {
   TrendingUp, TrendingDown, Target, Sparkles, Loader2, Brain,
   ArrowUpRight, ArrowDownRight, ChevronDown, ChevronRight,
   CreditCard, BarChart2, Calendar, FileDown, ReceiptText, Wallet,
+  AlertCircle,
 } from 'lucide-react';
 import { generateCashFlowPDF, generateCategoryPDF, generateTrendPDF, generateProjectionPDF, generateInvoiceAnalysisPDF } from '../lib/pdfTemplates';
 import { toast } from 'sonner';
@@ -31,10 +32,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { buildConsumptionAnalysis } from '../lib/consumptionAnalysis';
 import { buildMonthlyStatementCsv } from '../lib/monthlyStatementCsv';
 
-import type { ReportFilters, ReportTab } from '../types/reports';
+import type { ReportFilters, ReportTab, CategoryReportResult } from '../types/reports';
 import { normalizeTransactions } from '../lib/reports/normalize';
 import { buildCategoryReport } from '../lib/reports/categoryReport';
 import { buildAccountFlowReport } from '../lib/reports/accountFlow';
+import { getMonthBounds } from '../lib/reports/periods';
 import { ReportHeader } from '../components/reports/ReportHeader';
 import { ReportFilterDrawer } from '../components/reports/ReportFilterDrawer';
 import { CategoryDistributionChart } from '../components/reports/CategoryDistributionChart';
@@ -81,6 +83,11 @@ export function Reports() {
   const [budgets, setBudgets] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [recurrenceRules, setRecurrenceRules] = useState<any[]>([]);
+  const [loadedCollections, setLoadedCollections] = useState<Set<string>>(new Set());
+  const [collectionsError, setCollectionsError] = useState<string | null>(null);
+
+  const essentialLoaded = loadedCollections.size >= 5;
+  const isEssentialLoading = isAuthReady && user !== null && !essentialLoaded;
 
   const [activeTab, setActiveTab] = useState<Tab>('expenses');
   const [statementFilter, setStatementFilter] = useState<'all' | 'income' | 'expense'>('all');
@@ -105,6 +112,7 @@ export function Reports() {
 
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [catDistributionView, setCatDistributionView] = useState<'distribution' | 'evolution'>('distribution');
+  const [evolutionWindow, setEvolutionWindow] = useState<1 | 3 | 6 | 12>(1);
 
   const currentEssentialTab: EssentialTab = (['expenses', 'income', 'cashflow', 'accounts'].includes(activeTab)
     ? activeTab
@@ -240,13 +248,23 @@ export function Reports() {
     if (!isAuthReady || !user) return;
     const uid = user.uid;
     const q = (col: string) => query(collection(db, col), where('userId', '==', uid));
-    const u1 = onSnapshot(q('transactions'), s => setTransactions(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'transactions'));
-    const u2 = onSnapshot(q('categories'), s => setCategories(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'categories'));
-    const u3 = onSnapshot(q('accounts'), s => setAccounts(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'accounts'));
-    const u4 = onSnapshot(q('creditCards'), s => setCreditCards(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'creditCards'));
-    const u5 = onSnapshot(q('budgets'), s => setBudgets(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'budgets'));
-    const u6 = onSnapshot(q('invoices'), s => setInvoices(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'invoices'));
-    const u7 = onSnapshot(q('recurrenceRules'), s => setRecurrenceRules(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => handleFirestoreError(e, OperationType.GET, 'recurrenceRules'));
+    const track = (col: string) => ({
+      next: (snap: any) => {
+        setLoadedCollections(prev => (prev.has(col) ? prev : new Set(prev).add(col)));
+        return snap;
+      },
+    });
+    const onError = (col: string) => (e: unknown) => {
+      setCollectionsError(prev => prev || col);
+      handleFirestoreError(e, OperationType.GET, col);
+    };
+    const u1 = onSnapshot(q('transactions'), snap => { track('transactions').next(snap); setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() }))); }, onError('transactions'));
+    const u2 = onSnapshot(q('categories'), snap => { track('categories').next(snap); setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() }))); }, onError('categories'));
+    const u3 = onSnapshot(q('accounts'), snap => { track('accounts').next(snap); setAccounts(snap.docs.map(d => ({ id: d.id, ...d.data() }))); }, onError('accounts'));
+    const u4 = onSnapshot(q('creditCards'), snap => { track('creditCards').next(snap); setCreditCards(snap.docs.map(d => ({ id: d.id, ...d.data() }))); }, onError('creditCards'));
+    const u5 = onSnapshot(q('budgets'), snap => setBudgets(snap.docs.map(d => ({ id: d.id, ...d.data() }))), onError('budgets'));
+    const u6 = onSnapshot(q('invoices'), snap => { track('invoices').next(snap); setInvoices(snap.docs.map(d => ({ id: d.id, ...d.data() }))); }, onError('invoices'));
+    const u7 = onSnapshot(q('recurrenceRules'), snap => setRecurrenceRules(snap.docs.map(d => ({ id: d.id, ...d.data() }))), onError('recurrenceRules'));
     return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); };
   }, [user, isAuthReady]);
 
@@ -278,27 +296,59 @@ export function Reports() {
     return buildAccountFlowReport(accounts, creditCards, invoices, normalizedTransactions, tabFilters.accounts).accountFlowResult;
   }, [accounts, creditCards, invoices, normalizedTransactions, tabFilters.accounts]);
 
+  // Meta para exportação com nomes legíveis de filtros
+  const exportMeta = useMemo(() => ({
+    categoryNames: Object.fromEntries(categories.map((c: any) => [c.id, c.name])),
+    originNames: {
+      ...Object.fromEntries(accounts.map((a: any) => [a.id, a.name])),
+      ...Object.fromEntries(creditCards.map((c: any) => [c.id, c.name])),
+    },
+  }), [categories, accounts, creditCards]);
+
+  // Evolução com janela explícita (3/6/12 meses terminando no mês selecionado)
+  const buildWindowedEvolution = (tab: 'expenses' | 'income', base: CategoryReportResult) => {
+    if (evolutionWindow === 1 || tabFilters[tab].customRange) return base;
+    const startMonth = shiftMonth(tabFilters[tab].selectedMonth, -(evolutionWindow - 1));
+    const { endDate } = getMonthBounds(tabFilters[tab].selectedMonth);
+    return buildCategoryReport(tab, normalizedTransactions, categories, invoices, {
+      ...tabFilters[tab],
+      customRange: { startDate: `${startMonth}-01`, endDate },
+    });
+  };
+
+  const expensesEvolutionReport = useMemo(
+    () => buildWindowedEvolution('expenses', expensesReport),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [expensesReport, evolutionWindow, normalizedTransactions, categories, invoices, tabFilters.expenses]
+  );
+
+  const incomeEvolutionReport = useMemo(
+    () => buildWindowedEvolution('income', incomeReport),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [incomeReport, evolutionWindow, normalizedTransactions, categories, invoices, tabFilters.income]
+  );
+
   const handleExportCurrentReportCsv = () => {
     if (activeTab === 'expenses') {
-      exportCategoryReportToCsv(expensesReport, tabFilters.expenses);
+      exportCategoryReportToCsv(expensesReport, tabFilters.expenses, exportMeta);
     } else if (activeTab === 'income') {
-      exportCategoryReportToCsv(incomeReport, tabFilters.income);
+      exportCategoryReportToCsv(incomeReport, tabFilters.income, exportMeta);
     } else if (activeTab === 'cashflow') {
-      exportCashFlowReportToCsv(cashFlowResult, tabFilters.cashflow);
+      exportCashFlowReportToCsv(cashFlowResult, tabFilters.cashflow, exportMeta);
     } else if (activeTab === 'accounts') {
-      exportAccountFlowReportToCsv(accountFlowResult, tabFilters.accounts);
+      exportAccountFlowReportToCsv(accountFlowResult, tabFilters.accounts, exportMeta);
     }
   };
 
   const handleExportCurrentReportPdf = () => {
     if (activeTab === 'expenses') {
-      exportCategoryReportToPdf(expensesReport, tabFilters.expenses);
+      exportCategoryReportToPdf(expensesReport, tabFilters.expenses, exportMeta);
     } else if (activeTab === 'income') {
-      exportCategoryReportToPdf(incomeReport, tabFilters.income);
+      exportCategoryReportToPdf(incomeReport, tabFilters.income, exportMeta);
     } else if (activeTab === 'cashflow') {
-      exportCashFlowReportToPdf(cashFlowResult, tabFilters.cashflow);
+      exportCashFlowReportToPdf(cashFlowResult, tabFilters.cashflow, exportMeta);
     } else if (activeTab === 'accounts') {
-      exportAccountFlowReportToPdf(accountFlowResult, tabFilters.accounts);
+      exportAccountFlowReportToPdf(accountFlowResult, tabFilters.accounts, exportMeta);
     }
   };
 
@@ -770,49 +820,81 @@ export function Reports() {
             showIntervalSelector={catDistributionView === 'evolution'}
           />
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCatDistributionView('distribution')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                catDistributionView === 'distribution'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Distribuição por Categoria
-            </button>
-            <button
-              type="button"
-              onClick={() => setCatDistributionView('evolution')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                catDistributionView === 'evolution'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Evolução no Tempo
-            </button>
-          </div>
-
-          {activeTab === 'expenses' ? (
-            catDistributionView === 'distribution' ? (
-              <CategoryDistributionChart
-                reportResult={expensesReport}
-                title={tabFilters.expenses.status === 'paid' ? 'Despesas Realizadas' : 'Despesas Registradas'}
-              />
-            ) : (
-              <CategoryEvolutionChart reportResult={expensesReport} />
-            )
+          {isEssentialLoading ? (
+            <div className="bg-card rounded-xl border border-border p-10 text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Carregando dados do relatório...</p>
+            </div>
+          ) : collectionsError ? (
+            <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-10 text-center">
+              <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
+              <p className="text-sm text-rose-600 dark:text-rose-400 font-medium">
+                Não foi possível carregar as coleções ({collectionsError}). Verifique a conexão e recarregue a página.
+              </p>
+            </div>
           ) : (
-            catDistributionView === 'distribution' ? (
-              <CategoryDistributionChart
-                reportResult={incomeReport}
-                title={tabFilters.income.status === 'paid' ? 'Receitas Realizadas' : 'Receitas Registradas'}
-              />
-            ) : (
-              <CategoryEvolutionChart reportResult={incomeReport} />
-            )
+            <>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCatDistributionView('distribution')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    catDistributionView === 'distribution'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Distribuição por Categoria
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCatDistributionView('evolution')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    catDistributionView === 'evolution'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Evolução no Tempo
+                </button>
+              </div>
+
+              {activeTab === 'expenses' ? (
+                catDistributionView === 'distribution' ? (
+                  <CategoryDistributionChart
+                    reportResult={expensesReport}
+                    title={tabFilters.expenses.status === 'paid' ? 'Despesas Realizadas' : 'Despesas Registradas'}
+                    invoices={invoices}
+                    entityNames={exportMeta.originNames}
+                  />
+                ) : (
+                  <CategoryEvolutionChart
+                    reportResult={expensesEvolutionReport}
+                    evolutionWindow={evolutionWindow}
+                    onEvolutionWindowChange={setEvolutionWindow}
+                    invoices={invoices}
+                    entityNames={exportMeta.originNames}
+                  />
+                )
+              ) : (
+                catDistributionView === 'distribution' ? (
+                  <CategoryDistributionChart
+                    reportResult={incomeReport}
+                    title={tabFilters.income.status === 'paid' ? 'Receitas Realizadas' : 'Receitas Registradas'}
+                    invoices={invoices}
+                    entityNames={exportMeta.originNames}
+                  />
+                ) : (
+                  <CategoryEvolutionChart
+                    reportResult={incomeEvolutionReport}
+                    evolutionWindow={evolutionWindow}
+                    onEvolutionWindowChange={setEvolutionWindow}
+                    invoices={invoices}
+                    entityNames={exportMeta.originNames}
+                  />
+                )
+              )}
+            </>
           )}
         </div>
       )}
@@ -830,10 +912,25 @@ export function Reports() {
             onExportPdf={handleExportCurrentReportPdf}
             showIntervalSelector={true}
           />
-          <CashFlowChart
-            reportResult={cashFlowResult}
-            showPending={tabFilters.cashflow.includePending}
-          />
+          {isEssentialLoading ? (
+            <div className="bg-card rounded-xl border border-border p-10 text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Carregando dados do relatório...</p>
+            </div>
+          ) : collectionsError ? (
+            <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-10 text-center">
+              <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
+              <p className="text-sm text-rose-600 dark:text-rose-400 font-medium">
+                Não foi possível carregar as coleções ({collectionsError}). Verifique a conexão e recarregue a página.
+              </p>
+            </div>
+          ) : (
+            <CashFlowChart
+              reportResult={cashFlowResult}
+              showPending={tabFilters.cashflow.includePending}
+              entityNames={exportMeta.originNames}
+            />
+          )}
         </div>
       )}
 
@@ -850,10 +947,25 @@ export function Reports() {
             onExportPdf={handleExportCurrentReportPdf}
             showIntervalSelector={true}
           />
-          <AccountFlowView
-            reportResult={accountFlowResult}
-            showPending={tabFilters.accounts.includePending}
-          />
+          {isEssentialLoading ? (
+            <div className="bg-card rounded-xl border border-border p-10 text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Carregando dados do relatório...</p>
+            </div>
+          ) : collectionsError ? (
+            <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-10 text-center">
+              <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
+              <p className="text-sm text-rose-600 dark:text-rose-400 font-medium">
+                Não foi possível carregar as coleções ({collectionsError}). Verifique a conexão e recarregue a página.
+              </p>
+            </div>
+          ) : (
+            <AccountFlowView
+              reportResult={accountFlowResult}
+              showPending={tabFilters.accounts.includePending}
+              entityNames={exportMeta.originNames}
+            />
+          )}
         </div>
       )}
 

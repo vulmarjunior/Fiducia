@@ -39,7 +39,14 @@ export interface NormalizedTransaction {
   destinationAccountId?: string;
   isInvoicePayment: boolean;
   isCredit: boolean; // estorno ou crédito no cartão
+  isValid: boolean; // false quando data/valor não podem ser interpretados
+  invalidReason?: string;
   raw: Transaction;
+}
+
+export interface ReportDiagnostics {
+  invalidCount: number; // registros excluídos por data/valor inválidos
+  excludedCount: number; // registros excluídos por status cancelado
 }
 
 export interface CategoryDistributionItem {
@@ -59,9 +66,11 @@ export interface CategoryDistributionItem {
 export interface CategoryEvolutionPoint {
   periodKey: string;
   label: string;
-  values: Record<string, number>; // categoryId -> valor em reais
+  values: Record<string, number>; // categoryId -> valor em reais (retrocompatível)
   total: number;
   entriesCount: number;
+  valuesCents: Record<string, number>; // categoryId -> valor em centavos (fonte canônica)
+  totalCents: number;
 }
 
 export interface CategoryReportResult {
@@ -73,6 +82,9 @@ export interface CategoryReportResult {
   hasNegativeCategories: boolean;
   itemsWithoutInvoiceDayTotal: number;
   itemsWithoutInvoiceDayEntries: NormalizedTransaction[];
+  itemsWithoutInvoicePeriodTotal: number;
+  itemsWithoutInvoicePeriodEntries: NormalizedTransaction[];
+  diagnostics: ReportDiagnostics;
 }
 
 export interface CashFlowPoint {
@@ -92,6 +104,9 @@ export interface CashFlowPoint {
   pendingInflowCents: number;
   pendingOutflowCents: number;
   pendingResultCents: number;
+  openingCapitalCents: number; // capital inicial de conta aberta no período (não é receita)
+  priorPendingCents: number; // pendências anteriores ao intervalo, sinalizadas fora do período
+  projectedEndingBalanceCents?: number;
   entries: NormalizedTransaction[];
 }
 
@@ -106,6 +121,9 @@ export interface CashFlowReportResult {
   endingBalanceCents?: number;
   startingBalance?: number;
   endingBalance?: number;
+  openingCapitalCents: number;
+  priorPendingCents: number;
+  diagnostics: ReportDiagnostics;
   points: CashFlowPoint[];
 }
 
@@ -114,11 +132,15 @@ export interface AccountFlowItem {
   accountName: string;
   accountType: string;
   startingBalanceCents: number;
+  openingCapitalCents: number;
+  priorPendingCents: number;
   inflowCents: number;
   outflowCents: number;
   netResultCents: number;
   endingBalanceCents: number;
   startingBalance: number;
+  openingCapital: number;
+  priorPending: number;
   inflow: number;
   outflow: number;
   netResult: number;
@@ -129,6 +151,7 @@ export interface AccountFlowItem {
   projectedEndingBalanceCents: number;
   projectedEndingBalance: number;
   isReconciled: boolean;
+  isReconciledToday: boolean;
   divergenceMessage?: string;
   points: CashFlowPoint[];
   entries: NormalizedTransaction[];
@@ -148,11 +171,15 @@ export interface UnallocatedInvoiceObligation {
 
 export interface AccountFlowReportResult {
   consolidatedStartingBalanceCents: number;
+  consolidatedOpeningCapitalCents: number;
+  consolidatedPriorPendingCents: number;
   consolidatedInflowCents: number;
   consolidatedOutflowCents: number;
   consolidatedNetResultCents: number;
   consolidatedEndingBalanceCents: number;
   consolidatedStartingBalance: number;
+  consolidatedOpeningCapital: number;
+  consolidatedPriorPending: number;
   consolidatedInflow: number;
   consolidatedOutflow: number;
   consolidatedNetResult: number;
@@ -162,6 +189,7 @@ export interface AccountFlowReportResult {
   unallocatedInvoiceObligationsCents: number;
   unallocatedInvoiceObligations: number;
   unallocatedInvoices: UnallocatedInvoiceObligation[];
+  diagnostics: ReportDiagnostics;
   accounts: AccountFlowItem[];
   consolidatedPoints: CashFlowPoint[];
 }

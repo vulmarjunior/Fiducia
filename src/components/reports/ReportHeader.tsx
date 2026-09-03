@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useReportingPeriod } from '../../contexts/ReportingPeriodContext';
 import { Button } from '../ui/button';
 import type { ReportFilters, ReportIntervalType } from '../../types/reports';
@@ -11,6 +11,7 @@ import {
   FileText,
   RotateCcw,
   X,
+  ChevronsUpDown,
 } from 'lucide-react';
 
 interface ReportHeaderProps {
@@ -36,6 +37,7 @@ export function ReportHeader({
   showIntervalSelector = true,
 }: ReportHeaderProps) {
   const { selectedMonth, setSelectedMonth, resetToCurrentMonth } = useReportingPeriod();
+  const [showFilterSummary, setShowFilterSummary] = useState(false);
 
   const [yearStr, mStr] = selectedMonth.split('-');
   const year = parseInt(yearStr, 10);
@@ -46,6 +48,28 @@ export function ReportHeader({
     const [y, m, d] = iso.split('-');
     return `${d}/${m}/${y}`;
   };
+
+  const statusLabel = filters.status === 'all'
+    ? 'Todas as situações'
+    : filters.status === 'paid'
+      ? 'Apenas realizadas'
+      : 'Apenas pendentes';
+
+  const summaryItems: string[] = [];
+  if (filters.customRange) {
+    summaryItems.push(`Intervalo: ${formatIsoToBr(filters.customRange.startDate)} a ${formatIsoToBr(filters.customRange.endDate)}`);
+  } else {
+    summaryItems.push(`Mês: ${monthName} ${year}`);
+  }
+  summaryItems.push(`Situação: ${statusLabel}`);
+  if (filters.categoryIds !== undefined) {
+    summaryItems.push(filters.categoryIds.length === 0 ? 'Categorias: nenhuma selecionada' : `Categorias: ${filters.categoryIds.length} selecionada(s)`);
+  }
+  if (filters.originIds !== undefined) {
+    summaryItems.push(filters.originIds.length === 0 ? 'Origens: nenhuma selecionada' : `Origens: ${filters.originIds.length} selecionada(s)`);
+  }
+  if (filters.includePending) summaryItems.push('Inclui pendentes');
+  if (filters.accumulated) summaryItems.push('Acumulado');
 
   const handleClearCustomRange = () => {
     onFilterChange({ ...filters, customRange: undefined });
@@ -237,6 +261,34 @@ export function ReportHeader({
           )}
         </div>
       </div>
+
+      {/* Resumo visível dos filtros aplicados */}
+      {summaryItems.length > 0 && (
+        <div className="w-full flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-3 mt-1">
+          <button
+            type="button"
+            onClick={() => setShowFilterSummary(s => !s)}
+            className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            title={showFilterSummary ? 'Recolher resumo' : 'Expandir resumo'}
+          >
+            <ChevronsUpDown className="w-3.5 h-3.5" />
+            Filtros aplicados
+          </button>
+          {!showFilterSummary && summaryItems.slice(0, 3).map(item => (
+            <span key={item} className="text-[11px] bg-muted/60 text-muted-foreground border border-border rounded-full px-2 py-0.5">
+              {item}
+            </span>
+          ))}
+          {showFilterSummary && summaryItems.map(item => (
+            <span key={item} className="text-[11px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5">
+              {item}
+            </span>
+          ))}
+          {summaryItems.length > 3 && !showFilterSummary && (
+            <span className="text-[11px] text-muted-foreground">+{summaryItems.length - 3}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

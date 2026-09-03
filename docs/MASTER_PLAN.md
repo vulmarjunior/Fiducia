@@ -13,7 +13,7 @@
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
 | **Versão atual** | `0.16.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-09-02 (Relatórios essenciais v0.16.0) |
+| **Última alteração em código** | 2026-09-03 (Fechamento do plano de relatórios essenciais v0.16.0) |
 | **Último deploy** | v0.15.5 em produção (v0.16.0 pronta para deploy) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -57,7 +57,7 @@ npm run build      # vite build
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
 | Conciliação | ✅ Funcional | OFX/CSV, auto-match, AI match, AI análise de divergências |
-| Relatórios | ⚠️ Em revisão | v0.16.0 com erros reproduzidos de saldo, faturas, pendências e detalhamento; auditoria em `docs/archive/sessions/2026-09-02-auditoria-relatorios.md` |
+| Relatórios | ✅ Concluído | v0.16.0 com plano fechado em 2026-09-03: contratos de cálculo, experiência, exportações, estados de UI e matriz de testes completos; validação visual final pendente antes do deploy |
 | Auditoria | ✅ Funcional | Diagnóstico, correção de saldo, reabertura de períodos |
 | Orçamentos | ✅ Funcional | Metas por categoria, tabela Orçado x Realizado |
 | Metas | ✅ Funcional | Metas financeiras com progresso |
@@ -73,7 +73,7 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Resolução integral dos quatro pontos da segunda vistoria da v0.16.0 concluída em 2026-09-02 (isolamento de filtros por relatório, intervalo personalizado na UI, faturas em intervalos multi-mês e exportação em PDF para fluxo e contas). O reprodutor sintético preservou 21/21 verificações aprovadas com 0 divergências.
+**Foco atual:** Validação visual final dos relatórios essenciais v0.16.0 (plano fechado integralmente em 2026-09-03 — `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md`) e autorização explícita do usuário antes do deploy em produção.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 
@@ -149,7 +149,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 | 12 | Central de Importação Assistida — Fase 3 | ⏸️ Pendente | Importador de notificações Android colocado em espera para estudos mais aprofundados; e-mail e Open Finance fora do escopo |
 | 13 | CI/CD — GitHub Actions | ✅ Concluído | v0.7.0 — `.github/workflows/ci.yml`: lint + test + build |
 | 14 | Chave Groq em proxy | ✅ Concluído | v0.8.0 — Vercel Function autenticada por Firebase ID token |
-| 15 | Quatro relatórios essenciais | ⚠️ Em validação | v0.16.0 com cálculos financeiros corrigidos; quatro pendências de produto registradas em `2026-09-02-segunda-auditoria-relatorios.md` |
+| 15 | Quatro relatórios essenciais | ✅ Concluído | v0.16.0 com plano fechado em 2026-09-03; validação visual final antes do deploy |
 
 ---
 
@@ -159,7 +159,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 |-------|-----------|-----------|
 | Testes dependentes de emulador | Baixa | Suíte configurada no CI com Java 21; execução local exige Java instalado |
 | Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard |
-| Relatórios v0.16.0 — aceite de produto | Média | Cálculos financeiros corrigidos, mas faltam intervalo personalizado na UI, travessia de meses, filtros isolados e PDF para duas visões; ver segunda vistoria de 2026-09-02 |
+| Relatórios v0.16.0 — aceite de produto | Baixa | Plano fechado em 2026-09-03 (cálculos, experiência, exportações e testes); falta apenas a validação visual final antes do deploy |
 | IA server-side | Baixa | Roteamento corrigido na v0.15.2; modelo e parâmetros migrados na v0.15.3, com chamada autenticada HTTP 200 em produção |
 | Formato de notificações Android | Média | C6 e Itaú podem alterar textos/pacotes sem contrato público; parser deve ser calibrado com alertas reais antes de integrar ao Firebase |
 | Single developer | Alta | Todo conhecimento está em um único desenvolvedor (documentação atenua) |
@@ -199,8 +199,9 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 | `docs/ia-conciliacao-inteligente.md` | Spec IA Conciliação | ✅ Status "IMPLEMENTADO" adicionado em v0.4.0 |
 | `docs/plano-de-melhorias.md` | Diagnóstico e plano de correções | ⚠️ Parcialmente resolvido; inventário revisado em v0.4.0 |
 | `docs/plano-evolucao-previsao-caixa.md` | Spec evolução previsão de caixa | ✅ Criado em v0.4.0 |
-| `docs/plano-relatorios-essenciais.md` | Execução dos quatro relatórios essenciais, regras e critérios de aceite | ⚠️ Implementação v0.16.0 auditada; critérios ainda não atendidos |
-| `docs/archive/sessions/2026-09-02-auditoria-relatorios.md` | Achados, reproduções e ordem de correção dos relatórios v0.16.0 | ✅ Auditoria concluída; correções pendentes |
+| `docs/plano-relatorios-essenciais.md` | Execução dos quatro relatórios essenciais, regras e critérios de aceite | ✅ Concluído em 2026-09-03 |
+| `docs/archive/sessions/2026-09-02-auditoria-relatorios.md` | Achados, reproduções e ordem de correção dos relatórios v0.16.0 | ✅ Auditoria concluída; correções aplicadas |
+| `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md` | Fechamento integral do plano de relatórios essenciais | ✅ Sessão concluída |
 | `docs/plano-migracao-firebase-supabase.md` | Plano de contingência para eventual migração do banco | 📋 Proposta não autorizada |
 | `docs/ARQUITETURA_ANDROID.md` | Arquitetura, privacidade, build e roteiro do APK diagnóstico | 🧪 Aguarda validação em aparelho real |
 | `docs/archive/sessions/` | Arquivo de sessões concluídas | ✅ Ativo |

@@ -8,6 +8,30 @@ import type {
 } from '../../types/reports';
 import { formatCurrency } from '../utils';
 
+export interface ReportExportMeta {
+  categoryNames?: Record<string, string>;
+  originNames?: Record<string, string>;
+}
+
+function getPeriodLabel(filters: ReportFilters): string {
+  return filters.customRange
+    ? `${filters.customRange.startDate} a ${filters.customRange.endDate}`
+    : filters.selectedMonth;
+}
+
+function getStatusLabel(status: ReportFilters['status']): string {
+  return status === 'all' ? 'Todas' : status === 'paid' ? 'Realizadas' : 'Pendentes';
+}
+
+function formatSelectionNames(
+  ids: string[] | undefined,
+  names: Record<string, string> | undefined
+): string {
+  if (ids === undefined) return 'Todas';
+  if (ids.length === 0) return 'Nenhuma';
+  return ids.map(id => names?.[id] || id).join(', ');
+}
+
 // Prevenção de CSV Injection para Excel/Calc
 function sanitizeCsvCell(value: string | number): string {
   const str = String(value ?? '');
@@ -35,13 +59,17 @@ function downloadCsvFile(content: string, filename: string) {
 
 export function buildCategoryReportCsv(
   result: CategoryReportResult,
-  filters: ReportFilters
+  filters: ReportFilters,
+  meta?: ReportExportMeta
 ): string {
   const title = result.type === 'expenses' ? 'Despesas por Categoria' : 'Receitas por Categoria';
   const lines: string[] = [
     `# ${title}`,
-    `# Periodo: ${filters.selectedMonth}`,
-    `# Situacao: ${filters.status === 'all' ? 'Todas' : filters.status === 'paid' ? 'Realizadas' : 'Pendentes'}`,
+    `# Periodo: ${getPeriodLabel(filters)}`,
+    `# Situacao: ${getStatusLabel(filters.status)}`,
+    `# Categorias: ${formatSelectionNames(filters.categoryIds, meta?.categoryNames)}`,
+    `# Origens: ${formatSelectionNames(filters.originIds, meta?.originNames)}`,
+    `# Agrupamento: ${filters.intervalType} (Acumulado: ${filters.accumulated ? 'Sim' : 'Nao'})`,
     `# Total: ${formatCurrency(result.total)}`,
     '',
     ['Categoria', 'Valor (R$)', '% do Total', 'Direto (R$)', 'Cartao (R$)', 'Lancamentos'].map(sanitizeCsvCell).join(';'),
@@ -60,31 +88,73 @@ export function buildCategoryReportCsv(
     );
   }
 
+  if (result.itemsWithoutInvoicePeriodTotal !== 0) {
+    lines.push('');
+    lines.push(`# Compras de cartao sem periodo de fatura: ${result.itemsWithoutInvoicePeriodTotal.toFixed(2).replace('.', ',')}`);
+    for (const tx of result.itemsWithoutInvoicePeriodEntries) {
+      lines.push(
+        [
+          tx.description || 'Sem descricao',
+          tx.categoryName,
+          (tx.amountCents / 100).toFixed(2).replace('.', ','),
+        ].map(sanitizeCsvCell).join(';')
+      );
+    }
+  }
+
+  if (result.itemsWithoutInvoiceDayTotal !== 0) {
+    lines.push('');
+    lines.push(`# Compras de fatura fora do mes civil: ${result.itemsWithoutInvoiceDayTotal.toFixed(2).replace('.', ',')}`);
+    for (const tx of result.itemsWithoutInvoiceDayEntries) {
+      lines.push(
+        [
+          tx.description || 'Sem descricao',
+          tx.categoryName,
+          (tx.amountCents / 100).toFixed(2).replace('.', ','),
+        ].map(sanitizeCsvCell).join(';')
+      );
+    }
+  }
+
+  if (result.diagnostics.invalidCount > 0) {
+    lines.push('');
+    lines.push(`# Diagnostico: ${result.diagnostics.invalidCount} registro(s) nao contabilizados por data/valor invalido; ${result.diagnostics.excludedCount} cancelado(s) excluido(s).`);
+  }
+
   return lines.join('\r\n');
 }
 
 export function exportCategoryReportToCsv(
   result: CategoryReportResult,
-  filters: ReportFilters
+  filters: ReportFilters,
+  meta?: ReportExportMeta
 ) {
-  const csv = buildCategoryReportCsv(result, filters);
+  const csv = buildCategoryReportCsv(result, filters, meta);
   downloadCsvFile(csv, `fiducia-${result.type}-${filters.selectedMonth}.csv`);
 }
 
 export function buildCashFlowReportCsv(
   result: CashFlowReportResult,
-  filters: ReportFilters
+  filters: ReportFilters,
+  meta?: ReportExportMeta
 ): string {
   const lines: string[] = [
     '# Entradas x Saidas',
-    `# Periodo: ${filters.selectedMonth}`,
+    `# Periodo: ${getPeriodLabel(filters)}`,
+    `# Contas: ${formatSelectionNames(filters.originIds, meta?.originNames)}`,
     `# Agrupamento: ${filters.intervalType} (Acumulado: ${filters.accumulated ? 'Sim' : 'Nao'}, Incluir Pendentes: ${filters.includePending ? 'Sim' : 'Nao'})`,
     `# Total Entradas: ${formatCurrency(result.totalInflow)}`,
     `# Total Saidas: ${formatCurrency(result.totalOutflow)}`,
     `# Resultado Liquido: ${formatCurrency(result.netResult)}`,
+    result.openingCapitalCents !== 0
+      ? `# Capital de abertura (contas abertas no periodo): ${formatCurrency(result.openingCapitalCents / 100)}`
+      : '# Capital de abertura: 0',
+    result.priorPendingCents !== 0
+      ? `# Pendentes anteriores ao periodo (nao incorporados): ${formatCurrency(result.priorPendingCents / 100)}`
+      : null,
     '',
     ['Periodo', 'Entradas (R$)', 'Saidas (R$)', 'Resultado (R$)', 'Saldo Final (R$)'].map(sanitizeCsvCell).join(';'),
-  ];
+  ].filter((line): line is string => line !== null);
 
   for (const pt of result.points) {
     lines.push(
@@ -98,30 +168,45 @@ export function buildCashFlowReportCsv(
     );
   }
 
+  if (result.diagnostics.invalidCount > 0) {
+    lines.push('');
+    lines.push(`# Diagnostico: ${result.diagnostics.invalidCount} registro(s) nao contabilizados por data/valor invalido; ${result.diagnostics.excludedCount} cancelado(s) excluido(s).`);
+  }
+
   return lines.join('\r\n');
 }
 
 export function exportCashFlowReportToCsv(
   result: CashFlowReportResult,
-  filters: ReportFilters
+  filters: ReportFilters,
+  meta?: ReportExportMeta
 ) {
-  const csv = buildCashFlowReportCsv(result, filters);
+  const csv = buildCashFlowReportCsv(result, filters, meta);
   downloadCsvFile(csv, `fiducia-entradas-saidas-${filters.selectedMonth}.csv`);
 }
 
 export function buildAccountFlowReportCsv(
   result: AccountFlowReportResult,
-  filters: ReportFilters
+  filters: ReportFilters,
+  meta?: ReportExportMeta
 ): string {
   const lines: string[] = [
     '# Fluxo por Conta',
-    `# Periodo: ${filters.selectedMonth}`,
+    `# Periodo: ${getPeriodLabel(filters)}`,
+    `# Situacao: ${getStatusLabel(filters.status)} | Incluir Pendentes: ${filters.includePending ? 'Sim' : 'Nao'}`,
+    `# Contas: ${formatSelectionNames(filters.originIds, meta?.originNames)}`,
     `# Saldo Inicial Consolidado: ${formatCurrency(result.consolidatedStartingBalance)}`,
+    result.consolidatedOpeningCapitalCents !== 0
+      ? `# Capital de abertura (contas abertas no periodo): ${formatCurrency(result.consolidatedOpeningCapital)}`
+      : null,
     `# Saldo Final Consolidado: ${formatCurrency(result.consolidatedEndingBalance)}`,
     `# Saldo Previsto Consolidado: ${formatCurrency(result.consolidatedProjectedEndingBalance)}`,
+    result.consolidatedPriorPendingCents !== 0
+      ? `# Pendentes anteriores ao periodo (nao incorporados): ${formatCurrency(result.consolidatedPriorPending)}`
+      : null,
     '',
-    ['Conta', 'Tipo', 'Saldo Inicial (R$)', 'Entradas (R$)', 'Saidas (R$)', 'Resultado (R$)', 'Saldo Final (R$)', 'Saldo Previsto (R$)'].map(sanitizeCsvCell).join(';'),
-  ];
+    ['Conta', 'Tipo', 'Saldo Inicial (R$)', 'Capital (R$)', 'Entradas (R$)', 'Saidas (R$)', 'Resultado (R$)', 'Saldo Final (R$)', 'Saldo Previsto (R$)', 'Conciliado'].map(sanitizeCsvCell).join(';'),
+  ].filter((line): line is string => line !== null);
 
   for (const acc of result.accounts) {
     lines.push(
@@ -129,11 +214,13 @@ export function buildAccountFlowReportCsv(
         acc.accountName,
         acc.accountType,
         acc.startingBalance.toFixed(2).replace('.', ','),
+        acc.openingCapital.toFixed(2).replace('.', ','),
         acc.inflow.toFixed(2).replace('.', ','),
         acc.outflow.toFixed(2).replace('.', ','),
         acc.netResult.toFixed(2).replace('.', ','),
         acc.endingBalance.toFixed(2).replace('.', ','),
         acc.projectedEndingBalance.toFixed(2).replace('.', ','),
+        acc.isReconciled ? 'Sim' : 'Nao',
       ].map(sanitizeCsvCell).join(';')
     );
   }
@@ -156,20 +243,27 @@ export function buildAccountFlowReportCsv(
     }
   }
 
+  if (result.diagnostics.invalidCount > 0) {
+    lines.push('');
+    lines.push(`# Diagnostico: ${result.diagnostics.invalidCount} registro(s) nao contabilizados por data/valor invalido; ${result.diagnostics.excludedCount} cancelado(s) excluido(s).`);
+  }
+
   return lines.join('\r\n');
 }
 
 export function exportAccountFlowReportToCsv(
   result: AccountFlowReportResult,
-  filters: ReportFilters
+  filters: ReportFilters,
+  meta?: ReportExportMeta
 ) {
-  const csv = buildAccountFlowReportCsv(result, filters);
+  const csv = buildAccountFlowReportCsv(result, filters, meta);
   downloadCsvFile(csv, `fiducia-fluxo-contas-${filters.selectedMonth}.csv`);
 }
 
 export function exportCategoryReportToPdf(
   result: CategoryReportResult,
-  filters: ReportFilters
+  filters: ReportFilters,
+  meta?: ReportExportMeta
 ) {
   const doc = new jsPDF();
   const title = result.type === 'expenses' ? 'Relatório de Despesas por Categoria' : 'Relatório de Receitas por Categoria';
@@ -179,8 +273,11 @@ export function exportCategoryReportToPdf(
 
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(`Período: ${filters.selectedMonth}  |  Total: ${formatCurrency(result.total)}`, 14, 28);
-  doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 14, 34);
+  doc.text(`Período: ${getPeriodLabel(filters)}  |  Situação: ${getStatusLabel(filters.status)}`, 14, 28);
+  doc.text(`Categorias: ${formatSelectionNames(filters.categoryIds, meta?.categoryNames)}`, 14, 34);
+  doc.text(`Origens: ${formatSelectionNames(filters.originIds, meta?.originNames)}`, 14, 40);
+  doc.text(`Agrupamento: ${filters.intervalType}  |  Total: ${formatCurrency(result.total)}`, 14, 46);
+  doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 14, 52);
 
   const tableData = result.categories.map(cat => [
     cat.categoryName,
@@ -192,12 +289,36 @@ export function exportCategoryReportToPdf(
   ]);
 
   autoTable(doc, {
-    startY: 40,
+    startY: 58,
     head: [['Categoria', 'Valor', '% Total', 'Direto', 'Cartão', 'Lançamentos']],
     body: tableData,
     theme: 'striped',
     headStyles: { fillColor: result.type === 'expenses' ? [220, 38, 38] : [16, 185, 129] },
   });
+
+  const finalY = (doc as any).lastAutoTable?.finalY || 100;
+
+  if (result.itemsWithoutInvoicePeriodTotal !== 0) {
+    doc.setFontSize(11);
+    doc.setTextColor(30);
+    doc.text(`Compras de cartão sem período de fatura: ${formatCurrency(result.itemsWithoutInvoicePeriodTotal)}`, 14, finalY + 12);
+  }
+
+  if (result.itemsWithoutInvoiceDayTotal !== 0) {
+    doc.setFontSize(11);
+    doc.setTextColor(30);
+    doc.text(`Compras de fatura fora do mês civil: ${formatCurrency(result.itemsWithoutInvoiceDayTotal)}`, 14, finalY + (result.itemsWithoutInvoicePeriodTotal !== 0 ? 20 : 12));
+  }
+
+  if (result.diagnostics.invalidCount > 0) {
+    doc.setFontSize(9);
+    doc.setTextColor(180);
+    doc.text(
+      `Diagnóstico: ${result.diagnostics.invalidCount} registro(s) não contabilizados por data/valor inválido; ${result.diagnostics.excludedCount} cancelado(s) excluído(s).`,
+      14,
+      finalY + (result.itemsWithoutInvoicePeriodTotal !== 0 || result.itemsWithoutInvoiceDayTotal !== 0 ? 28 : 12)
+    );
+  }
 
   const filename = `fiducia-${result.type}-${filters.selectedMonth}.pdf`;
   doc.save(filename);
@@ -205,12 +326,10 @@ export function exportCategoryReportToPdf(
 
 export function exportCashFlowReportToPdf(
   result: CashFlowReportResult,
-  filters: ReportFilters
+  filters: ReportFilters,
+  meta?: ReportExportMeta
 ) {
   const doc = new jsPDF();
-  const periodLabel = filters.customRange
-    ? `${filters.customRange.startDate} a ${filters.customRange.endDate}`
-    : filters.selectedMonth;
 
   doc.setFontSize(16);
   doc.text('Relatório de Entradas × Saídas', 14, 20);
@@ -218,24 +337,31 @@ export function exportCashFlowReportToPdf(
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text(
-    `Período: ${periodLabel}  |  Agrupamento: ${filters.intervalType}  |  Pendentes: ${filters.includePending ? 'Sim' : 'Não'}`,
+    `Período: ${getPeriodLabel(filters)}  |  Agrupamento: ${filters.intervalType}  |  Pendentes: ${filters.includePending ? 'Sim' : 'Não'}`,
     14,
     28
   );
+  doc.text(`Contas: ${formatSelectionNames(filters.originIds, meta?.originNames)}`, 14, 34);
   doc.text(
     `Entradas: ${formatCurrency(result.totalInflow)}  |  Saídas: ${formatCurrency(result.totalOutflow)}  |  Resultado: ${formatCurrency(result.netResult)}`,
     14,
-    34
+    40
   );
   if (result.startingBalance !== undefined && result.endingBalance !== undefined) {
     doc.text(
       `Saldo Inicial: ${formatCurrency(result.startingBalance)}  |  Saldo Final: ${formatCurrency(result.endingBalance)}`,
       14,
-      40
+      46
     );
   }
+  if (result.openingCapitalCents !== 0) {
+    doc.text(`Capital de abertura (contas abertas no período): ${formatCurrency(result.openingCapitalCents / 100)}`, 14, 52);
+  }
+  if (result.priorPendingCents !== 0) {
+    doc.text(`Pendentes anteriores ao período (não incorporados): ${formatCurrency(result.priorPendingCents / 100)}`, 14, 58);
+  }
 
-  const startY = result.startingBalance !== undefined ? 46 : 40;
+  const startY = 64;
 
   const tableData = result.points.map(pt => [
     pt.label,
@@ -259,24 +385,29 @@ export function exportCashFlowReportToPdf(
 
 export function exportAccountFlowReportToPdf(
   result: AccountFlowReportResult,
-  filters: ReportFilters
+  filters: ReportFilters,
+  meta?: ReportExportMeta
 ) {
   const doc = new jsPDF();
-  const periodLabel = filters.customRange
-    ? `${filters.customRange.startDate} a ${filters.customRange.endDate}`
-    : filters.selectedMonth;
 
   doc.setFontSize(16);
   doc.text('Relatório de Fluxo por Conta', 14, 20);
 
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(`Período: ${periodLabel}`, 14, 28);
+  doc.text(`Período: ${getPeriodLabel(filters)}  |  Situação: ${getStatusLabel(filters.status)}  |  Pendentes: ${filters.includePending ? 'Sim' : 'Não'}`, 14, 28);
+  doc.text(`Contas: ${formatSelectionNames(filters.originIds, meta?.originNames)}`, 14, 34);
   doc.text(
     `Saldo Inicial: ${formatCurrency(result.consolidatedStartingBalance)}  |  Saldo Final: ${formatCurrency(result.consolidatedEndingBalance)}  |  Previsto: ${formatCurrency(result.consolidatedProjectedEndingBalance)}`,
     14,
-    34
+    40
   );
+  if (result.consolidatedOpeningCapitalCents !== 0) {
+    doc.text(`Capital de abertura (contas abertas no período): ${formatCurrency(result.consolidatedOpeningCapital)}`, 14, 46);
+  }
+  if (result.consolidatedPriorPendingCents !== 0) {
+    doc.text(`Pendentes anteriores ao período (não incorporados): ${formatCurrency(result.consolidatedPriorPending)}`, 14, 52);
+  }
 
   const tableData = result.accounts.map(acc => [
     acc.accountName,
@@ -290,6 +421,7 @@ export function exportAccountFlowReportToPdf(
       ? 'Carteira'
       : acc.accountType,
     formatCurrency(acc.startingBalance),
+    formatCurrency(acc.openingCapital),
     formatCurrency(acc.inflow),
     formatCurrency(acc.outflow),
     formatCurrency(acc.netResult),
@@ -299,8 +431,8 @@ export function exportAccountFlowReportToPdf(
   ]);
 
   autoTable(doc, {
-    startY: 42,
-    head: [['Conta', 'Tipo', 'Inicial', 'Entradas', 'Saídas', 'Resultado', 'Final', 'Previsto', 'Conciliado']],
+    startY: 58,
+    head: [['Conta', 'Tipo', 'Inicial', 'Capital', 'Entradas', 'Saídas', 'Resultado', 'Final', 'Previsto', 'Conciliado']],
     body: tableData,
     theme: 'striped',
     headStyles: { fillColor: [99, 102, 241] },

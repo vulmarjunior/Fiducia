@@ -273,6 +273,12 @@ export function ReportFilterDrawer({
                 Apenas Pendentes
               </button>
             </div>
+            {isCategoryTab && (
+              <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed">
+                Para compras de cartão, a situação segue a fatura (quitada, a quitar ou parcial; parcial conta como a quitar).
+                Os valores representam <strong>compras</strong>, não o saldo a pagar da fatura.
+              </p>
+            )}
           </div>
 
           {/* Opções de Fluxo (apenas para cashflow e accounts) */}

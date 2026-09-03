@@ -271,4 +271,210 @@ describe('categoryReport', () => {
     const evolutionSum = report.evolution.reduce((s, p) => s + p.total, 0);
     expect(evolutionSum).toBe(100);
   });
+
+  it('fechamento: receita sem categoria aparece no grupo apropriado com total preservado', () => {
+    const transactions: Transaction[] = [
+      {
+        id: 'income-no-cat',
+        userId: 'u1',
+        description: 'Freelance',
+        type: 'income',
+        amount: 800,
+        date: '2026-08-05',
+        status: 'paid',
+        createdAt: '',
+      },
+    ];
+
+    const normalized = normalizeTransactions(transactions, categories, creditCards);
+    const report = buildCategoryReport('income', normalized, categories, [], {
+      selectedMonth: '2026-08',
+      status: 'all',
+      intervalType: 'day',
+      accumulated: false,
+      includePending: false,
+    });
+
+    expect(report.total).toBe(800);
+    expect(report.categories).toHaveLength(1);
+    expect(report.categories[0].categoryId).toBe('sem_categoria');
+    expect(report.categories[0].categoryName).toBe('Sem categoria');
+  });
+
+  it('fechamento: compra de cartão sem invoicePeriod deriva pela regra canônica do cartão', () => {
+    // C6: fecha dia 25, vence dia 05 → compra em 01/07 pertence à fatura de agosto
+    const transactions: Transaction[] = [
+      {
+        id: 'card-no-period',
+        userId: 'u1',
+        description: 'Compra sem periodo',
+        type: 'expense',
+        amount: 150,
+        date: '2026-07-01',
+        creditCardId: 'card-c6',
+        accountId: 'card-c6',
+        categoryId: 'cat-alimentacao',
+        status: 'paid',
+        createdAt: '',
+      },
+    ];
+
+    const normalized = normalizeTransactions(transactions, categories, creditCards);
+    expect(normalized[0].invoicePeriod).toBe('2026-08');
+
+    const report = buildCategoryReport('expenses', normalized, categories, [], {
+      selectedMonth: '2026-08',
+      status: 'all',
+      intervalType: 'month',
+      accumulated: false,
+      includePending: false,
+    });
+
+    expect(report.total).toBe(150);
+    expect(report.itemsWithoutInvoicePeriodTotal).toBe(0);
+  });
+
+  it('fechamento: cartão sem período derivável não soma em mês inventado', () => {
+    const transactions: Transaction[] = [
+      {
+        id: 'card-no-data',
+        userId: 'u1',
+        description: 'Compra sem data e sem periodo',
+        type: 'expense',
+        amount: 200,
+        date: '',
+        creditCardId: 'card-c6',
+        categoryId: 'cat-alimentacao',
+        status: 'paid',
+        createdAt: '',
+      },
+    ];
+
+    const normalized = normalizeTransactions(transactions, categories, creditCards);
+    const report = buildCategoryReport('expenses', normalized, categories, [], {
+      selectedMonth: '2026-08',
+      status: 'all',
+      intervalType: 'month',
+      accumulated: false,
+      includePending: false,
+    });
+
+    // Aparece como item sem período de fatura, não somado a agosto
+    expect(report.itemsWithoutInvoicePeriodTotal).toBe(200);
+    expect(report.total).toBe(0);
+    const monthBuckets = report.evolution.filter(p => p.periodKey === '2026-08');
+    expect(monthBuckets.reduce((s, p) => s + p.totalCents, 0)).toBe(0);
+  });
+
+  it('fechamento: agrupamento diário com compra de cartão sem dia dentro do mês da fatura', () => {
+    const transactions: Transaction[] = [
+      {
+        id: 'card-july',
+        userId: 'u1',
+        description: 'Compra Julho',
+        type: 'expense',
+        amount: 90,
+        date: '2026-07-10',
+        invoicePeriod: '2026-08',
+        creditCardId: 'card-c6',
+        accountId: 'card-c6',
+        categoryId: 'cat-alimentacao',
+        status: 'paid',
+        createdAt: '',
+      },
+    ];
+
+    const normalized = normalizeTransactions(transactions, categories, creditCards);
+    const report = buildCategoryReport('expenses', normalized, categories, [], {
+      selectedMonth: '2026-08',
+      status: 'all',
+      intervalType: 'day',
+      accumulated: false,
+      includePending: false,
+    });
+
+    expect(report.total).toBe(90);
+    expect(report.itemsWithoutInvoiceDayTotal).toBe(90);
+    // Nenhum bucket diário de agosto recebe o valor
+    const bucketSum = report.evolution.reduce((s, p) => s + p.totalCents, 0);
+    expect(bucketSum).toBe(0);
+  });
+
+  it('fechamento: registros com valor inválido não viram zero silencioso', () => {
+    const transactions: Transaction[] = [
+      {
+        id: 'invalid-amount',
+        userId: 'u1',
+        description: 'Valor invalido',
+        type: 'expense',
+        amount: undefined as unknown as number,
+        date: '2026-08-10',
+        status: 'paid',
+        createdAt: '',
+      },
+      {
+        id: 'cancelled-tx',
+        userId: 'u1',
+        description: 'Cancelada',
+        type: 'expense',
+        amount: 50,
+        date: '2026-08-11',
+        status: 'cancelled',
+        createdAt: '',
+      },
+    ];
+
+    const normalized = normalizeTransactions(transactions, categories, creditCards);
+    const report = buildCategoryReport('expenses', normalized, categories, [], {
+      selectedMonth: '2026-08',
+      status: 'all',
+      intervalType: 'day',
+      accumulated: false,
+      includePending: false,
+    });
+
+    expect(report.total).toBe(0);
+    expect(report.diagnostics.invalidCount).toBe(1);
+    expect(report.diagnostics.excludedCount).toBe(1);
+  });
+
+  it('fechamento: evolução em centavos é a fonte canônica e fecha com o total', () => {
+    const transactions: Transaction[] = [
+      {
+        id: 'tx-1',
+        userId: 'u1',
+        type: 'expense',
+        amount: 100.1,
+        date: '2026-08-01',
+        description: 'A',
+        categoryId: 'cat-transporte',
+        status: 'paid',
+        createdAt: '',
+      },
+      {
+        id: 'tx-2',
+        userId: 'u1',
+        type: 'expense',
+        amount: 200.2,
+        date: '2026-08-02',
+        description: 'B',
+        categoryId: 'cat-alimentacao',
+        status: 'paid',
+        createdAt: '',
+      },
+    ];
+
+    const normalized = normalizeTransactions(transactions, categories, creditCards);
+    const report = buildCategoryReport('expenses', normalized, categories, [], {
+      selectedMonth: '2026-08',
+      status: 'all',
+      intervalType: 'day',
+      accumulated: false,
+      includePending: false,
+    });
+
+    const bucketTotalCents = report.evolution.reduce((s, p) => s + p.totalCents, 0);
+    expect(bucketTotalCents).toBe(report.totalCents);
+    expect(bucketTotalCents).toBe(30030); // R$ 300,30 em centavos, sem drift de arredondamento
+  });
 });

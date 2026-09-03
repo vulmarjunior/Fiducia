@@ -92,6 +92,7 @@ export function buildInvoiceObligations(
 
   for (const tx of transactions) {
     if (tx.isCard && !tx.isInvoicePayment) {
+      if (tx.status === 'cancelled') continue;
       const period = tx.invoicePeriod || tx.month;
       if (period && allowedPeriods.has(period)) {
         const cardId = tx.cardId || tx.raw.creditCardId || '';
@@ -134,6 +135,7 @@ export function buildInvoiceObligations(
       if (totalCents === 0) {
         let purchasesCents = 0;
         for (const tx of transactions) {
+          if (tx.status === 'cancelled') continue;
           if (tx.isCard && !tx.isInvoicePayment && (tx.cardId === cardId || tx.raw.creditCardId === cardId)) {
             const txPeriod = tx.invoicePeriod || tx.month;
             if (txPeriod === period) {
@@ -148,6 +150,7 @@ export function buildInvoiceObligations(
       // F2/Caso 09: Sem documento de fatura criado, calcula pelas compras de cartão
       let purchasesCents = 0;
       for (const tx of transactions) {
+        if (tx.status === 'cancelled') continue;
         if (tx.isCard && !tx.isInvoicePayment && (tx.cardId === cardId || tx.raw.creditCardId === cardId)) {
           const txPeriod = tx.invoicePeriod || tx.month;
           if (txPeriod === period) {

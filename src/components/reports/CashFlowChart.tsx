@@ -14,14 +14,15 @@ import {
 import type { CashFlowPoint, CashFlowReportResult, NormalizedTransaction } from '../../types/reports';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
-import { ArrowUpRight, ArrowDownRight, Scale, Wallet, Clock } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Scale, Wallet, Clock, ArrowLeftRight, Info } from 'lucide-react';
 
 interface CashFlowChartProps {
   reportResult: CashFlowReportResult;
   showPending: boolean;
+  entityNames?: Record<string, string>;
 }
 
-export function CashFlowChart({ reportResult, showPending }: CashFlowChartProps) {
+export function CashFlowChart({ reportResult, showPending, entityNames }: CashFlowChartProps) {
   const {
     totalInflow,
     totalOutflow,
@@ -129,6 +130,29 @@ export function CashFlowChart({ reportResult, showPending }: CashFlowChartProps)
         </div>
       </div>
 
+      {(reportResult.openingCapitalCents !== 0 || reportResult.priorPendingCents !== 0 || reportResult.diagnostics.invalidCount > 0) && (
+        <div className="flex flex-col gap-1.5 p-3 bg-muted/40 border border-border rounded-lg text-xs text-muted-foreground">
+          {reportResult.openingCapitalCents !== 0 && (
+            <span className="flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5 text-primary shrink-0" />
+              Capital de abertura de contas abertas no período: <strong>{formatCurrency(reportResult.openingCapitalCents / 100)}</strong> — exibido como Saldo de abertura, não como receita.
+            </span>
+          )}
+          {reportResult.priorPendingCents !== 0 && (
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              Pendentes anteriores ao período: <strong>{formatCurrency(reportResult.priorPendingCents / 100)}</strong> — sinalizados fora do período, sem incorporação silenciosa.
+            </span>
+          )}
+          {reportResult.diagnostics.invalidCount > 0 && (
+            <span className="flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+              Diagnóstico: {reportResult.diagnostics.invalidCount} registro(s) não contabilizado(s) por data/valor inválido; {reportResult.diagnostics.excludedCount} cancelado(s) excluído(s).
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Gráfico 1: Entradas x Saídas */}
       <div className="bg-card p-4 rounded-xl border border-border space-y-2">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
@@ -200,36 +224,55 @@ export function CashFlowChart({ reportResult, showPending }: CashFlowChartProps)
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              {points.map(pt => (
-                <tr
-                  key={pt.periodKey}
-                  onClick={() => handleOpenDetails(pt)}
-                  className="hover:bg-muted/50 transition-colors cursor-pointer"
-                >
-                  <td className="p-3 font-medium text-foreground flex items-center gap-1.5">
-                    <span>{pt.label}</span>
-                    {pt.hasPending && (
-                      <span title="Possui pendências no período">
-                        <Clock className="w-3 h-3 text-amber-500 shrink-0" />
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
-                    {formatCurrency(pt.inflow)}
-                  </td>
-                  <td className="p-3 text-right font-medium text-rose-600 dark:text-rose-400">
-                    {formatCurrency(pt.outflow)}
-                  </td>
-                  <td className={`p-3 text-right font-semibold ${
-                    pt.result >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                  }`}>
-                    {formatCurrency(pt.result)}
-                  </td>
-                  <td className="p-3 text-right text-foreground font-medium">
-                    {pt.endingBalance !== undefined ? formatCurrency(pt.endingBalance) : '-'}
-                  </td>
-                </tr>
-              ))}
+              {points.map(pt => {
+                const externalTransfers = pt.entries.filter(
+                  e => e.type === 'transfer' && (e.isValid === undefined || e.isValid)
+                ).length;
+                return (
+                  <tr
+                    key={pt.periodKey}
+                    onClick={() => handleOpenDetails(pt)}
+                    className="hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
+                    <td className="p-3 font-medium text-foreground">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{pt.label}</span>
+                        {pt.hasPending && (
+                          <span title="Possui pendências no período">
+                            <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                          </span>
+                        )}
+                        {externalTransfers > 0 && (
+                          <span title={`${externalTransfers} transferência(s) com origem/destino fora da seleção`}>
+                            <ArrowLeftRight className="w-3 h-3 text-blue-500 shrink-0" />
+                          </span>
+                        )}
+                      </div>
+                      {showPending && (pt.pendingInflowCents !== 0 || pt.pendingOutflowCents !== 0) && (
+                        <div className="mt-1 text-[10px] text-muted-foreground flex items-center gap-1 flex-wrap">
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">Pendentes:</span>
+                          {pt.pendingInflowCents !== 0 && <span>+{formatCurrency(pt.pendingInflowCents / 100)} entradas</span>}
+                          {pt.pendingOutflowCents !== 0 && <span>-{formatCurrency(pt.pendingOutflowCents / 100)} saídas</span>}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(pt.inflow)}
+                    </td>
+                    <td className="p-3 text-right font-medium text-rose-600 dark:text-rose-400">
+                      {formatCurrency(pt.outflow)}
+                    </td>
+                    <td className={`p-3 text-right font-semibold ${
+                      pt.result >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                    }`}>
+                      {formatCurrency(pt.result)}
+                    </td>
+                    <td className="p-3 text-right text-foreground font-medium">
+                      {pt.endingBalance !== undefined ? formatCurrency(pt.endingBalance) : '-'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
             <tfoot className="bg-muted/30 font-semibold border-t border-border">
               <tr>
@@ -263,6 +306,7 @@ export function CashFlowChart({ reportResult, showPending }: CashFlowChartProps)
           subtitle={`${selectedPoint.entries.length} lançamento(s) de caixa no período`}
           entries={selectedPoint.entries}
           context={{ type: 'cashflow' }}
+          entityNames={entityNames}
         />
       )}
     </div>

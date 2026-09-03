@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { CategoryDistributionItem, CategoryReportResult, NormalizedTransaction } from '../../types/reports';
+import type { Invoice } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
 import { PieChart as PieIcon, BarChart3, Info, AlertTriangle } from 'lucide-react';
@@ -19,6 +20,8 @@ import { Button } from '../ui/button';
 interface CategoryDistributionChartProps {
   reportResult: CategoryReportResult;
   title: string;
+  invoices?: Invoice[];
+  entityNames?: Record<string, string>;
 }
 
 const PALETTE = [
@@ -27,38 +30,74 @@ const PALETTE = [
   '#84cc16', '#a855f7', '#0ea5e9', '#d946ef', '#64748b',
 ];
 
-function getColorForCategory(catId: string, index: number): string {
+function getColorForCategory(catId: string): string {
   let hash = 0;
   for (let i = 0; i < catId.length; i++) {
     hash = catId.charCodeAt(i) + ((hash << 5) - hash);
   }
   const idx = Math.abs(hash) % PALETTE.length;
-  return PALETTE[(idx + index) % PALETTE.length];
+  return PALETTE[idx];
 }
+
+const OTHERS_THRESHOLD = 8;
 
 export function CategoryDistributionChart({
   reportResult,
   title,
+  invoices,
+  entityNames,
 }: CategoryDistributionChartProps) {
   const [chartType, setChartType] = useState<'pie' | 'bar'>('pie');
   const [selectedCategory, setSelectedCategory] = useState<CategoryDistributionItem | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [othersEntries, setOthersEntries] = useState<NormalizedTransaction[] | null>(null);
 
-  const { categories, total, hasNegativeCategories } = reportResult;
+  const { categories, total, hasNegativeCategories, diagnostics, itemsWithoutInvoicePeriodTotal, itemsWithoutInvoicePeriodEntries } = reportResult;
 
   const effectiveChartType = hasNegativeCategories ? 'bar' : chartType;
 
-  // Prepara dados para os gráficos
-  const chartData = categories.map((cat, idx) => ({
+  // Prepara dados para os gráficos: cores estáveis por ID de categoria
+  const chartData = categories.map((cat) => ({
     name: cat.categoryName,
     value: cat.total,
-    color: getColorForCategory(cat.categoryId, idx),
+    color: getColorForCategory(cat.categoryId),
     percent: cat.percent,
+    categoryId: cat.categoryId,
   }));
+
+  // Agrupa a cauda em "Outros" somente na pizza quando há muitas categorias
+  const hasOthers = categories.length > OTHERS_THRESHOLD;
+  const pieData = hasOthers
+    ? [
+        ...chartData.slice(0, OTHERS_THRESHOLD - 1),
+        {
+          name: 'Outros',
+          value: chartData.slice(OTHERS_THRESHOLD - 1).reduce((s, d) => s + d.value, 0),
+          color: '#64748b',
+          percent: 0,
+          categoryId: '__others__',
+        },
+      ]
+    : chartData;
 
   const handleOpenDetails = (cat: CategoryDistributionItem) => {
     setSelectedCategory(cat);
     setDetailsOpen(true);
+  };
+
+  const handleOpenOthers = () => {
+    const others = categories.slice(OTHERS_THRESHOLD - 1).flatMap(cat => cat.entries);
+    setOthersEntries(others);
+    setDetailsOpen(true);
+  };
+
+  const handleSliceClick = (entry: any) => {
+    if (entry.categoryId === '__others__') {
+      handleOpenOthers();
+      return;
+    }
+    const cat = categories.find(c => c.categoryId === entry.categoryId);
+    if (cat) handleOpenDetails(cat);
   };
 
   return (
@@ -115,6 +154,24 @@ export function CategoryDistributionChart({
         </div>
       )}
 
+      {diagnostics.invalidCount > 0 && (
+        <div className="p-3 bg-muted/40 border border-border rounded-lg flex items-center gap-2.5 text-xs text-muted-foreground">
+          <Info className="w-4 h-4 shrink-0 text-primary" />
+          <span>
+            Diagnóstico: {diagnostics.invalidCount} registro(s) não contabilizado(s) por data/valor inválido; {diagnostics.excludedCount} cancelado(s) excluído(s).
+          </span>
+        </div>
+      )}
+
+      {itemsWithoutInvoicePeriodTotal !== 0 && (
+        <div className="p-3 bg-muted/40 border border-border rounded-lg flex items-center gap-2.5 text-xs text-muted-foreground">
+          <Info className="w-4 h-4 shrink-0 text-primary" />
+          <span>
+            Compras de cartão sem período de fatura derivável: <strong>{formatCurrency(itemsWithoutInvoicePeriodTotal)}</strong> — não somadas a nenhum mês inventado.
+          </span>
+        </div>
+      )}
+
       {categories.length === 0 ? (
         <div className="py-12 text-center text-muted-foreground text-sm bg-card rounded-xl border border-border">
           Nenhum lançamento encontrado para os filtros selecionados.
@@ -128,7 +185,7 @@ export function CategoryDistributionChart({
                 {effectiveChartType === 'pie' ? (
                   <PieChart>
                     <Pie
-                      data={chartData}
+                      data={pieData}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
@@ -136,9 +193,11 @@ export function CategoryDistributionChart({
                       innerRadius={65}
                       outerRadius={105}
                       paddingAngle={2}
+                      onClick={handleSliceClick}
+                      className="cursor-pointer"
                     >
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      {pieData.map((entry) => (
+                        <Cell key={`cell-${entry.categoryId}`} fill={entry.color} />
                       ))}
                     </Pie>
                     <Tooltip
@@ -150,13 +209,17 @@ export function CategoryDistributionChart({
                     layout="vertical"
                     data={chartData}
                     margin={{ top: 10, right: 20, left: 40, bottom: 10 }}
+                    onClick={(state: any) => {
+                      const entry = state?.activePayload?.[0]?.payload;
+                      if (entry) handleSliceClick(entry);
+                    }}
                   >
                     <XAxis type="number" tickFormatter={(v) => `R$ ${v}`} />
                     <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(val: any) => [formatCurrency(Number(val)), 'Valor']} />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                      {chartData.map((entry, index) => (
-                        <Cell key={`bar-${index}`} fill={entry.color} />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} className="cursor-pointer">
+                      {chartData.map((entry) => (
+                        <Cell key={`bar-${entry.categoryId}`} fill={entry.color} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -179,8 +242,8 @@ export function CategoryDistributionChart({
             </div>
 
             <div className="divide-y divide-border/50 max-h-[460px] overflow-y-auto">
-              {categories.map((cat, idx) => {
-                const color = getColorForCategory(cat.categoryId, idx);
+              {categories.map((cat) => {
+                const color = getColorForCategory(cat.categoryId);
                 return (
                   <div
                     key={cat.categoryId}
@@ -238,14 +301,24 @@ export function CategoryDistributionChart({
       )}
 
       {/* Modal de Detalhes da Categoria */}
-      {selectedCategory && (
+      {(selectedCategory || othersEntries) && (
         <ReportDetailsDialog
           open={detailsOpen}
-          onOpenChange={setDetailsOpen}
-          title={`Lançamentos — ${selectedCategory.categoryName}`}
-          subtitle={`${selectedCategory.entriesCount} lançamento(s) na categoria`}
-          entries={selectedCategory.entries}
+          onOpenChange={(open) => {
+            setDetailsOpen(open);
+            if (!open) {
+              setSelectedCategory(null);
+              setOthersEntries(null);
+            }
+          }}
+          title={othersEntries ? 'Composição de Outros' : `Lançamentos — ${selectedCategory?.categoryName}`}
+          subtitle={othersEntries
+            ? `${othersEntries.length} lançamento(s) nas demais categorias`
+            : `${selectedCategory?.entriesCount} lançamento(s) na categoria`}
+          entries={othersEntries || selectedCategory?.entries || []}
           context={{ type: reportResult.type === 'expenses' ? 'expenses' : 'income' }}
+          invoices={invoices}
+          entityNames={entityNames}
         />
       )}
     </div>

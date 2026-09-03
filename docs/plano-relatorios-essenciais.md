@@ -6,6 +6,8 @@
 > Estado: planejamento concluído; implementação não iniciada.
 > Este documento orienta a futura tarefa de codificação. O pedido desta sessão autoriza elaborar o plano, sem executar código, publicar ou alterar dados financeiros.
 
+> **Status atual (2026-09-03):** Implementação **concluída e fechada** na v0.16.0. A execução está registrada em `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md` (fechamento integral), `2026-09-02-relatorios-essenciais-entrega.md` (entrega), `2026-09-02-correcao-auditoria-relatorios.md` e `2026-09-02-segunda-auditoria-resolucao.md` (auditorias). Permanecem pendentes apenas a validação visual final e a autorização explícita de deploy.
+
 ## 1. Resultado esperado
 
 O usuário deve conseguir responder, sem interpretar uma metodologia extensa:

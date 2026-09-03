@@ -407,4 +407,106 @@ describe('accountFlow', () => {
       expect(res.accountFlowResult.consolidatedStartingBalance).toBe(0);
     });
   });
+
+  describe('fechamento do plano — matriz seção 8', () => {
+    const acc = (id: string, initialBalance: number, balance = initialBalance, extra: Partial<Account> = {}): Account => ({
+      id, name: id, userId: 'u1', type: 'checking', initialBalance, balance, createdAt: '2026-01-01', openingDate: '2026-01-01', ...extra,
+    });
+    const tx = (overrides: Partial<Transaction>): Transaction => ({
+      id: 'tx-syn', userId: 'u1', type: 'expense', status: 'paid', amount: 100,
+      date: '2026-08-10', description: 'Syn', accountId: 'A', createdAt: '2026-08-10', ...overrides,
+    });
+    const card: CreditCard = { id: 'card', name: 'Card', userId: 'u1', limit: 5000, closingDay: 20, dueDay: 27, createdAt: '' };
+    const inv = (overrides: Partial<Invoice> = {}): Invoice => ({
+      id: 'invoice', userId: 'u1', cardId: 'card', period: '2026-08', status: 'aberta', totalAmount: 1000, ...overrides,
+    });
+    const baseFilters = { selectedMonth: '2026-08', status: 'all' as const, intervalType: 'day' as const, accumulated: false, includePending: false };
+
+    it('fatura R$ 1.000, pago R$ 400 sem agendamento: residual R$ 600 (matriz caso 10)', () => {
+      const partial = inv({ status: 'parcial', paidAmount: 400 });
+      const res = buildAccountFlowReport([acc('A', 1000)], [card], [partial], [], { ...baseFilters, includePending: true });
+      expect(res.accountFlowResult.unallocatedInvoiceObligations).toBe(600);
+      expect(res.accountFlowResult.unallocatedInvoices[0].remainingAmountCents).toBe(60000);
+    });
+
+    it('fatura paga legada sem paidAmount: residual zero (matriz caso 12)', () => {
+      const paidLegacy = inv({ status: 'paga' });
+      const res = buildAccountFlowReport([acc('A', 1000)], [card], [paidLegacy], [], { ...baseFilters, includePending: true });
+      expect(res.accountFlowResult.unallocatedInvoiceObligations).toBe(0);
+      expect(res.accountFlowResult.unallocatedInvoices).toHaveLength(0);
+    });
+
+    it('conta aberta no meio do período: capital de abertura separado, não vira receita (matriz caso 17)', () => {
+      const opened = acc('A', 2000, 2000, { openingDate: '2026-08-15', createdAt: '2026-08-15' });
+      const incomeTx = tx({ id: 'income', type: 'income', amount: 500, date: '2026-08-20' });
+      const res = buildAccountFlowReport([opened], [card], [], normalizeTransactions([incomeTx], [], [card]), baseFilters);
+
+      const item = res.accountFlowResult.accounts[0];
+      // Capital NÃO entra nas entradas operacionais
+      expect(item.openingCapital).toBe(2000);
+      expect(item.inflow).toBe(500);
+      expect(item.startingBalance).toBe(0);
+      // Saldo final = capital + entradas
+      expect(item.endingBalance).toBe(2500);
+      // No ponto do dia 15, o capital aparece como saldo de abertura, não como entrada
+      const openPoint = item.points.find(p => p.periodKey === '2026-08-15');
+      expect(openPoint?.openingCapitalCents).toBe(200000);
+      expect(openPoint?.inflowCents).toBe(0);
+      // No consolidado, igual
+      expect(res.accountFlowResult.consolidatedOpeningCapital).toBe(2000);
+      expect(res.cashFlowResult.totalInflow).toBe(500);
+      expect(res.cashFlowResult.endingBalance).toBe(2500);
+    });
+
+    it('pago com data futura e pendente atrasado fora do intervalo (matriz caso 19)', () => {
+      const futurePaid = tx({ id: 'future-paid', type: 'income', amount: 300, date: '2026-09-30', status: 'paid' });
+      const overduePending = tx({ id: 'overdue', amount: 100, date: '2026-07-05', status: 'pending' });
+      const res = buildAccountFlowReport([acc('A', 1000, 1300)], [card], [], normalizeTransactions([futurePaid, overduePending], [], [card]), {
+        ...baseFilters,
+        includePending: true,
+      });
+
+      // Futuro pago fora do intervalo: não infla o período
+      expect(res.cashFlowResult.totalInflow).toBe(0);
+      // Pendente atrasado é sinalizado como priorPending, sem incorporar ao saldo
+      expect(res.cashFlowResult.priorPendingCents).toBe(10000);
+      expect(res.accountFlowResult.consolidatedPriorPending).toBe(100);
+      expect(res.cashFlowResult.endingBalance).toBe(1000);
+      expect(res.accountFlowResult.accounts[0].priorPending).toBe(100);
+    });
+
+    it('cartão legado por accountId não entra no saldo bancário (matriz caso 20)', () => {
+      const legacyCard = { ...card, id: 'card' };
+      const cardTx = tx({ id: 'card-purchase', accountId: 'card', status: 'paid', amount: 400 });
+      const res = buildAccountFlowReport([acc('A', 1000)], [legacyCard], [], normalizeTransactions([cardTx], [], [legacyCard]), baseFilters);
+      expect(res.cashFlowResult.totalOutflow).toBe(0);
+      expect(res.cashFlowResult.endingBalance).toBe(1000);
+    });
+
+    it('isReconciledToday: posição até hoje conciliada mesmo com pagamento futuro marcado como pago', () => {
+      // Data garantidamente futura em relação ao relógio do ambiente de teste
+      const futureYear = new Date().getFullYear() + 1;
+      const pastExpense = tx({ id: 'past-expense', amount: 200, date: '2026-07-10', status: 'paid' });
+      const futurePaid = tx({ id: 'future-paid', type: 'income', amount: 500, date: `${futureYear}-01-15`, status: 'paid' });
+      const res = buildAccountFlowReport(
+        [acc('A', 1000, 800)],
+        [card],
+        [],
+        normalizeTransactions([pastExpense, futurePaid], [], [card]),
+        baseFilters
+      );
+      // Total (com futuro pago) diverge do saldo persistido; posição até hoje concilia
+      expect(res.accountFlowResult.accounts[0].isReconciled).toBe(false);
+      expect(res.accountFlowResult.accounts[0].isReconciledToday).toBe(true);
+    });
+
+    it('cancelado é excluído do fluxo e contado no diagnóstico', () => {
+      const cancelled = tx({ id: 'cancelled', status: 'cancelled', amount: 100 });
+      const invalid = { ...tx({ id: 'invalid-amt' }), amount: undefined as unknown as number };
+      const res = buildAccountFlowReport([acc('A', 1000)], [card], [], normalizeTransactions([cancelled, invalid], [], [card]), baseFilters);
+      expect(res.cashFlowResult.totalOutflow).toBe(0);
+      expect(res.cashFlowResult.diagnostics.excludedCount).toBe(1);
+      expect(res.cashFlowResult.diagnostics.invalidCount).toBe(1);
+    });
+  });
 });

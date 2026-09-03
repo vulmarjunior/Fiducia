@@ -10,20 +10,22 @@
 **Resultado:** A central de relatórios passa a responder diretamente às quatro principais perguntas financeiras do usuário (Despesas por Categoria, Receitas por Categoria, Entradas × Saídas e Fluxo por Conta), com navegação mensal sincronizada, filtros combináveis de categoria e origem isolados por aba, suporte a intervalo personalizado, gráficos de distribuição e evolução temporal, detalhamento de lançamentos (drill-down), reconciliação de contas bancárias, cálculo de faturas multi-mês e exportação fiel em CSV e PDF para todos os relatórios essenciais. As análises avançadas anteriores permanecem acessíveis e intactas no menu secundário "Mais relatórios".
 
 **Alterações técnicas:**
-- `src/pages/Reports.tsx` — filtros isolados por relatório (`tabFilters`), evitando contaminação cruzada entre abas; botões de exportação PDF habilitados para todos os relatórios essenciais.
-- `src/components/reports/ReportFilterDrawer.tsx` e `ReportHeader.tsx` — suporte visual completo a intervalos personalizados (`customRange`), com alternância entre "Mês Civil" e datas arbitrárias de início e fim.
+- `src/pages/Reports.tsx` — filtros isolados por relatório (`tabFilters`), evitando contaminação cruzada entre abas; botões de exportação PDF habilitados para todos os relatórios essenciais; estados de loading/erro/vazio; janela de evolução 1/3/6/12 meses.
+- `src/components/reports/ReportFilterDrawer.tsx` e `ReportHeader.tsx` — suporte visual completo a intervalos personalizados (`customRange`), com alternância entre "Mês Civil" e datas arbitrárias de início e fim; resumo de filtros aplicados visível e expansível; nota sobre situação da fatura para compras de cartão.
 - `src/lib/reports/periods.ts` — implementação de `getMonthsInRange` para enumeração determinística de múltiplos meses cobertos por um intervalo.
-- `src/lib/reports/invoiceEvents.ts` — faturas multi-mês calculadas sobre todos os meses interceptados pelo `customRange`; isolamento de compras e detecção precisa de pagamentos bancários pendentes e faturas sem documento.
-- `src/lib/reports/accountFlow.ts` — pertinência estrita de transações por conta no saldo histórico e diário, respeito a data de abertura e verificação real de reconciliação.
-- `src/lib/reports/categoryReport.ts` — evolução mensal de cartão alinhada com o período da fatura (`invoicePeriod`).
-- `src/lib/reports/reportExport.ts` — implementação de `exportCashFlowReportToPdf` e `exportAccountFlowReportToPdf` estruturados via `jsPDF` e `autoTable`.
-- `src/components/reports/ReportDetailsDialog.tsx` — tratamento contextual de sinais para estornos (- R$ X,XX) e transferências.
-- Suíte de testes expandida para 139 testes unitários aprovados cobrindo todos os cenários da auditoria.
+- `src/lib/reports/invoiceEvents.ts` — faturas multi-mês calculadas sobre todos os meses interceptados pelo `customRange`; isolamento de compras e detecção precisa de pagamentos bancários pendentes e faturas sem documento; cancelados excluídos.
+- `src/lib/reports/accountFlow.ts` — pertinência estrita de transações por conta no saldo histórico e diário, respeito a data de abertura e verificação real de reconciliação; capital de abertura separado de receitas (Saldo de abertura); pendentes anteriores sinalizadas fora do período; reconciliação até hoje separada (`isReconciledToday`).
+- `src/lib/reports/categoryReport.ts` — evolução mensal de cartão alinhada com o período da fatura (`invoicePeriod`); evolução temporal em centavos como fonte canônica; derivação de `invoicePeriod` pela regra canônica; compras sem período expostas como diagnóstico; registros inválidos não zerados silenciosamente.
+- `src/lib/reports/normalize.ts` — diagnóstico de registros não contabilizados (`invalidCount`/`excludedCount`); validação de data/valor.
+- `src/lib/reports/reportExport.ts` — implementação de `exportCashFlowReportToPdf` e `exportAccountFlowReportToPdf` estruturados via `jsPDF` e `autoTable`; CSV e PDF com período, situação, categorias, origens, agrupamento e diagnóstico da seleção.
+- `src/components/reports/ReportDetailsDialog.tsx` — tratamento contextual de sinais para estornos (- R$ X,XX) e transferências (origem → destino); rótulo Parcial para fatura com pagamento parcial.
+- `src/components/reports/` — cores estáveis por ID de categoria; grupo "Outros" na rosca com composição acessível; fatias clicáveis; curva prevista tracejada no fluxo por conta; badges de reconciliação; composição realizado/pendente na tabela de caixa.
+- Suíte de testes expandida para **157 testes unitários aprovados** cobrindo todos os cenários da auditoria e os casos de fechamento da matriz do plano (capital de abertura, sem período de fatura, semana atravessando mês, bissexto, fatura paga legada, residual sem agendamento, pago futuro/pendente atrasado, `isReconciledToday`, inválidos não zerados).
 
 **Validações locais:**
 - Reprodutor sintético de auditoria: 21 verificações aprovadas, 0 divergências.
 - `npm run lint` — 0 erros (`tsc --noEmit`).
-- `npm run test -- --maxWorkers=1` — 21 arquivos de teste e 139 testes aprovados (3 cenários de emulador ignorados localmente).
+- `npm run test -- --maxWorkers=1` — 21 arquivos de teste e **157 testes aprovados** (3 cenários de emulador ignorados localmente).
 - `npm run build` — build de produção concluído com sucesso e sem ciclos.
 - Validação visual responsiva em desktop (1440x900) e mobile (390x844).
 

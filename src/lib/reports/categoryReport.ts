@@ -7,7 +7,7 @@ import type {
   PaymentStatusFilter,
   ReportFilters,
 } from '../../types/reports';
-import { fromCents, toCents } from './normalize';
+import { fromCents, getReportDiagnostics, toCents } from './normalize';
 import { generateBuckets, getMonthBounds } from './periods';
 
 function getInvoiceStatus(
@@ -94,8 +94,28 @@ export function buildCategoryReport(
 
   const allowedOrigins = originIds ? new Set(originIds) : null;
 
+  // Compras de cartão sem período de fatura derivável: expostas como diagnóstico,
+  // nunca somadas a um mês inventado
+  const noPeriodCardEntries = transactions.filter(tx =>
+    tx.isCard && !tx.isInvoicePayment && !tx.invoicePeriod &&
+    tx.isValid && tx.status !== 'cancelled' &&
+    (type === 'expenses' ? (tx.type === 'expense' || tx.isCredit) : false) &&
+    (allowedOrigins === null ||
+      (allowedOrigins.size > 0 && tx.cardId !== undefined && allowedOrigins.has(tx.cardId)))
+  );
+  let itemsWithoutInvoicePeriodTotalCents = 0;
+  for (const tx of noPeriodCardEntries) {
+    itemsWithoutInvoicePeriodTotalCents += type === 'expenses' && tx.isCredit ? -tx.amountCents : tx.amountCents;
+  }
+
   // Filtragem dos itens elegíveis
   const eligibleTransactions = transactions.filter(tx => {
+    // Registros com data/valor inválidos são excluídos e contados no diagnóstico
+    if (tx.isValid === false) return false;
+
+    // Cancelados nunca entram
+    if (tx.status === 'cancelled') return false;
+
     // Nunca incluir transferências
     if (tx.type === 'transfer') return false;
 
@@ -107,7 +127,8 @@ export function buildCategoryReport(
       if (tx.isCard) {
         // No cartão, despesas normais OU créditos (que abatem)
         // Período do cartão é o invoicePeriod
-        const period = tx.invoicePeriod || tx.month;
+        if (!tx.invoicePeriod) return false; // sem período → grupo de diagnóstico
+        const period = tx.invoicePeriod;
         const matchesMonth = customRange
           ? (tx.date >= startDate && tx.date <= endDate)
           : period === selectedMonth;
@@ -156,6 +177,7 @@ export function buildCategoryReport(
   let overallTotalCents = 0;
   const itemsWithoutInvoiceDayEntries: NormalizedTransaction[] = [];
   let itemsWithoutInvoiceDayTotalCents = 0;
+  const itemsWithoutInvoicePeriodEntries: NormalizedTransaction[] = noPeriodCardEntries;
 
   for (const tx of eligibleTransactions) {
     let itemCents = tx.amountCents;
@@ -231,7 +253,7 @@ export function buildCategoryReport(
   // Ordenação decrescente por total
   categoriesList.sort((a, b) => b.totalCents - a.totalCents);
 
-  // Evolução temporal
+  // Evolução temporal (fonte canônica em centavos; reais derivados para retrocompatibilidade)
   const buckets = generateBuckets(startDate, endDate, intervalType);
   const evolution: CategoryEvolutionPoint[] = buckets.map(b => ({
     periodKey: b.key,
@@ -239,6 +261,8 @@ export function buildCategoryReport(
     values: {},
     total: 0,
     entriesCount: 0,
+    valuesCents: {},
+    totalCents: 0,
   }));
 
   for (const tx of eligibleTransactions) {
@@ -246,6 +270,9 @@ export function buildCategoryReport(
     if (type === 'expenses' && tx.isCredit) {
       itemCents = -tx.amountCents;
     }
+
+    // Cartão sem período de fatura não entra em buckets mensais inventados
+    if (tx.isCard && !tx.invoicePeriod) continue;
 
     // Data a considerar para o bucket
     let targetDate = tx.date;
@@ -276,12 +303,18 @@ export function buildCategoryReport(
 
     if (bucketIdx !== -1) {
       const pt = evolution[bucketIdx];
-      const valReais = fromCents(itemCents);
-      pt.values[tx.categoryId] = Math.round(((pt.values[tx.categoryId] || 0) + valReais) * 100) / 100;
-      pt.total = Math.round((pt.total + valReais) * 100) / 100;
+      pt.valuesCents[tx.categoryId] = (pt.valuesCents[tx.categoryId] || 0) + itemCents;
+      pt.totalCents += itemCents;
       pt.entriesCount += 1;
+      pt.values[tx.categoryId] = Math.round(fromCents(pt.valuesCents[tx.categoryId]) * 100) / 100;
+      pt.total = Math.round(fromCents(pt.totalCents) * 100) / 100;
     }
   }
+
+  const diagnostics = getReportDiagnostics(
+    transactions.map(tx => tx.raw),
+    transactions
+  );
 
   return {
     type,
@@ -292,5 +325,8 @@ export function buildCategoryReport(
     hasNegativeCategories,
     itemsWithoutInvoiceDayTotal: fromCents(itemsWithoutInvoiceDayTotalCents),
     itemsWithoutInvoiceDayEntries,
+    itemsWithoutInvoicePeriodTotal: fromCents(itemsWithoutInvoicePeriodTotalCents),
+    itemsWithoutInvoicePeriodEntries,
+    diagnostics,
   };
 }
