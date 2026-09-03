@@ -597,5 +597,34 @@ describe('accountFlow', () => {
       expect(resExpl.accountFlowResult.accounts.map(a => a.accountId).sort()).toEqual(['A', 'INV']);
       expect(resExpl.accountFlowResult.consolidatedStartingBalance).toBe(6000);
     });
+
+    it('includeSavings alterna inclusão de investimentos sem perder faturas de cartão', () => {
+      const invest = { ...acc('INV', 5000), type: 'investment' as const };
+      const checking = acc('A', 1000);
+      const cardFechada = { ...card, id: 'card-1', name: 'Nubank', dueDay: 10 };
+      const closedInv = inv({ id: 'inv-1', cardId: 'card-1', period: '2026-08', totalAmount: 800, dueDate: '2026-08-10', status: 'fechada' });
+
+      // Sem reservas (padrão): apenas conta corrente, mas fatura de cartão DEVE estar incluída
+      const resSemReserva = buildAccountFlowReport([checking, invest], [cardFechada], [closedInv], [], {
+        ...baseFilters,
+        includePending: true,
+        includeSavings: false,
+      });
+      expect(resSemReserva.cashFlowResult.startingBalance).toBe(1000);
+      expect(resSemReserva.cashFlowResult.invoiceObligationsIncludedInPoints).toBe(true);
+      expect(resSemReserva.cashFlowResult.totalOutflow).toBe(800);
+      expect(resSemReserva.cashFlowResult.points.find(p => p.periodKey === '2026-08-10')?.outflow).toBe(800);
+
+      // Com reservas (includeSavings: true): incorpora investimento e preserva a fatura de cartão
+      const resComReserva = buildAccountFlowReport([checking, invest], [cardFechada], [closedInv], [], {
+        ...baseFilters,
+        includePending: true,
+        includeSavings: true,
+      });
+      expect(resComReserva.cashFlowResult.startingBalance).toBe(6000); // 1000 + 5000
+      expect(resComReserva.cashFlowResult.invoiceObligationsIncludedInPoints).toBe(true);
+      expect(resComReserva.cashFlowResult.totalOutflow).toBe(800);
+      expect(resComReserva.cashFlowResult.points.find(p => p.periodKey === '2026-08-10')?.outflow).toBe(800);
+    });
   });
 });

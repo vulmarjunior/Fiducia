@@ -101,6 +101,7 @@ export function Reports() {
     intervalType: 'day',
     accumulated: false,
     includePending: false,
+    includeSavings: false,
   });
 
   const [tabFilters, setTabFilters] = useState<Record<EssentialTab, ReportFilters>>({
@@ -773,6 +774,7 @@ export function Reports() {
             onExportCsv={handleExportCurrentReportCsv}
             onExportPdf={handleExportCurrentReportPdf}
             showIntervalSelector={catDistributionView === 'evolution'}
+            showQuickToggles={false}
           />
 
           {isEssentialLoading ? (
@@ -866,6 +868,7 @@ export function Reports() {
             onExportCsv={handleExportCurrentReportCsv}
             onExportPdf={handleExportCurrentReportPdf}
             showIntervalSelector={true}
+            showQuickToggles={true}
           />
           {isEssentialLoading ? (
             <div className="bg-card rounded-xl border border-border p-10 text-center">
@@ -901,6 +904,7 @@ export function Reports() {
             onExportCsv={handleExportCurrentReportCsv}
             onExportPdf={handleExportCurrentReportPdf}
             showIntervalSelector={true}
+            showQuickToggles={true}
           />
           {isEssentialLoading ? (
             <div className="bg-card rounded-xl border border-border p-10 text-center">

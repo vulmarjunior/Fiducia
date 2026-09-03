@@ -135,7 +135,7 @@ export function buildAccountFlowReport(
   cashFlowResult: CashFlowReportResult;
   accountFlowResult: AccountFlowReportResult;
 } {
-  const { selectedMonth, customRange, originIds, status, intervalType, accumulated, includePending } = filters;
+  const { selectedMonth, customRange, originIds, status, intervalType, accumulated, includePending, includeSavings } = filters;
   const { startDate, endDate } = customRange || getMonthBounds(selectedMonth);
 
   // F6: Seleção vazia não equivale a todas as contas. Se originIds for fornecido e vazio ([]), exibe 0 contas.
@@ -187,11 +187,16 @@ export function buildAccountFlowReport(
     return { cashFlowResult: emptyCashFlow, accountFlowResult: emptyAccountFlow };
   }
 
-  // Padrão: todas as contas com disponibilidade imediata (investimentos ficam fora do saldo real por padrão).
-  // Se o usuário selecionar explicitamente (originIds definido), a seleção vale — inclusive investimentos.
+  // Determinação das contas selecionadas:
+  // 1. Se originIds for especificado pelo usuário, respeita a seleção explícita.
+  // 2. Se originIds for undefined:
+  //    - Se includeSavings === true: inclui todas as contas (líquidas + investimentos).
+  //    - Se includeSavings !== true: inclui apenas contas de disponibilidade imediata (sem investimentos).
   const selectedAccountIds = originIds !== undefined
     ? new Set(originIds)
-    : new Set(getAvailableAccountIds(accounts));
+    : includeSavings
+      ? new Set(accounts.map(a => a.id || '').filter(Boolean))
+      : new Set(getAvailableAccountIds(accounts));
 
   const activeAccounts = accounts.filter(a => selectedAccountIds.has(a.id || ''));
 
@@ -558,9 +563,15 @@ export function buildAccountFlowReport(
   }
 
   // F7: Obrigações residuais de faturas de cartão com respeito a customRange
-  // F7/Caso 11: em seleção parcial de contas, faturas sem conta não são atribuídas a nenhuma conta
+  // F7/Caso 11: Em seleção parcial explícita (quando o usuário filtrou contas correntes específicas),
+  // faturas sem conta definida não são debitadas arbitrariamente daquela conta única.
+  // IMPORTANTE: A inclusão ou exclusão de contas de investimento/reserva NÃO impede as faturas no fluxo consolidado.
   const invoiceObligations = buildInvoiceObligations(invoices, creditCards, transactions, selectedMonth, customRange);
-  const isPartialAccountSelection = originIds !== undefined && originIds.length < accounts.length;
+  const liquidAccountIds = getAvailableAccountIds(accounts);
+  const isPartialAccountSelection = originIds !== undefined && (
+    originIds.length < liquidAccountIds.length ||
+    !liquidAccountIds.every(id => originIds.includes(id))
+  );
   const invoiceObligationsIncludedInPoints = includePending && !isPartialAccountSelection;
 
   // Injetar as obrigações residuais como saídas pendentes no bucket de vencimento,

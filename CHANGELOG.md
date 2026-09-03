@@ -5,6 +5,20 @@
 
 ---
 
+## [0.16.1] — 2026-09-03 — Correção de Reservas e Barra de Ações Rápidas nos Relatórios
+
+**Resultado:** O relatório de Entradas × Saídas e o Fluxo por Conta agora contam com uma **Barra de Ações Rápidas diretamente visível no cabeçalho**, permitindo ligar e desligar com 1 clique direto os controles mais frequentes: `Pendentes` (contas e faturas futuras), `Reservas` (alternância entre giro imediato e patrimônio investido) e `Visão Acumulada`, sem depender de drawer lateral. O motor de cálculo de fluxo de caixa foi corrigido para não suprimir mais as faturas de cartão quando contas de investimento/reserva forem incluídas ou excluídas, e a flag `includeSavings` passou a integrar formalmente a tipagem e os filtros dos relatórios.
+
+**Alterações técnicas:**
+- `src/types/reports.ts` — inclusão da propriedade `includeSavings?: boolean` na interface `ReportFilters`.
+- `src/lib/reports/accountFlow.ts` — suporte a `includeSavings` na seleção de contas ativas; correção do cálculo de seleção parcial (`isPartialAccountSelection`) para que a exclusão de contas de investimento/reserva não seja tratada como seleção restrita de contas correntes, preservando 100% das faturas de cartão no fluxo consolidado.
+- `src/components/reports/ReportHeader.tsx` — criação da Barra de Ações Rápidas com botões interativos de 1 clique (`Clock` Pendentes, `Shield` Reservas, `TrendingUp` Acumulado) com badges contextuais de estado e contagem precisa de filtros ativos.
+- `src/components/reports/ReportFilterDrawer.tsx` — adição de estado `draftIncludeSavings`, suporte no reset/aplicação de filtros e checkbox explícito para inclusão de reservas/investimentos.
+- `src/pages/Reports.tsx` — inicialização de `includeSavings: false` nos filtros padrão e configuração de `showQuickToggles` em cada aba de relatório.
+- `src/lib/reports/accountFlow.test.ts` — novo teste unitário cobrindo a alternância de `includeSavings` com preservação estrita das obrigações de fatura de cartão no fluxo de caixa (total de **165 testes aprovados**).
+
+---
+
 ## [0.16.0] — 2026-09-02 — Relatórios Essenciais e Conformidade Financeira
 
 **Resultado:** A central de relatórios passa a responder diretamente às quatro principais perguntas financeiras do usuário (Despesas por Categoria, Receitas por Categoria, Entradas × Saídas e Fluxo por Conta), com navegação mensal sincronizada, filtros combináveis de categoria e origem isolados por aba, suporte a intervalo personalizado, gráficos de distribuição e evolução temporal, detalhamento de lançamentos (drill-down), reconciliação de contas bancárias, cálculo de faturas multi-mês e exportação fiel em CSV e PDF para todos os relatórios essenciais. As análises avançadas anteriores permanecem acessíveis e intactas no menu secundário "Mais relatórios".

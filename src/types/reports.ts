@@ -20,6 +20,7 @@ export interface ReportFilters {
   intervalType: ReportIntervalType;
   accumulated: boolean;
   includePending: boolean;
+  includeSavings?: boolean;
 }
 
 export interface NormalizedTransaction {

@@ -44,6 +44,7 @@ export function ReportFilterDrawer({
   const [draftOriginIds, setDraftOriginIds] = useState<string[] | undefined>(filters.originIds);
   const [draftStatus, setDraftStatus] = useState<PaymentStatusFilter>(filters.status);
   const [draftIncludePending, setDraftIncludePending] = useState<boolean>(filters.includePending);
+  const [draftIncludeSavings, setDraftIncludeSavings] = useState<boolean>(Boolean(filters.includeSavings));
   const [draftAccumulated, setDraftAccumulated] = useState<boolean>(filters.accumulated);
   const [searchCategory, setSearchCategory] = useState('');
 
@@ -58,6 +59,7 @@ export function ReportFilterDrawer({
       setDraftOriginIds(filters.originIds);
       setDraftStatus(filters.status);
       setDraftIncludePending(filters.includePending);
+      setDraftIncludeSavings(Boolean(filters.includeSavings));
       setDraftAccumulated(filters.accumulated);
       setSearchCategory('');
     }
@@ -140,6 +142,7 @@ export function ReportFilterDrawer({
       originIds: draftOriginIds,
       status: draftStatus,
       includePending: draftIncludePending,
+      includeSavings: draftIncludeSavings,
       accumulated: draftAccumulated,
     });
     onOpenChange(false);
@@ -153,6 +156,7 @@ export function ReportFilterDrawer({
     setDraftOriginIds(undefined);
     setDraftStatus('all');
     setDraftIncludePending(false);
+    setDraftIncludeSavings(false);
     setDraftAccumulated(false);
   };
 
@@ -303,6 +307,19 @@ export function ReportFilterDrawer({
                   type="checkbox"
                   checked={draftIncludePending}
                   onChange={e => setDraftIncludePending(e.target.checked)}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary"
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-2 border-t border-border/40">
+                <div>
+                  <span className="font-medium text-foreground block">Incluir Reservas e Investimentos</span>
+                  <span className="text-muted-foreground">Incorpora contas de reserva/investimento no saldo e nas movimentações</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={draftIncludeSavings}
+                  onChange={e => setDraftIncludeSavings(e.target.checked)}
                   className="w-4 h-4 rounded text-primary focus:ring-primary"
                 />
               </div>

@@ -12,6 +12,9 @@ import {
   RotateCcw,
   X,
   ChevronsUpDown,
+  Clock,
+  Shield,
+  TrendingUp,
 } from 'lucide-react';
 
 interface ReportHeaderProps {
@@ -21,6 +24,7 @@ interface ReportHeaderProps {
   onExportCsv: () => void;
   onExportPdf?: () => void;
   showIntervalSelector?: boolean;
+  showQuickToggles?: boolean;
 }
 
 const MONTH_NAMES = [
@@ -35,6 +39,7 @@ export function ReportHeader({
   onExportCsv,
   onExportPdf,
   showIntervalSelector = true,
+  showQuickToggles = true,
 }: ReportHeaderProps) {
   const { selectedMonth, setSelectedMonth, resetToCurrentMonth } = useReportingPeriod();
   const [showFilterSummary, setShowFilterSummary] = useState(false);
@@ -69,6 +74,7 @@ export function ReportHeader({
     summaryItems.push(filters.originIds.length === 0 ? 'Origens: nenhuma selecionada' : `Origens: ${filters.originIds.length} selecionada(s)`);
   }
   if (filters.includePending) summaryItems.push('Inclui pendentes');
+  if (filters.includeSavings) summaryItems.push('Inclui reservas');
   if (filters.accumulated) summaryItems.push('Acumulado');
 
   const handleClearCustomRange = () => {
@@ -106,12 +112,13 @@ export function ReportHeader({
     onFilterChange({ ...filters, selectedMonth: cur, customRange: undefined });
   };
 
-  // Contagem de filtros ativos
+  // Contagem de filtros ativos (além do padrão)
   let activeFilterCount = 0;
   if (filters.status !== 'all') activeFilterCount += 1;
   if (filters.categoryIds !== undefined) activeFilterCount += 1;
   if (filters.originIds !== undefined) activeFilterCount += 1;
   if (filters.includePending) activeFilterCount += 1;
+  if (filters.includeSavings) activeFilterCount += 1;
   if (filters.accumulated) activeFilterCount += 1;
   if (filters.customRange) activeFilterCount += 1;
 
@@ -216,6 +223,56 @@ export function ReportHeader({
               }`}
             >
               Mês
+            </button>
+          </div>
+        )}
+
+        {/* Toggles Rápidos de Caixa (Pendentes, Reservas, Acumulado) */}
+        {showQuickToggles && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Toggle Pendentes */}
+            <button
+              type="button"
+              onClick={() => onFilterChange({ ...filters, includePending: !filters.includePending })}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                filters.includePending
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold'
+                  : 'bg-card border-border text-muted-foreground hover:text-foreground'
+              }`}
+              title="Alternar inclusão de pendências e faturas futuras previstas"
+            >
+              <Clock className={`w-3.5 h-3.5 ${filters.includePending ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`} />
+              <span>Pendentes</span>
+            </button>
+
+            {/* Toggle Reservas */}
+            <button
+              type="button"
+              onClick={() => onFilterChange({ ...filters, includeSavings: !filters.includeSavings })}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                filters.includeSavings
+                  ? 'bg-blue-500/15 border-blue-500/40 text-blue-700 dark:text-blue-300 font-bold'
+                  : 'bg-card border-border text-muted-foreground hover:text-foreground'
+              }`}
+              title="Alternar entre apenas giro imediato e inclusão de reservas/investimentos"
+            >
+              <Shield className={`w-3.5 h-3.5 ${filters.includeSavings ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+              <span>Reservas</span>
+            </button>
+
+            {/* Toggle Acumulado */}
+            <button
+              type="button"
+              onClick={() => onFilterChange({ ...filters, accumulated: !filters.accumulated })}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                filters.accumulated
+                  ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300 font-bold'
+                  : 'bg-card border-border text-muted-foreground hover:text-foreground'
+              }`}
+              title="Alternar entre valores isolados do período e soma progressiva acumulada"
+            >
+              <TrendingUp className={`w-3.5 h-3.5 ${filters.accumulated ? 'text-purple-600 dark:text-purple-400' : 'text-muted-foreground'}`} />
+              <span>Acumulado</span>
             </button>
           </div>
         )}
