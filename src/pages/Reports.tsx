@@ -14,7 +14,7 @@ import {
   CreditCard, BarChart2, Calendar, FileDown, ReceiptText, Wallet,
   AlertCircle,
 } from 'lucide-react';
-import { generateCashFlowPDF, generateCategoryPDF, generateTrendPDF, generateProjectionPDF, generateInvoiceAnalysisPDF } from '../lib/pdfTemplates';
+import { generateCategoryPDF, generateTrendPDF, generateProjectionPDF, generateInvoiceAnalysisPDF } from '../lib/pdfTemplates';
 import { toast } from 'sonner';
 import { isEffectivelyPaid, getBudgetImpact } from '../lib/utils';
 import { fmtMonthYear } from '../lib/pdfFormatUtils';
@@ -149,10 +149,9 @@ export function Reports() {
     if (state?.tab || state?.month) window.history.replaceState({}, '');
   }, [location.state, setSelectedMonth]);
 
-  // Aba 1 — Fluxo de Caixa
+  // Aba 1 — Fluxo de Caixa (dados usados pela aba IA)
   const [cashflowPeriod, setCashflowPeriod] = useState<'month' | '3months' | '6months' | '12months'>('month');
   const [showPending, setShowPending] = useState(false);
-  const [selectedCashFlowDay, setSelectedCashFlowDay] = useState<string | null>(null);
 
   // Aba 2 — Categorias
   const [catPeriod, setCatPeriod] = useState<'month' | '3months' | '6months' | '12months'>('month');
@@ -174,19 +173,6 @@ export function Reports() {
 
   // PDF export
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-
-  const handleExportCashFlowPDF = async () => {
-    if (isExportingPdf) return;
-    setIsExportingPdf(true);
-    try {
-      await generateCashFlowPDF({ cashFlowData, cashTotals, cashflowPeriod, showPending });
-    } catch (err) {
-      console.error('PDF export error:', err);
-      toast.error('Erro ao gerar PDF');
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
 
   const handleExportCategoryPDF = async () => {
     if (isExportingPdf) return;
@@ -401,12 +387,6 @@ export function Reports() {
     });
   }, [transactions, invoices, creditCards, cashFlowMonths, showPending]);
 
-  const dailyCashFlow = useMemo(
-    () => buildDailyCashFlow(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), selectedMonth, showPending),
-    [transactions, invoices, creditCards, selectedMonth, showPending],
-  );
-  const selectedDayData = selectedCashFlowDay ? dailyCashFlow.find(day => day.date === selectedCashFlowDay) : undefined;
-
   const cashTotals = useMemo(() => {
     const totalR = cashFlowData.reduce((s, m) => s + m.Receitas, 0);
     const totalD = cashFlowData.reduce((s, m) => s + m.Despesas, 0);
@@ -415,29 +395,6 @@ export function Reports() {
     const rate = last.Receitas > 0 ? (savings / last.Receitas * 100) : 0;
     return { totalR, totalD, savings, rate };
   }, [cashFlowData]);
-
-  const cashKpis = useMemo(() => {
-    const months = Math.max(1, cashFlowData.length);
-    const latest = cashFlowData.at(-1) || { name: '—', Receitas: 0, Despesas: 0, Saldo: 0 };
-    if (cashflowPeriod === 'month') {
-      const heaviestDay = dailyCashFlow.reduce((max, day) => day.Despesas > max.Despesas ? day : max, dailyCashFlow[0] || { name: '—', Despesas: 0 });
-      return [
-        { label: 'Entradas recebidas', value: cashTotals.totalR, color: 'text-fiducia-green', bg: 'bg-fiducia-green/5', Icon: ArrowUpRight },
-        { label: 'Saídas pagas', value: cashTotals.totalD, color: 'text-fiducia-red', bg: 'bg-fiducia-red/5', Icon: ArrowDownRight },
-        { label: 'Resultado de caixa', value: latest.Saldo, color: latest.Saldo >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red', bg: 'bg-fiducia-blue/5', Icon: TrendingUp },
-        { label: 'Dia com mais saídas', value: heaviestDay.Despesas, detail: heaviestDay.Despesas > 0 ? `Dia ${heaviestDay.name}` : 'Sem saídas', color: 'text-fiducia-amber', bg: 'bg-fiducia-amber/5', Icon: Calendar },
-      ];
-    }
-    const averageIncome = cashTotals.totalR / months;
-    const averageExpense = cashTotals.totalD / months;
-    const averageResult = (cashTotals.totalR - cashTotals.totalD) / months;
-    return [
-      { label: 'Média mensal de entradas', value: averageIncome, color: 'text-fiducia-green', bg: 'bg-fiducia-green/5', Icon: ArrowUpRight },
-      { label: 'Média mensal de saídas', value: averageExpense, color: 'text-fiducia-red', bg: 'bg-fiducia-red/5', Icon: ArrowDownRight },
-      { label: 'Resultado médio mensal', value: averageResult, color: averageResult >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red', bg: 'bg-fiducia-blue/5', Icon: TrendingUp },
-      { label: 'Resultado do último mês', value: latest.Saldo, detail: latest.name, color: latest.Saldo >= 0 ? 'text-fiducia-green' : 'text-fiducia-red', bg: 'bg-secondary/40', Icon: Calendar },
-    ];
-  }, [cashFlowData, cashTotals, cashflowPeriod, dailyCashFlow]);
 
   // ─── ABA 2: CATEGORIAS ───────────────────────────────────────────────────
   const catDateRange = useMemo(() => {
@@ -717,18 +674,6 @@ export function Reports() {
 
   return (
     <div className="space-y-6 pb-20">
-      <Dialog open={Boolean(selectedDayData)} onOpenChange={(open) => { if (!open) setSelectedCashFlowDay(null); }}>
-        <DialogContent className="flex w-[calc(100vw-1rem)] max-w-none max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl sm:max-h-[88vh]">
-          <DialogHeader className="border-b border-border p-4 pr-12 sm:p-5 sm:pr-12">
-            <DialogTitle>Movimento do dia</DialogTitle>
-            <DialogDescription>{selectedDayData ? new Date(`${selectedDayData.date}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) : ''}</DialogDescription>
-            {selectedDayData && <div className={`pt-1 font-mono text-2xl font-bold ${selectedDayData.Saldo >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>{fmt(selectedDayData.Saldo)}</div>}
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1 sm:p-2">
-            <MonthlyStatementEntries entries={selectedDayData?.entries || []} accounts={accounts} categories={categories} emptyMessage="Nenhum movimento neste dia." onOpenTransaction={(id) => { setSelectedCashFlowDay(null); openTxDialog({ editId: id }); }} />
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog open={Boolean(selectedConsumption)} onOpenChange={(open) => { if (!open) setSelectedConsumptionCategory(null); }}>
         <DialogContent className="flex w-[calc(100vw-1rem)] max-w-none max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl sm:max-h-[88vh]">
           <DialogHeader className="border-b border-border p-4 pr-12 sm:p-5 sm:pr-12">
@@ -1018,154 +963,6 @@ export function Reports() {
             </div>
             <MonthlyStatementEntries entries={statementEntries} accounts={accounts} creditCards={creditCards} categories={categories} emptyMessage="Nenhum lançamento efetivado para este filtro." onOpenTransaction={(id) => openTxDialog({ editId: id })} />
           </div>
-        </div>
-      )}
-
-      {activeTab === 'cashflow' && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 flex-wrap">
-<div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
-              {(['month', '3months', '6months', '12months'] as const).map(p => (
-                <FBtn key={p} active={cashflowPeriod === p} onClick={() => setCashflowPeriod(p)}>
-                  {p === 'month' ? 'Mês' : p === '3months' ? '3 Meses' : p === '6months' ? '6 Meses' : '12 Meses'}
-                </FBtn>
-              ))}
-            </div>
-            {cashflowPeriod === 'month' && <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} aria-label="Mês do fluxo de caixa" className="h-8 rounded-xl border border-border bg-background px-2 text-xs font-semibold" />}
-            <button onClick={() => setShowPending(!showPending)}
-              className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border transition-all ${showPending ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400' : 'bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50'}`}>
-              {showPending ? 'Incluindo Pendentes' : 'Só Realizados'}
-            </button>
-            <Button variant="outline" size="sm" className="h-8 ml-auto gap-1.5" onClick={handleExportCashFlowPDF} disabled={isExportingPdf}>
-              <FileDown className="h-3.5 w-3.5" />
-              {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {cashKpis.map((k, i) => (
-              <div key={i} className={`${k.bg} border border-border rounded-2xl p-5`}>
-                <div className="flex items-center gap-2 mb-3">
-                  <k.Icon className={`w-4 h-4 ${k.color}`} />
-                  <span className={`text-[10px] font-bold ${k.color} uppercase tracking-wider`}>{k.label}</span>
-                </div>
-                <div className={`text-2xl font-bold font-mono ${k.color}`}>{fmt(k.value)}</div>
-                {'detail' in k && k.detail && <div className="mt-1 text-[11px] text-muted-foreground capitalize">{k.detail}</div>}
-              </div>
-            ))}
-          </div>
-
-          {cashflowPeriod === 'month' && (
-            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-              <div className="flex items-center gap-2 p-5 border-b border-border">
-                <Calendar className="w-4 h-4 text-fiducia-blue" />
-                <div><h3 className="text-[15px] font-bold text-foreground">Movimento por dia</h3><p className="text-[12px] text-muted-foreground">Toque em um dia para conferir os lançamentos</p></div>
-              </div>
-              <div className="divide-y divide-border">
-                {dailyCashFlow.filter(day => day.entries.length > 0).map(day => (
-                  <button key={day.date} type="button" onClick={() => setSelectedCashFlowDay(day.date)} className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 p-4 text-left transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <span className="flex h-10 w-10 flex-col items-center justify-center rounded-xl bg-secondary text-foreground"><strong className="text-sm leading-none">{day.name}</strong><small className="mt-0.5 text-[9px] uppercase text-muted-foreground">dia</small></span>
-                    <span className="min-w-0"><strong className="block text-xs text-foreground">{day.entries.length} lançamento(s)</strong><small className="block truncate text-[11px] text-muted-foreground">Entradas {fmt(day.Receitas)} · Saídas {fmt(day.Despesas)}</small></span>
-                    <strong className={`font-mono text-sm ${day.Saldo >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>{day.Saldo >= 0 ? '+' : ''}{fmt(day.Saldo)}</strong>
-                  </button>
-                ))}
-                {dailyCashFlow.every(day => day.entries.length === 0) && <p className="p-10 text-center text-sm text-muted-foreground">Nenhum movimento encontrado neste mês.</p>}
-              </div>
-            </div>
-          )}
-
-          <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-border">
-              <div>
-                <div className="flex items-center gap-2">
-                  <BarChart2 className="w-4 h-4 text-fiducia-blue" />
-                  <h3 className="text-[15px] font-bold text-foreground">{cashflowPeriod === 'month' ? 'Movimentos diários' : 'Entradas vs Saídas'}</h3>
-                </div>
-                <p className="text-[12px] text-muted-foreground mt-0.5">{cashflowPeriod === 'month' ? 'Valores efetivamente recebidos e pagos em cada dia' : 'Comparação mensal ancorada no período selecionado'}</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-green" />Receitas</div>
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-red" />Despesas</div>
-              </div>
-            </div>
-            <div className="p-5">
-              {cashflowPeriod === 'month' ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={dailyCashFlow} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} interval={4} dy={10} />
-                    <YAxis domain={[0, 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
-                    <Tooltip formatter={(v: number) => fmt(v)} labelFormatter={label => `Dia ${label}`} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                    <Bar dataKey="Receitas" fill="#22c55e" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="Despesas" fill="#ef4444" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={cashFlowData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 500 }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
-                    <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                    <Bar dataKey="Receitas" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
-          {cashflowPeriod === 'month' && (
-            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-border">
-                <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-fiducia-blue" /><h3 className="text-[15px] font-bold text-foreground">Resultado acumulado do mês</h3></div>
-                <p className="mt-1 text-[12px] text-muted-foreground">Começa em zero e soma entradas menos saídas. Não representa o saldo das contas bancárias.</p>
-              </div>
-              <div className="p-5">
-                <ResponsiveContainer width="100%" height={240}>
-                  <AreaChart data={dailyCashFlow} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} interval={4} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
-                    <ReferenceLine y={0} stroke="currentColor" strokeOpacity={0.5} />
-                    <Tooltip formatter={(value: number) => [fmt(value), 'Resultado acumulado']} labelFormatter={label => `Dia ${label}`} />
-                    <Area type="monotone" dataKey="Acumulado" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.12} strokeWidth={2.5} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
-          {cashflowPeriod !== 'month' && <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 p-5 border-b border-border">
-              <Calendar className="w-4 h-4 text-fiducia-blue" />
-              <h3 className="text-[15px] font-bold text-foreground">Resumo por Mês</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-b border-border">
-                    <th className="text-left py-3 px-4">Mês</th>
-                    <th className="text-right py-3 px-4">Receitas</th>
-                    <th className="text-right py-3 px-4">Despesas</th>
-                    <th className="text-right py-3 px-4">Saldo do Mês</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cashFlowData.map(m => (
-                    <tr key={m.month} className="hover:bg-muted/30 border-b border-border/30 transition-colors">
-                      <td className="py-2.5 px-4 font-semibold capitalize">{m.name}</td>
-                      <td className="py-2.5 px-4 text-right font-mono text-fiducia-green">{m.Receitas > 0 ? `+${fmt(m.Receitas)}` : '—'}</td>
-                      <td className="py-2.5 px-4 text-right font-mono text-fiducia-red">{m.Despesas > 0 ? `-${fmt(m.Despesas)}` : '—'}</td>
-                      <td className={`py-2.5 px-4 text-right font-mono font-bold ${m.Saldo >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
-                        {m.Saldo >= 0 ? `+${fmt(m.Saldo)}` : fmt(m.Saldo)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>}
         </div>
       )}
 
