@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.16.2` |
+| **Versão atual** | `0.16.4` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-09-04 (Clareza e investigação no gráfico Entradas × Saídas v0.16.2) |
+| **Última alteração em código** | 2026-09-04 (Correção do limite disponível dos cartões v0.16.4) |
 | **Último deploy** | v0.15.5 em produção (v0.16.1 pronta para deploy) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -57,7 +57,7 @@ npm run build      # vite build
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
 | Conciliação | ✅ Funcional | OFX/CSV, auto-match, AI match, AI análise de divergências |
-| Relatórios | ✅ Concluído | v0.16.2 com gráfico integrado, composição realizado/pendente e detalhamento por clique; validação visual final pendente antes do deploy |
+| Relatórios | ✅ Concluído | v0.16.4 com vínculo explícito entre Dashboard e Futuro e correção do limite disponível dos cartões; validação visual final pendente antes do deploy |
 | Auditoria | ✅ Funcional | Diagnóstico, correção de saldo, reabertura de períodos |
 | Orçamentos | ✅ Funcional | Metas por categoria, tabela Orçado x Realizado |
 | Metas | ✅ Funcional | Metas financeiras com progresso |
@@ -73,7 +73,7 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Validação visual final dos relatórios essenciais v0.16.2 (gráfico integrado com composição realizado/pendente, modo acumulado explícito e detalhamento por clique) e autorização explícita do usuário antes do deploy em produção.
+**Foco atual:** Validação visual final dos relatórios essenciais v0.16.4 e conferência dos limites dos cartões antes do deploy em produção.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 

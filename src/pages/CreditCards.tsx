@@ -13,6 +13,7 @@ import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRigh
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, isInvoiceClosed, findSeriesTransactions, getSeriesKey, isEffectivelyPaid } from '../lib/utils';
+import { calculateCreditLimitUsage } from '../utils/creditCardUtils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
 import {
@@ -186,23 +187,7 @@ export function CreditCards() {
   };
 
   const calculateTotalLimitUsage = (cardId: string) => {
-    return transactions
-      .filter(t => (t.accountId === cardId || t.destinationAccountId === cardId) && t.creditCardId === cardId)
-      .reduce((acc, t) => {
-        if ((t.type === 'expense' || t.type === 'despesa') && t.accountId === cardId) {
-          return acc + (t.amount || 0);
-        }
-        if ((t.type === 'income' || t.type === 'receita') && t.accountId === cardId) {
-          return acc - (t.amount || 0);
-        }
-        if ((t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === cardId) {
-          return acc - (t.amount || 0);
-        }
-        if ((t.type === 'transfer' || t.type === 'transferencia') && t.accountId === cardId) {
-          return acc + (t.amount || 0);
-        }
-        return acc;
-      }, 0);
+    return calculateCreditLimitUsage(cardId, transactions, invoices);
   };
 
 

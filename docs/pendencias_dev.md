@@ -5,11 +5,11 @@
 
 ## Próxima pauta
 
-**Estado:** Melhorias do gráfico Entradas × Saídas concluídas: tooltip com composição realizado/pendente, modo acumulado explicitado, detalhamento por clique e diagnóstico textual alinhado aos pontos agrupados. Lint, build e suíte completa aprovados.
+**Estado:** Melhorias do gráfico Entradas × Saídas, da tela Futuro e do limite disponível dos cartões concluídas. O limite agora exclui faturas quitadas e considera saldos remanescentes parciais. Lint e testes específicos aprovados.
 
-**Versão de base:** `0.16.2`.
+**Versão de base:** `0.16.4`.
 
-**Referência da última entrega:** `docs/archive/sessions/2026-09-04-melhorias-grafico-entradas-saidas.md`.
+**Referência da última entrega:** `docs/archive/sessions/2026-09-04-correcao-limite-cartao.md`.
 
 ### Próximo passo sugerido
 

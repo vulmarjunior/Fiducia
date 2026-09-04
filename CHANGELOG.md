@@ -5,6 +5,27 @@
 
 ---
 
+## [0.16.4] — 2026-09-04 — Correção do limite disponível dos cartões
+
+**Resultado:** O limite disponível deixa de somar compras históricas já quitadas. O cartão agora considera apenas faturas ainda comprometidas, incluindo valores abertos, fechados, parciais e parcelas futuras.
+
+**Correções e causa-raiz:** `CreditCards` calculava o uso acumulando todas as transações vinculadas ao cartão, sem excluir faturas pagas e sem aplicar corretamente pagamentos registrados na conta bancária. O cálculo foi centralizado em `calculateCreditLimitUsage`, usando o saldo remanescente financeiro de cada fatura.
+
+**Validação:** `npm run lint` e `npm run test -- src/utils/creditCardUtils.test.ts --maxWorkers=1` — 7 testes aprovados.
+
+---
+
+## [0.16.3] — 2026-09-04 — Clareza da Projeção Futura
+
+**Resultado:** A tela Futuro passa a deixar explícita sua relação com o card Margem de Caixa do Dashboard, diferencia o cenário padrão de um cenário personalizado e usa termos de decisão para entradas, compromissos, saldo e resultado mensal.
+
+**Alterações técnicas:**
+- `src/pages/Reports.tsx` — aviso contextual de equivalência com o Dashboard, controles e indicadores renomeados, gráfico mensal e conferência diária com linguagem mais direta.
+
+**Validação:** `npm run lint` — aprovado.
+
+---
+
 ## [0.16.2] — 2026-09-04 — Clareza e investigação no gráfico Entradas × Saídas
 
 **Resultado:** O gráfico integrado agora mantém as barras como movimentos do período e usa o modo `Evolução líquida` para mostrar uma linha roxa da diferença entre entradas e saídas desde o início do período. A composição de valores pendentes fica explícita no tooltip e a seleção de qualquer período abre o detalhamento correspondente.

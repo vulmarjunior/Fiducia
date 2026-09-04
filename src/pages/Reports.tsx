@@ -542,8 +542,8 @@ export function Reports() {
   const projChartData = useMemo(() =>
     projectionData.map(m => ({
       name: m.shortLabel.charAt(0).toUpperCase() + m.shortLabel.slice(1),
-      'A Receber': m.incomeTotal,
-      'A Pagar': m.expenseTotal + m.invoiceTotal,
+      'Entradas previstas': m.incomeTotal,
+      'Compromissos previstos': m.expenseTotal + m.invoiceTotal,
     })), [projectionData]);
 
   const projBalanceChartData = useMemo(() => [
@@ -555,6 +555,7 @@ export function Reports() {
   ], [cashCoverageProjection.startingBalance, projectionData]);
 
   const filteredProjData = projectionData;
+  const matchesDashboardScenario = projPeriod === '90d' && !includeSavings && !includeRecurrences;
 
   const toggleMonth = (month: string) => {
     setExpandedMonths(prev => {
@@ -1204,7 +1205,7 @@ export function Reports() {
                   className="h-8 bg-background border border-border rounded-xl px-3 text-xs shrink-0" />
               )}
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Reservas:</span>
+                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Incluir reservas:</span>
                 <button onClick={() => setIncludeSavings(!includeSavings)}
                   type="button" aria-label="Incluir reservas e investimentos" aria-pressed={includeSavings}
                   className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${includeSavings ? 'bg-fiducia-blue' : 'bg-secondary border border-border'}`}>
@@ -1214,14 +1215,14 @@ export function Reports() {
             </div>
             <div className="flex flex-nowrap gap-3 items-center overflow-x-auto pb-1 pt-3 border-t border-border/50">
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Recorrências futuras:</span>
+                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Incluir recorrências:</span>
                 <button onClick={() => setIncludeRecurrences(!includeRecurrences)} type="button" aria-label="Incluir recorrências futuras ainda não geradas" aria-pressed={includeRecurrences}
                   className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${includeRecurrences ? 'bg-fiducia-blue' : 'bg-secondary border border-border'}`}>
                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${includeRecurrences ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </button>
               </div>
               <label className="flex items-center gap-2 text-[11px] text-muted-foreground font-medium shrink-0">
-                Reserva protegida
+                Reserva mínima protegida
                 <input type="number" min="0" step="100" value={safetyReserve} onChange={event => {
                   const value = Math.max(0, Number(event.target.value) || 0);
                   setSafetyReserve(value);
@@ -1235,21 +1236,31 @@ export function Reports() {
             </div>
             </div>
           </div>
+          <div className={`rounded-2xl border p-4 text-[12px] ${matchesDashboardScenario ? 'border-fiducia-blue/20 bg-fiducia-blue/5' : 'border-fiducia-amber/30 bg-fiducia-amber/5'}`}>
+            <div className="font-semibold text-foreground">
+              {matchesDashboardScenario ? 'Detalhamento do card Margem de Caixa' : 'Cenário personalizado'}
+            </div>
+            <p className="mt-1 text-muted-foreground">
+              {matchesDashboardScenario
+                ? 'Esta projeção usa o mesmo cenário do Dashboard: próximos 90 dias, sem incluir reservas e sem criar recorrências ainda não lançadas.'
+                : 'As opções selecionadas diferem do cenário padrão do Dashboard. Por isso, a margem e o saldo podem apresentar valores diferentes.'}
+            </p>
+          </div>
           <div className={`border rounded-2xl p-5 shadow-sm ${projKPIs.cashMargin < 0 ? 'bg-fiducia-red/5 border-fiducia-red/20' : 'bg-fiducia-green/5 border-fiducia-green/20'}`}>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
                 <div className={`text-[11px] font-bold uppercase tracking-wider ${projKPIs.cashMargin < 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
                   {projKPIs.minimumBalance < 0
-                    ? 'Risco de déficit projetado'
+                    ? 'Faltará dinheiro em algum dia'
                     : projKPIs.cashMargin < 0
-                      ? 'Consome reserva protegida'
-                      : 'Folga livre para novos compromissos'}
+                      ? 'A projeção usa parte da reserva protegida'
+                      : 'Quanto pode sobrar para novos compromissos'}
                 </div>
                 <div className={`mt-1 font-mono text-3xl font-bold ${projKPIs.cashMargin >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
                   {fmt(projKPIs.cashMargin)}
                 </div>
                 <div className="text-[12px] text-muted-foreground mt-1">
-                  Menor saldo previsto: <strong>{fmt(projKPIs.minimumBalance)}</strong> em {projKPIs.minimumBalanceDate ? projKPIs.minimumBalanceDate.split('-').reverse().join('/') : '—'} · reserva protegida: <strong>{fmt(projKPIs.safetyReserve)}</strong>.
+                  Menor saldo previsto: <strong>{fmt(projKPIs.minimumBalance)}</strong> em {projKPIs.minimumBalanceDate ? projKPIs.minimumBalanceDate.split('-').reverse().join('/') : '—'} · valor reservado: <strong>{fmt(projKPIs.safetyReserve)}</strong>.
                   {projKPIs.daysAtRisk > 0 && (
                     <span className="block mt-1 text-fiducia-red font-semibold">
                       ⚠️ {projKPIs.daysAtRisk} dia{projKPIs.daysAtRisk > 1 ? 's' : ''} com saldo negativo no periodo
@@ -1260,19 +1271,19 @@ export function Reports() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-right">
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Banco</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Despesas</div>
                   <div className="text-[13px] font-bold font-mono text-fiducia-red">-{fmt(projKPIs.bankExpenses)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Fechadas</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Faturas fechadas</div>
                   <div className="text-[13px] font-bold font-mono text-fiducia-red">-{fmt(projKPIs.closedInvoices)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Abertas</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Faturas abertas</div>
                   <div className="text-[13px] font-bold font-mono text-fiducia-amber">-{fmt(projKPIs.openInvoices)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Futuras</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Parcelas futuras</div>
                   <div className="text-[13px] font-bold font-mono text-fiducia-blue">-{fmt(projKPIs.futureCard)}</div>
               </div>
             </div>
@@ -1284,14 +1295,14 @@ export function Reports() {
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-fiducia-green/5 border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3"><ArrowUpRight className="w-4 h-4 text-fiducia-green" /><span className="text-[10px] font-bold text-fiducia-green uppercase tracking-wider">Total a Receber</span></div>
+              <div className="flex items-center gap-2 mb-3"><ArrowUpRight className="w-4 h-4 text-fiducia-green" /><span className="text-[10px] font-bold text-fiducia-green uppercase tracking-wider">Entradas previstas</span></div>
               <div className="text-2xl font-bold font-mono text-fiducia-green">+{fmt(projKPIs.totalIncome)}</div>
               <div className="text-[11px] text-muted-foreground mt-1">Receitas pendentes no período</div>
             </div>
             <div className="bg-fiducia-red/5 border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3"><ArrowDownRight className="w-4 h-4 text-fiducia-red" /><span className="text-[10px] font-bold text-fiducia-red uppercase tracking-wider">Total a Pagar</span></div>
+              <div className="flex items-center gap-2 mb-3"><ArrowDownRight className="w-4 h-4 text-fiducia-red" /><span className="text-[10px] font-bold text-fiducia-red uppercase tracking-wider">Compromissos previstos</span></div>
               <div className="text-2xl font-bold font-mono text-fiducia-red">-{fmt(projKPIs.totalPay)}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">Despesas + faturas no período</div>
+              <div className="text-[11px] text-muted-foreground mt-1">Tudo que deve sair do caixa</div>
             </div>
             <div className="bg-amber-50 dark:bg-amber-950/20 border border-border rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3"><CreditCard className="w-4 h-4 text-fiducia-amber" /><span className="text-[10px] font-bold text-fiducia-amber uppercase tracking-wider">Faturas Cartão</span></div>
@@ -1321,8 +1332,8 @@ export function Reports() {
                   <p className="text-[12px] text-muted-foreground mt-0.5">Entradas e saídas previstas no período</p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-green" />A Receber</div>
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-red" />A Pagar</div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-green" />Entradas previstas</div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><div className="w-2.5 h-2.5 rounded-full bg-fiducia-red" />Compromissos previstos</div>
                 </div>
               </div>
               <div className="p-5">
@@ -1332,8 +1343,8 @@ export function Reports() {
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} dy={10} />
                     <YAxis domain={[0, 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
                     <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                    <Bar dataKey="A Receber" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="A Pagar" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Entradas previstas" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Compromissos previstos" fill="#ef4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1392,24 +1403,24 @@ export function Reports() {
                     <div className="flex items-center gap-5 text-right flex-wrap justify-end">
                       {m.incomeTotal > 0 && (
                         <div>
-                          <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">A Receber</div>
+                          <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Entradas previstas</div>
                           <div className="text-[13px] font-bold font-mono text-fiducia-green">+{fmt(m.incomeTotal)}</div>
                         </div>
                       )}
                       {(m.expenseTotal + m.invoiceTotal) > 0 && (
                         <div>
-                          <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">A Pagar</div>
+                          <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Compromissos</div>
                           <div className="text-[13px] font-bold font-mono text-fiducia-red">-{fmt(m.expenseTotal + m.invoiceTotal)}</div>
                         </div>
                       )}
                       <div>
-                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Saldo Mês</div>
+                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Resultado do mês</div>
                         <div className={`text-[13px] font-bold font-mono ${m.net >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>
                           {m.net >= 0 ? '+' : ''}{fmt(m.net)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Acumulado</div>
+                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Resultado desde o início</div>
                         <div className={`text-[13px] font-bold font-mono ${m.accum >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red'}`}>
                           {fmt(m.accum)}
                         </div>
@@ -1751,7 +1762,7 @@ export function Reports() {
             className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-card border border-border rounded-2xl text-[13px] font-bold text-muted-foreground hover:text-foreground transition-colors shadow-sm"
           >
             {showDailyView ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            {showDailyView ? 'Ocultar' : 'Mostrar'} Visão Diária ({cashCoverageProjection.dailyProjection.length} dias)
+            {showDailyView ? 'Ocultar' : 'Ver'} Conferência diária ({cashCoverageProjection.dailyProjection.length} dias)
           </button>
 
           {showDailyView && (

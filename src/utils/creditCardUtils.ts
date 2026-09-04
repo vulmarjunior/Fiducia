@@ -42,3 +42,42 @@ export function getInvoiceStatus(
   if (today < dueDate) return 'fechada';
   return 'paga';
 }
+
+/** Calcula somente o crédito ainda comprometido, sem somar faturas totalmente pagas. */
+export function calculateCreditLimitUsage(
+  cardId: string,
+  transactions: any[],
+  invoices: any[],
+): number {
+  const cardTransactions = transactions.filter((tx: any) =>
+    tx.creditCardId === cardId || tx.accountId === cardId || tx.destinationAccountId === cardId,
+  );
+  const periods = new Set<string>();
+
+  for (const tx of cardTransactions) {
+    if (typeof tx.invoicePeriod === 'string' && tx.invoicePeriod) periods.add(tx.invoicePeriod);
+  }
+  for (const invoice of invoices) {
+    if (invoice.cardId === cardId && typeof invoice.period === 'string' && invoice.period) periods.add(invoice.period);
+  }
+
+  let usage = 0;
+  for (const period of periods) {
+    const periodTransactions = cardTransactions.filter((tx: any) => tx.invoicePeriod === period);
+    const calculatedTotal = periodTransactions.reduce((total: number, tx: any) => {
+      const amount = Number(tx.amount) || 0;
+      if (tx.type === 'expense' || tx.type === 'despesa') return total + amount;
+      if (tx.type === 'income' || tx.type === 'receita') return total - amount;
+      if ((tx.type === 'transfer' || tx.type === 'transferencia') && tx.destinationAccountId === cardId) return total - amount;
+      return total;
+    }, 0);
+    const invoice = invoices.find((item: any) => item.cardId === cardId && item.period === period);
+    const remaining = invoice
+      ? getInvoiceFinancialSummary(invoice, calculatedTotal).remainingAmount
+      : Math.max(0, calculatedTotal);
+    usage += Math.max(0, remaining);
+  }
+
+  return Math.max(0, Math.round(usage * 100) / 100);
+}
+import { getInvoiceFinancialSummary } from '../lib/invoicePayment';
