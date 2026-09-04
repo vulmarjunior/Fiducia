@@ -35,6 +35,7 @@ export function buildMonthlyStatement(
   invoices: Invoice[],
   creditCardIds: string[],
   month: string,
+  range?: { startDate: string; endDate: string },
 ): MonthlyStatement {
   const cardIds = new Set(creditCardIds);
   const paymentIds = getInvoicePaymentTransactionIds(invoices);
@@ -44,7 +45,9 @@ export function buildMonthlyStatement(
   const invoicePaymentEntries: MonthlyStatementEntry[] = [];
 
   for (const transaction of transactions) {
-    if (!transactionDate(transaction).startsWith(month) || !isEffectivelyPaid(transaction)) continue;
+    const date = transactionDate(transaction);
+    const inPeriod = range ? date >= range.startDate && date <= range.endDate : date.startsWith(month);
+    if (!inPeriod || !isEffectivelyPaid(transaction)) continue;
 
     if (paymentIds.has(transaction.id || '')) {
       invoicePaymentEntries.push({ transaction, kind: 'invoice_payment' });

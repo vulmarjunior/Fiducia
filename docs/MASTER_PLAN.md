@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.16.4` |
+| **Versão atual** | `0.17.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-09-04 (Correção do limite disponível dos cartões v0.16.4) |
+| **Última alteração em código** | 2026-09-04 (Navegação visível e períodos dos relatórios v0.17.0; registro em docs/archive/sessions/2026-09-04-periodos-relatorios.md) |
 | **Último deploy** | v0.15.5 em produção (v0.16.1 pronta para deploy) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |

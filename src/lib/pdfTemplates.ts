@@ -331,14 +331,15 @@ export async function generateCategoryPDF(opts: {
 // ─── TREND & BUDGET REPORT ─────────────────────────────────────────────────
 
 export async function generateTrendPDF(opts: {
-  trendData: { day: number; amount: number }[];
+  trendData: { day: number | string; amount: number }[];
   budgetComparison: { name: string; budget: number; spent: number; diff: number; pct: number }[];
   currentMonthStr: string;
+  periodLabel?: string;
 }) {
   const doc = await createPdf();
   const autoTable = await getAutoTable();
 
-  const monthLabel = fmtMonthYear(opts.currentMonthStr);
+  const monthLabel = opts.periodLabel ?? fmtMonthYear(opts.currentMonthStr);
 
   let y = MARGIN_LEFT + 2;
   doc.setFont('helvetica', 'bold');
@@ -389,7 +390,7 @@ export async function generateTrendPDF(opts: {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(5.5);
     doc.setTextColor(120, 120, 120);
-    doc.text('Gasto Acumulado no Mês', MARGIN_LEFT + 2, y + 3.5);
+    doc.text('Gasto Acumulado no Período', MARGIN_LEFT + 2, y + 3.5);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(40, 40, 40);
@@ -617,13 +618,14 @@ export async function generateProjectionPDF(opts: {
 export async function generateInvoiceAnalysisPDF(opts: {
   invoiceAnalysis: any;
   invPeriod: string;
+  periodLabel?: string;
   invSelectedCard: string;
   creditCards: any[];
 }) {
   const doc = await createPdf('l');
   const autoTable = await getAutoTable();
 
-  const periodLabel = opts.invPeriod === '3months' ? '3 Meses' : opts.invPeriod === '6months' ? '6 Meses' : opts.invPeriod === '12months' ? '12 Meses' : opts.invPeriod === 'custom' ? 'Personalizado' : '12 Meses';
+  const periodLabel = opts.periodLabel ?? (opts.invPeriod === '3months' ? '3 Meses' : opts.invPeriod === '6months' ? '6 Meses' : opts.invPeriod === '12months' ? '12 Meses' : 'Personalizado');
   const analysis = opts.invoiceAnalysis;
 
   let y = MARGIN_LEFT + 2;

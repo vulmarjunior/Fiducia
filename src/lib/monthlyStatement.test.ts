@@ -8,6 +8,16 @@ const tx = (overrides: Partial<Transaction>): Transaction => ({
 });
 
 describe('buildMonthlyStatement', () => {
+  it('filters an inclusive interval across months instead of the reference month', () => {
+    const result = buildMonthlyStatement([
+      tx({ id: 'before', date: '2026-07-30' }),
+      tx({ id: 'first', date: '2026-07-31T12:00:00' }),
+      tx({ id: 'last', date: '2026-08-02' }),
+      tx({ id: 'after', date: '2026-08-03' }),
+    ], [], [], '2026-09', { startDate: '2026-07-31', endDate: '2026-08-02' });
+    expect(result.expenseTotal).toBe(200);
+    expect(result.expenseEntries.map(entry => entry.transaction.id)).toEqual(['last', 'first']);
+  });
   it('reconcilia receitas, despesas bancárias e pagamento legado de fatura', () => {
     const transactions = [
       tx({ id: 'income', type: 'receita', amount: 5000 }),

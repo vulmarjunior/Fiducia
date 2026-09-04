@@ -26,6 +26,8 @@ import { callGroq } from '../services/groqService';
 import { Button } from '../components/ui/button';
 import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
 import { buildMonthlyStatement } from '../lib/monthlyStatement';
+import { ReportPeriodSelector } from '../components/reports/ReportPeriodSelector';
+import type { ReportDateRange } from '../lib/reports/periodPresets';
 import { MonthlyStatementEntries } from '../components/MonthlyStatementEntries';
 import { buildDailyCashFlow } from '../lib/cashFlowView';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
@@ -36,7 +38,7 @@ import type { ReportFilters, ReportTab, CategoryReportResult } from '../types/re
 import { normalizeTransactions } from '../lib/reports/normalize';
 import { buildCategoryReport } from '../lib/reports/categoryReport';
 import { buildAccountFlowReport } from '../lib/reports/accountFlow';
-import { getMonthBounds } from '../lib/reports/periods';
+import { getMonthBounds, getMonthsInRange, generateBuckets } from '../lib/reports/periods';
 import { ReportHeader } from '../components/reports/ReportHeader';
 import { ReportFilterDrawer } from '../components/reports/ReportFilterDrawer';
 import { CategoryDistributionChart } from '../components/reports/CategoryDistributionChart';
@@ -91,6 +93,9 @@ export function Reports() {
 
   const [activeTab, setActiveTab] = useState<Tab>('expenses');
   const [statementFilter, setStatementFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [statementRange, setStatementRange] = useState<ReportDateRange | undefined>();
+  const [invoiceRange, setInvoiceRange] = useState<ReportDateRange | undefined>();
+  const [budgetRange, setBudgetRange] = useState<ReportDateRange | undefined>();
 
   // Estados dos novos Relatórios Essenciais (isolados por aba)
   type EssentialTab = 'expenses' | 'income' | 'cashflow' | 'accounts';
@@ -192,7 +197,7 @@ export function Reports() {
     if (isExportingPdf) return;
     setIsExportingPdf(true);
     try {
-      await generateTrendPDF({ trendData, budgetComparison, currentMonthStr: selectedMonth });
+      await generateTrendPDF({ trendData, budgetComparison, currentMonthStr: selectedMonth, periodLabel: budgetPeriodLabel });
     } catch (err) {
       console.error('PDF export error:', err);
       toast.error('Erro ao gerar PDF');
@@ -218,7 +223,7 @@ export function Reports() {
     if (isExportingPdf) return;
     setIsExportingPdf(true);
     try {
-      await generateInvoiceAnalysisPDF({ invoiceAnalysis, invPeriod, invSelectedCard, creditCards });
+      await generateInvoiceAnalysisPDF({ invoiceAnalysis, invPeriod, invSelectedCard, creditCards, periodLabel: `${toDateStr(invDateRange.start)} a ${toDateStr(invDateRange.end)} (competência mensal)` });
     } catch (err) {
       console.error('PDF export error:', err);
       toast.error('Erro ao gerar PDF');
@@ -350,8 +355,8 @@ export function Reports() {
   };
 
   const monthlyStatement = useMemo(
-    () => buildMonthlyStatement(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), selectedMonth),
-    [transactions, invoices, creditCards, selectedMonth],
+    () => buildMonthlyStatement(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), selectedMonth, statementRange),
+    [transactions, invoices, creditCards, selectedMonth, statementRange],
   );
   const statementEntries = statementFilter === 'income'
     ? monthlyStatement.incomeEntries
@@ -364,7 +369,7 @@ export function Reports() {
     const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `fiducia-extrato-${selectedMonth}.csv`;
+    link.download = `fiducia-extrato-${statementRange ? `${statementRange.startDate}_${statementRange.endDate}` : selectedMonth}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -448,31 +453,38 @@ export function Reports() {
   }, [transactions, categories, catDateRange, catType, consumptionAnalysis]);
 
   // ─── ABA 3: TENDÊNCIA & ORÇAMENTOS ───────────────────────────────────────
+  const effectiveBudgetRange = budgetRange ?? getMonthBounds(selectedMonth);
+  const budgetPeriodLabel = `${effectiveBudgetRange.startDate.split('-').reverse().join('/')} a ${effectiveBudgetRange.endDate.split('-').reverse().join('/')}`;
   const trendData = useMemo(() => {
-    const [year, month] = selectedMonth.split('-').map(Number);
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const visibleDays = selectedMonth === currentMonthStr ? Math.min(now.getDate(), daysInMonth) : daysInMonth;
+    const end = effectiveBudgetRange.endDate < todayStr ? effectiveBudgetRange.endDate : todayStr;
+    const totals = new Map<string, number>();
+    for (const tx of transactions) {
+      if (isExpense(tx) && isEffectivelyPaid(tx) && !isCreditCardTx(tx) && !isTransfer(tx)) {
+        const date = tx.date.slice(0, 10);
+        totals.set(date, (totals.get(date) ?? 0) + tx.amount);
+      }
+    }
     let cumulative = 0;
-    return Array.from({ length: visibleDays }, (_, i) => {
-      const day = i + 1;
-      const dateStr = `${selectedMonth}-${day.toString().padStart(2, '0')}`;
-      cumulative += transactions.filter(t => isExpense(t) && isEffectivelyPaid(t) && !isCreditCardTx(t) && !isTransfer(t) && t.date.startsWith(dateStr)).reduce((s, t) => s + t.amount, 0);
-      return { day, amount: cumulative };
+    return generateBuckets(effectiveBudgetRange.startDate, end, 'day').map(bucket => {
+      cumulative += totals.get(bucket.key) ?? 0;
+      return { day: bucket.label, amount: cumulative };
     });
-  }, [transactions, selectedMonth, currentMonthStr]);
+  }, [transactions, effectiveBudgetRange.startDate, effectiveBudgetRange.endDate, todayStr]);
 
   const budgetComparison = useMemo(() => {
+    const months = getMonthsInRange(effectiveBudgetRange.startDate, effectiveBudgetRange.endDate).length;
+    const paradigm = localStorage.getItem('fiducia_budgetParadigm') || 'fracionado';
     return budgets
       .filter(b => b.period === 'monthly' || !b.period)
       .map(b => {
-        const paradigm = localStorage.getItem('fiducia_budgetParadigm') || 'fracionado';
-        const spent = transactions.filter(t => isExpense(t) && isEffectivelyPaid(t) && t.categoryId === b.categoryId && t.date.startsWith(selectedMonth)).reduce((s, t) => s + getBudgetImpact(t, paradigm), 0);
+        const spent = transactions.filter(t => isExpense(t) && isEffectivelyPaid(t) && t.categoryId === b.categoryId && t.date.slice(0, 10) >= effectiveBudgetRange.startDate && t.date.slice(0, 10) <= effectiveBudgetRange.endDate).reduce((s, t) => s + getBudgetImpact(t, paradigm), 0);
         const cat = categories.find(c => c.id === b.categoryId);
-        return { name: cat?.name || 'Geral', budget: b.amount, spent, diff: b.amount - spent, pct: b.amount > 0 ? Math.round((spent / b.amount) * 100) : 0 };
+        const budget = b.amount * months;
+        return { name: cat?.name || 'Geral', budget, spent, diff: budget - spent, pct: budget > 0 ? Math.round((spent / budget) * 100) : 0 };
       })
       .filter(b => b.budget > 0 || b.spent > 0)
       .sort((a, b) => b.spent - a.spent);
-  }, [transactions, budgets, categories, selectedMonth]);
+  }, [transactions, budgets, categories, effectiveBudgetRange.startDate, effectiveBudgetRange.endDate]);
 
   // ─── ABA 4: PROJEÇÃO FUTURA ───────────────────────────────────────────────
   const projEndDate = useMemo(() => {
@@ -567,6 +579,7 @@ export function Reports() {
 
   // ─── ABA 6: FATURAS DE CARTÃO ──────────────────────────────────────────────
   const invDateRange = useMemo(() => {
+    if (invoiceRange) return { start: new Date(`${invoiceRange.startDate}T00:00:00`), end: new Date(`${invoiceRange.endDate}T23:59:59`) };
     let start: Date;
     let end: Date;
     const months = invPeriod === '3months' ? 3 : invPeriod === '6months' ? 6 : 12;
@@ -574,7 +587,7 @@ export function Reports() {
     end = new Date(now);
     end.setDate(end.getDate() + 90);
     return { start, end };
-  }, [invPeriod]);
+  }, [invPeriod, invoiceRange]);
 
   const invoiceAnalysis = useMemo(() => buildInvoiceAnalysis({
     creditCards,
@@ -660,18 +673,18 @@ export function Reports() {
   );
 
   const primaryTabs: { id: Tab; label: string; icon: any }[] = [
+    { id: 'cashflow', label: 'Entradas × saídas', icon: BarChart2 },
     { id: 'expenses', label: 'Despesas', icon: TrendingDown },
     { id: 'income', label: 'Receitas', icon: TrendingUp },
-    { id: 'cashflow', label: 'Entradas × saídas', icon: BarChart2 },
     { id: 'accounts', label: 'Fluxo por conta', icon: Wallet },
+    { id: 'statement', label: 'Extrato', icon: FileDown },
   ];
 
   const secondaryTabs: { id: Tab; label: string }[] = [
-    { id: 'statement', label: 'Extrato Mensal' },
+    { id: 'projection', label: 'Projeção futura' },
     { id: 'trend', label: 'Orçamento' },
-    { id: 'projection', label: 'Futuro' },
     { id: 'invoices', label: 'Faturas' },
-    { id: 'ai', label: 'IA Insights' },
+    { id: 'ai', label: 'Análise IA' },
   ];
 
   return (
@@ -717,8 +730,9 @@ export function Reports() {
       </div>
 
       {/* ── TAB BAR ── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex gap-1 bg-secondary/50 dark:bg-secondary/80 p-1 rounded-2xl border border-border overflow-x-auto">
+      <nav aria-label="Relatórios" className="space-y-3 rounded-2xl border border-border bg-card p-3">
+        <p className="text-xs font-semibold text-muted-foreground">Movimentação</p>
+        <div className="flex flex-wrap gap-1">
           {primaryTabs.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -740,28 +754,16 @@ export function Reports() {
           })}
         </div>
 
-        {/* Dropdown Mais Relatórios */}
-        <div className="flex items-center gap-2">
-          <select
-            value={secondaryTabs.some(t => t.id === activeTab) ? activeTab : ''}
-            onChange={(e) => {
-              if (e.target.value) setActiveTab(e.target.value as Tab);
-            }}
-            className={`text-xs font-semibold py-2 px-3 rounded-xl border transition-all cursor-pointer outline-none shadow-xs ${
-              secondaryTabs.some(t => t.id === activeTab)
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-card border-border text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <option value="" disabled>Mais relatórios...</option>
-            {secondaryTabs.map(st => (
-              <option key={st.id} value={st.id} className="bg-popover text-popover-foreground">
-                {st.label}
-              </option>
-            ))}
-          </select>
+        <p className="border-t border-border pt-3 text-xs font-semibold text-muted-foreground">Planejamento e análise</p>
+        <div className="flex flex-wrap gap-1">
+          {secondaryTabs.map(tab => (
+            <button type="button" key={tab.id} onClick={() => setActiveTab(tab.id)} aria-current={activeTab === tab.id ? 'page' : undefined}
+              className={`rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${activeTab === tab.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+              {tab.label}
+            </button>
+          ))}
         </div>
-      </div>
+      </nav>
 
       {/* ══════════════════════════════════════════════════════════════
           RELATÓRIO ESSENCIAL 1 & 2 — DESPESAS & RECEITAS POR CATEGORIA
@@ -937,17 +939,14 @@ export function Reports() {
         <div className="space-y-5">
           <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-sm font-bold text-foreground">Extrato financeiro mensal</p>
-              <p className="mt-1 text-xs text-muted-foreground">A mesma composição dos cards do Dashboard, com pagamentos de fatura identificados separadamente.</p>
+              <p className="text-sm font-bold text-foreground">Extrato financeiro do período</p>
+              <p className="mt-1 text-xs text-muted-foreground">Mesmas regras dos cards do Dashboard; os valores coincidem quando o período é o mesmo. Pagamentos de fatura identificados separadamente.</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <Button variant="outline" size="sm" className="h-10 gap-1.5" onClick={handleExportStatementCsv}>
                 <FileDown className="h-3.5 w-3.5" /> Exportar CSV
               </Button>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Mês de referência
-                <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="mt-1 block h-10 w-full rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground sm:w-44" />
-              </label>
+              <ReportPeriodSelector range={statementRange ?? getMonthBounds(selectedMonth)} onChange={setStatementRange} />
             </div>
           </div>
 
@@ -955,12 +954,12 @@ export function Reports() {
             <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Receitas recebidas</span><strong className="mt-2 block font-mono text-lg text-fiducia-green sm:text-xl">{fmt(monthlyStatement.incomeTotal)}</strong></div>
             <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Despesas em conta</span><strong className="mt-2 block font-mono text-lg text-fiducia-red sm:text-xl">{fmt(monthlyStatement.accountExpenseTotal)}</strong></div>
             <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Pagamentos de fatura</span><strong className="mt-2 block font-mono text-lg text-fiducia-amber sm:text-xl">{fmt(monthlyStatement.invoicePaymentTotal)}</strong></div>
-            <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Resultado do mês</span><strong className={`mt-2 block font-mono text-lg sm:text-xl ${monthlyStatement.balance >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red'}`}>{fmt(monthlyStatement.balance)}</strong></div>
+            <div className="rounded-2xl border border-border bg-card p-4"><span className="text-[10px] font-bold uppercase text-muted-foreground">Resultado do período</span><strong className={`mt-2 block font-mono text-lg sm:text-xl ${monthlyStatement.balance >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red'}`}>{fmt(monthlyStatement.balance)}</strong></div>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div><h3 className="text-sm font-bold text-foreground">Composição do mês</h3><p className="text-xs text-muted-foreground">{statementEntries.length} lançamento(s) · saídas totais de {fmt(monthlyStatement.expenseTotal)}</p></div>
+              <div><h3 className="text-sm font-bold text-foreground">Composição do período</h3><p className="text-xs text-muted-foreground">{statementEntries.length} lançamento(s) · saídas totais de {fmt(monthlyStatement.expenseTotal)}</p></div>
               <div className="flex rounded-xl border border-border bg-secondary/50 p-1">
                 <FBtn active={statementFilter === 'all'} onClick={() => setStatementFilter('all')}>Tudo</FBtn>
                 <FBtn active={statementFilter === 'income'} onClick={() => setStatementFilter('income')}>Receitas</FBtn>
@@ -1096,10 +1095,10 @@ export function Reports() {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <TrendingDown className="w-4 h-4 text-fiducia-blue" />
-              <h3 className="text-[15px] font-bold text-foreground">{fmtMonthYear(selectedMonth)}</h3>
+              <h3 className="text-[15px] font-bold text-foreground">Orçamento do período</h3>
             </div>
             <div className="flex items-center gap-2">
-              <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} aria-label="Mês do orçamento" className="h-8 rounded-xl border border-border bg-background px-2 text-xs font-semibold" />
+              <ReportPeriodSelector monthly range={effectiveBudgetRange} onChange={setBudgetRange} />
               <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportTrendPDF} disabled={isExportingPdf}>
                 <FileDown className="h-3.5 w-3.5" />
                 {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
@@ -1110,7 +1109,7 @@ export function Reports() {
             <div className="p-5 border-b border-border">
               <div className="flex items-center gap-2">
                 <TrendingDown className="w-4 h-4 text-fiducia-blue" />
-                <h3 className="text-[15px] font-bold text-foreground">Evolução de Gastos — {fmtMonthYear(selectedMonth)}</h3>
+                <h3 className="text-[15px] font-bold text-foreground">Evolução de gastos — {budgetPeriodLabel}</h3>
               </div>
               <p className="text-[12px] text-muted-foreground mt-0.5">Curva cumulativa diária das despesas realizadas em conta corrente</p>
             </div>
@@ -1125,9 +1124,9 @@ export function Reports() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `Dia ${v}`} interval={4} />
+                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} minTickGap={32} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
-                    <Tooltip formatter={(v: number) => fmt(v)} labelFormatter={v => `Dia ${v}`} />
+                    <Tooltip formatter={(v: number) => fmt(v)} />
                     <Area type="monotone" dataKey="amount" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorAmt)" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -1144,7 +1143,7 @@ export function Reports() {
                 <h3 className="text-[15px] font-bold text-foreground">Orçado × Realizado</h3>
               </div>
               <p className="text-[12px] text-muted-foreground mt-0.5">
-                {fmtMonthYear(selectedMonth)} — somente despesas efetivadas
+                {budgetPeriodLabel} — somente despesas efetivadas. Limite mensal atual multiplicado pelo número de meses selecionados; não representa versões históricas do orçamento.
               </p>
             </div>
             <div className="p-5">
@@ -1188,22 +1187,11 @@ export function Reports() {
           {/* Filtros */}
 <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
             <div className="space-y-3">
-            <div className="flex flex-nowrap gap-2 items-center overflow-x-auto pb-1">
-              <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5 shrink-0">
-                {(['30d', '60d', '90d', '180d', '365d'] as const).map(p => (
-                  <FBtn key={p} active={projPeriod === p} onClick={() => setProjPeriod(p)}>
-                    {p.replace('d', ' dias')}
-                  </FBtn>
-                ))}
-                <FBtn active={projPeriod === 'custom'} onClick={() => setProjPeriod('custom')}>
-                  <span className="hidden sm:inline">Personalizado</span>
-                  <span className="sm:hidden">Data</span>
-                </FBtn>
-              </div>
-              {projPeriod === 'custom' && (
-                <input type="date" value={projCustomEnd} onChange={e => setProjCustomEnd(e.target.value)}
-                  className="h-8 bg-background border border-border rounded-xl px-3 text-xs shrink-0" />
-              )}
+            <div className="flex flex-wrap gap-3 items-center pb-1">
+              <ReportPeriodSelector future range={{ startDate: todayStr, endDate: toDateStr(projEndDate) }} onChange={(range, preset) => {
+                setProjCustomEnd(range.endDate);
+                setProjPeriod(preset === '30d' || preset === '60d' || preset === '90d' ? preset : 'custom');
+              }} />
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Incluir reservas:</span>
                 <button onClick={() => setIncludeSavings(!includeSavings)}
@@ -1420,7 +1408,7 @@ export function Reports() {
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Resultado desde o início</div>
+                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Saldo previsto ao final do mês</div>
                         <div className={`text-[13px] font-bold font-mono ${m.accum >= 0 ? 'text-fiducia-blue' : 'text-fiducia-red'}`}>
                           {fmt(m.accum)}
                         </div>
@@ -1549,7 +1537,7 @@ export function Reports() {
             <div className="flex flex-wrap gap-3 items-center">
               <div className="flex p-1 bg-secondary/50 dark:bg-secondary/80 rounded-xl border border-border gap-0.5">
                 {(['3months', '6months', '12months'] as const).map(p => (
-                  <FBtn key={p} active={invPeriod === p} onClick={() => setInvPeriod(p)}>
+                  <FBtn key={p} active={!invoiceRange && invPeriod === p} onClick={() => { setInvPeriod(p); setInvoiceRange(undefined); }}>
                     Histórico {p === '3months' ? '3M' : p === '6months' ? '6M' : '12M'}
                   </FBtn>
                 ))}
@@ -1559,7 +1547,8 @@ export function Reports() {
                 <option value="all">Todos os cartões</option>
                 {creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <span className="text-[11px] text-muted-foreground">Valores líquidos após créditos e estornos · futuro limitado a 90 dias</span>
+              <ReportPeriodSelector monthly range={{ startDate: toDateStr(invDateRange.start), endDate: toDateStr(invDateRange.end) }} onChange={setInvoiceRange} />
+              <span className="text-[11px] text-muted-foreground">Faturas por mês de competência completo, não por dia da compra. Atalhos de histórico incluem próximos 90 dias; período personalizado substitui esse intervalo.</span>
               <Button variant="outline" size="sm" className="h-8 ml-auto gap-1.5" onClick={handleExportInvoiceAnalysisPDF} disabled={isExportingPdf}>
                 <FileDown className="h-3.5 w-3.5" />
                 {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
@@ -1593,7 +1582,7 @@ export function Reports() {
 
           {/* Gráficos */}
           <div className="grid lg:grid-cols-[2fr_300px] gap-6 items-start">
-            {/* Barras empilhadas */}
+            {/* Barras paralelas: cada cartão ocupa sua própria posição no mês */}
             <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
               <div className="flex items-center justify-between p-5 border-b border-border">
                 <div>
@@ -1619,14 +1608,14 @@ export function Reports() {
               <div className="p-5">
                 {invChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={invChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <BarChart data={invChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }} barGap={4}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 500 }} dy={10} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={v => `R$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
                       <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                       {invChartBars.map(card => {
                         const cardData = invoiceAnalysis.cardBreakdown.find(c => c.cardId === card.id);
-                        return <Bar key={card.id} dataKey={card.name} fill={cardData?.color || '#888'} stackId="cards" radius={[0, 0, 0, 0]} />;
+                        return <Bar key={card.id} dataKey={card.name} fill={cardData?.color || '#888'} radius={[4, 4, 0, 0]} maxBarSize={42} />;
                       })}
                     </BarChart>
                   </ResponsiveContainer>
@@ -1834,6 +1823,7 @@ export function Reports() {
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'ai' && (
         <div className="space-y-6">
+          <p className="text-sm text-muted-foreground">Esta análise usa a situação financeira atual e seus compromissos. Os filtros de período dos outros relatórios não são aplicados à IA.</p>
           {/* Bloco principal */}
           <div className="bg-gradient-to-br from-fiducia-blue/10 to-fiducia-blue/5 border border-fiducia-blue/20 rounded-2xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-5">

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { ReportPeriodSelector } from './ReportPeriodSelector';
+import { getMonthBounds } from '../../lib/reports/periods';
 import { useReportingPeriod } from '../../contexts/ReportingPeriodContext';
 import { Button } from '../ui/button';
 import type { ReportFilters, ReportIntervalType } from '../../types/reports';
@@ -127,70 +129,27 @@ export function ReportHeader({
   };
 
   return (
-    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 py-3 border-b border-border mb-6">
+    <div className="flex flex-wrap items-start md:items-center justify-between gap-4 py-3 border-b border-border mb-6">
       {/* Navegação mensal ou Intervalo Personalizado */}
       <div className="flex items-center gap-2 flex-wrap">
-        {filters.customRange ? (
-          <div className="flex items-center bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 gap-2 text-xs font-semibold text-primary shadow-xs">
-            <Calendar className="w-4 h-4" />
-            <span>
-              Intervalo: {formatIsoToBr(filters.customRange.startDate)} a {formatIsoToBr(filters.customRange.endDate)}
-            </span>
-            <button
-              type="button"
-              onClick={handleClearCustomRange}
-              className="ml-1 p-0.5 rounded-full hover:bg-primary/20 text-primary transition-colors cursor-pointer"
-              title="Voltar ao mês civil"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center bg-card border border-border rounded-lg p-1 shadow-xs">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handlePrevMonth}
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                title="Mês anterior"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-
-              <div className="px-3 flex items-center gap-1.5 font-semibold text-sm min-w-[140px] justify-center text-foreground">
-                <Calendar className="w-4 h-4 text-primary" />
-                <span>{monthName} {year}</span>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleNextMonth}
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                title="Próximo mês"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCurrentMonth}
-              className="h-9 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <RotateCcw className="w-3 h-3 mr-1" />
-              Mês atual
-            </Button>
-          </>
-        )}
+        <ReportPeriodSelector
+          range={filters.customRange ?? getMonthBounds(filters.selectedMonth)}
+          onChange={customRange => onFilterChange({ ...filters, customRange })}
+        />
+        {!filters.customRange && <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" onClick={handlePrevMonth} aria-label="Mês anterior"><ChevronLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={handleNextMonth} aria-label="Próximo mês"><ChevronRight className="h-4 w-4" /></Button>
+        </div>}
+        <Button variant="outline" size="sm" onClick={filters.customRange ? handleClearCustomRange : handleCurrentMonth}>
+          {filters.customRange ? 'Voltar ao mês selecionado' : 'Mês atual'}
+        </Button>
       </div>
 
       {/* Controles de agrupamento, filtros e exportações */}
       <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-between md:justify-end">
         {showIntervalSelector && (
           <div className="flex items-center bg-muted/60 p-1 rounded-lg border border-border text-xs">
+            <span className="px-2 text-muted-foreground">Agrupar por</span>
             <button
               type="button"
               onClick={() => setIntervalType('day')}

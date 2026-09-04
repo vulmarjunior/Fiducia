@@ -5,6 +5,16 @@
 
 ---
 
+## [0.17.0] — 2026-09-04 — Relatórios visíveis e seleção de períodos
+
+**Resultado:** Todos os relatórios ficam acessíveis em dois grupos de navegação, sem a gaveta “Mais relatórios”. Atalhos de período e datas personalizadas em Despesas, Receitas, Entradas × Saídas e Fluxo por Conta; extrato com intervalo inclusivo e CSV correspondente; projeção com atalhos futuros e data final validada.
+
+**Regras:** Orçamento e faturas usam meses completos. Orçamento compara os gastos com o limite mensal atual multiplicado pelos meses selecionados, sem simular versões históricas. PDFs recebem o período efetivo. IA mantém análise da situação atual, explicitamente sem herdar filtros. Histórico de faturas com barras paralelas por cartão.
+
+**Validação:** 88 testes de relatórios aprovados. Conferência visual autenticada pendente; detalhes da sessão em `docs/archive/sessions/2026-09-04-periodos-relatorios.md`.
+
+---
+
 ## [0.16.4] — 2026-09-04 — Correção do limite disponível dos cartões
 
 **Resultado:** O limite disponível deixa de somar compras históricas já quitadas. O cartão agora considera apenas faturas ainda comprometidas, incluindo valores abertos, fechados, parciais e parcelas futuras.

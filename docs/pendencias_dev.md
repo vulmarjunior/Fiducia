@@ -5,16 +5,16 @@
 
 ## Próxima pauta
 
-**Estado:** Melhorias do gráfico Entradas × Saídas, da tela Futuro e do limite disponível dos cartões concluídas. O limite agora exclui faturas quitadas e considera saldos remanescentes parciais. Lint e testes específicos aprovados.
+**Estado:** Implementação local dos períodos e da navegação dos relatórios concluída. Lint, build e 88 testes aprovados. Conferência visual autenticada e publicação pendentes.
 
-**Versão de base:** `0.16.4`.
+**Versão de base:** `0.17.0`.
 
-**Referência da última entrega:** `docs/archive/sessions/2026-09-04-correcao-limite-cartao.md`.
+**Referência da última entrega:** `docs/archive/sessions/2026-09-04-periodos-relatorios.md`.
 
 ### Próximo passo sugerido
 
-1. Validação visual pelo usuário no ambiente publicado (Vercel) após deploy da v0.16.2.
-2. Se necessário, implementar diagnóstico intraperíodo diário e refinamentos mobile.
+1. Validar visualmente os relatórios em desktop/mobile e conferir exportações com dados reais.
+2. Commit/push da entrega após revisão; ainda não publicados nesta sessão.
 
 ### Frente Android pausada
 
