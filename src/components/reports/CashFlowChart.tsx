@@ -60,7 +60,7 @@ function CustomCashFlowTooltip({ active, payload, showPending, accumulated }: an
         </div>
         {accumulated && (
           <div className="flex items-center justify-between gap-3 text-purple-600 dark:text-purple-400 font-semibold">
-            <span>Resultado acumulado:</span>
+            <span>Diferença desde o início:</span>
             <span className="font-mono">{formatCurrency(data.resultadoAcumulado)}</span>
           </div>
         )}
@@ -329,8 +329,8 @@ export function CashFlowChart({ reportResult, showPending, accumulated = false, 
             </span>
             <p className="text-xs text-muted-foreground mt-0.5">
                 {showPending
-                ? `Barras mostram os movimentos de cada período; a linha indica o saldo previsto${accumulated ? ' e a linha roxa mostra o resultado acumulado' : ''}.`
-                : `Barras mostram os movimentos de cada período; a linha indica a evolução do saldo${accumulated ? ' e a linha roxa mostra o resultado acumulado' : ''}.`}
+                ? `Barras mostram os movimentos de cada período; a linha indica o saldo previsto${accumulated ? ' e a linha roxa mostra a diferença entre entradas e saídas desde o início' : ''}.`
+                : `Barras mostram os movimentos de cada período; a linha indica a evolução do saldo${accumulated ? ' e a linha roxa mostra a diferença entre entradas e saídas desde o início' : ''}.`}
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
@@ -349,7 +349,7 @@ export function CashFlowChart({ reportResult, showPending, accumulated = false, 
             {accumulated && (
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-0.5 bg-purple-500 shrink-0" />
-                Resultado acumulado
+                Diferença desde o início
               </span>
             )}
           </div>
@@ -415,7 +415,7 @@ export function CashFlowChart({ reportResult, showPending, accumulated = false, 
                   yAxisId="movimento"
                   type="monotone"
                   dataKey="resultadoAcumulado"
-                  name="Resultado acumulado"
+                  name="Diferença desde o início"
                   stroke="#a855f7"
                   strokeWidth={2}
                   dot={false}

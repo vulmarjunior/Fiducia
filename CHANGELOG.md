@@ -7,7 +7,7 @@
 
 ## [0.16.2] — 2026-09-04 — Clareza e investigação no gráfico Entradas × Saídas
 
-**Resultado:** O gráfico integrado agora mantém as barras como movimentos do período e usa o modo `Acumular resultado` para mostrar uma linha roxa da trajetória líquida acumulada. A composição de valores pendentes fica explícita no tooltip e a seleção de qualquer período abre o detalhamento correspondente.
+**Resultado:** O gráfico integrado agora mantém as barras como movimentos do período e usa o modo `Evolução líquida` para mostrar uma linha roxa da diferença entre entradas e saídas desde o início do período. A composição de valores pendentes fica explícita no tooltip e a seleção de qualquer período abre o detalhamento correspondente.
 
 **Alterações técnicas:**
 - `src/components/reports/CashFlowChart.tsx` — tooltip com composição realizado/pendente, rótulos contextuais para valores acumulados, clique no gráfico para abrir detalhes e diagnóstico textual ajustado para refletir os pontos agrupados exibidos.

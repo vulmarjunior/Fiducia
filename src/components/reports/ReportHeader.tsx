@@ -75,7 +75,7 @@ export function ReportHeader({
   }
   if (filters.includePending) summaryItems.push('Inclui pendentes');
   if (filters.includeSavings) summaryItems.push('Inclui reservas');
-  if (filters.accumulated) summaryItems.push('Resultado acumulado');
+  if (filters.accumulated) summaryItems.push('Evolução líquida ativada');
 
   const handleClearCustomRange = () => {
     onFilterChange({ ...filters, customRange: undefined });
@@ -269,10 +269,10 @@ export function ReportHeader({
                   ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300 font-bold'
                   : 'bg-card border-border text-muted-foreground hover:text-foreground'
               }`}
-              title="Mostrar a trajetória do resultado acumulado sem alterar as barras do período"
+              title="Mostrar a diferença acumulada entre entradas e saídas desde o início do período"
             >
               <TrendingUp className={`w-3.5 h-3.5 ${filters.accumulated ? 'text-purple-600 dark:text-purple-400' : 'text-muted-foreground'}`} />
-              <span>Acumular resultado</span>
+              <span>Evolução líquida</span>
             </button>
           </div>
         )}
