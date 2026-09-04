@@ -886,6 +886,7 @@ export function Reports() {
             <CashFlowChart
               reportResult={cashFlowResult}
               showPending={tabFilters.cashflow.includePending}
+              accumulated={tabFilters.cashflow.accumulated}
               entityNames={exportMeta.originNames}
             />
           )}

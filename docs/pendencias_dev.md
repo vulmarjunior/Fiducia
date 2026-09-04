@@ -5,16 +5,16 @@
 
 ## Próxima pauta
 
-**Estado:** Harmonização de escalas e eixos Y do gráfico Visão Integrada de Caixa, correção do cálculo de reservas/faturas de cartão no fluxo de caixa, suporte a resgates pendentes de reservas como receitas de giro e criação da Barra de Ações Rápidas no cabeçalho dos relatórios concluídas, testadas e documentadas com sucesso.
+**Estado:** Melhorias do gráfico Entradas × Saídas concluídas: tooltip com composição realizado/pendente, modo acumulado explicitado, detalhamento por clique e diagnóstico textual alinhado aos pontos agrupados. Lint, build e suíte completa aprovados.
 
-**Versão de base:** `0.16.1`.
+**Versão de base:** `0.16.2`.
 
-**Referência da última entrega:** `docs/archive/sessions/2026-09-03-harmonizacao-eixos-grafico-caixa.md`.
+**Referência da última entrega:** `docs/archive/sessions/2026-09-04-melhorias-grafico-entradas-saidas.md`.
 
 ### Próximo passo sugerido
 
-1. Validação visual pelo usuário no ambiente publicado (Vercel) após deploy da v0.16.1.
-2. Continuidade do planejamento de novas melhorias ou auditorias.
+1. Validação visual pelo usuário no ambiente publicado (Vercel) após deploy da v0.16.2.
+2. Se necessário, implementar diagnóstico intraperíodo diário e refinamentos mobile.
 
 ### Frente Android pausada
 

@@ -5,6 +5,20 @@
 
 ---
 
+## [0.16.2] — 2026-09-04 — Clareza e investigação no gráfico Entradas × Saídas
+
+**Resultado:** O gráfico integrado agora mantém as barras como movimentos do período e usa o modo `Acumular resultado` para mostrar uma linha roxa da trajetória líquida acumulada. A composição de valores pendentes fica explícita no tooltip e a seleção de qualquer período abre o detalhamento correspondente.
+
+**Alterações técnicas:**
+- `src/components/reports/CashFlowChart.tsx` — tooltip com composição realizado/pendente, rótulos contextuais para valores acumulados, clique no gráfico para abrir detalhes e diagnóstico textual ajustado para refletir os pontos agrupados exibidos.
+- `src/pages/Reports.tsx` — propagação do estado `accumulated` para o gráfico.
+
+**Validações:** `npm run lint`, `npm run build` e `npm run test -- --maxWorkers=1` — 166 testes aprovados e 3 ignorados.
+
+**Pendências deliberadas:** diagnóstico intraperíodo diário independente do agrupamento e refinamento visual específico para telas estreitas permanecem como próxima etapa de UX.
+
+---
+
 ## [0.16.1] — 2026-09-03 — Correção de Reservas e Barra de Ações Rápidas nos Relatórios
 
 **Resultado:** O relatório de Entradas × Saídas e o Fluxo por Conta agora contam com uma **Barra de Ações Rápidas diretamente visível no cabeçalho**, permitindo ligar e desligar com 1 clique direto os controles mais frequentes: `Pendentes` (contas e faturas futuras), `Reservas` (alternância entre giro imediato e patrimônio investido) e `Visão Acumulada`, sem depender de drawer lateral. O motor de cálculo de fluxo de caixa foi corrigido para não suprimir mais as faturas de cartão quando contas de investimento/reserva forem incluídas ou excluídas, e a flag `includeSavings` passou a integrar formalmente a tipagem e os filtros dos relatórios.

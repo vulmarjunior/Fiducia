@@ -11,9 +11,9 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.16.1` |
+| **Versão atual** | `0.16.2` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-09-03 (Harmonização de escalas dos eixos Y do gráfico Visão Integrada de Caixa, reservas/faturas de cartão e barra rápida v0.16.1) |
+| **Última alteração em código** | 2026-09-04 (Clareza e investigação no gráfico Entradas × Saídas v0.16.2) |
 | **Último deploy** | v0.15.5 em produção (v0.16.1 pronta para deploy) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
@@ -57,7 +57,7 @@ npm run build      # vite build
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
 | Conciliação | ✅ Funcional | OFX/CSV, auto-match, AI match, AI análise de divergências |
-| Relatórios | ✅ Concluído | v0.16.0 com plano fechado em 2026-09-03: contratos de cálculo, experiência, exportações, estados de UI e matriz de testes completos; validação visual final pendente antes do deploy |
+| Relatórios | ✅ Concluído | v0.16.2 com gráfico integrado, composição realizado/pendente e detalhamento por clique; validação visual final pendente antes do deploy |
 | Auditoria | ✅ Funcional | Diagnóstico, correção de saldo, reabertura de períodos |
 | Orçamentos | ✅ Funcional | Metas por categoria, tabela Orçado x Realizado |
 | Metas | ✅ Funcional | Metas financeiras com progresso |
@@ -73,7 +73,7 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Validação visual final dos relatórios essenciais v0.16.0 (plano fechado em 2026-09-03; refinamentos de UX aplicados: seletor de evolução por dropdown, faturas de cartão visíveis no Entradas × Saídas, disponibilidade imediata de investimentos nos relatórios e no Dashboard, e proteção de lançamentos com conta obrigatória — ver `docs/archive/sessions/2026-09-03-refinamentos-ux-e-protecao-transacoes.md`) e autorização explícita do usuário antes do deploy em produção.
+**Foco atual:** Validação visual final dos relatórios essenciais v0.16.2 (gráfico integrado com composição realizado/pendente, modo acumulado explícito e detalhamento por clique) e autorização explícita do usuário antes do deploy em produção.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 

@@ -18,10 +18,11 @@ import { ArrowUpRight, ArrowDownRight, Scale, Wallet, Clock, ArrowLeftRight, Inf
 interface CashFlowChartProps {
   reportResult: CashFlowReportResult;
   showPending: boolean;
+  accumulated?: boolean;
   entityNames?: Record<string, string>;
 }
 
-function CustomCashFlowTooltip({ active, payload, showPending }: any) {
+function CustomCashFlowTooltip({ active, payload, showPending, accumulated }: any) {
   if (!active || !payload || !payload.length) return null;
   const data = payload[0]?.payload;
   if (!data) return null;
@@ -33,21 +34,38 @@ function CustomCashFlowTooltip({ active, payload, showPending }: any) {
       </div>
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-3 text-emerald-600 dark:text-emerald-400">
-          <span>Entradas:</span>
+          <span>Entradas no período:</span>
           <span className="font-mono font-medium">+{formatCurrency(data.entradas)}</span>
         </div>
         <div className="flex items-center justify-between gap-3 text-rose-600 dark:text-rose-400">
-          <span>Saídas:</span>
+          <span>Saídas no período:</span>
           <span className="font-mono font-medium">-{formatCurrency(data.saidas)}</span>
         </div>
+        {showPending && (data.entradasPendentes !== 0 || data.saidasPendentes !== 0) && (
+          <div className="pt-1 border-t border-border/40 text-amber-600 dark:text-amber-400 space-y-1">
+            <div className="flex items-center justify-between gap-3">
+              <span>Composição pendente:</span>
+              <span className="font-mono font-medium">
+                +{formatCurrency(data.entradasPendentes)} / -{formatCurrency(data.saidasPendentes)}
+              </span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">Os totais acima incluem realizados e pendentes.</div>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3 text-muted-foreground pt-1 border-t border-border/40 font-medium">
-          <span>Resultado:</span>
+          <span>Resultado no período:</span>
           <span className={`font-mono ${data.resultado >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
             {data.resultado >= 0 ? '+' : ''}{formatCurrency(data.resultado)}
           </span>
         </div>
+        {accumulated && (
+          <div className="flex items-center justify-between gap-3 text-purple-600 dark:text-purple-400 font-semibold">
+            <span>Resultado acumulado:</span>
+            <span className="font-mono">{formatCurrency(data.resultadoAcumulado)}</span>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3 text-blue-600 dark:text-blue-400 pt-1 border-t border-border/40 font-semibold">
-          <span>{showPending ? 'Saldo Previsto:' : 'Saldo Acumulado:'}</span>
+          <span>{showPending ? 'Saldo Previsto:' : 'Saldo de Caixa:'}</span>
           <span className="font-mono">{formatCurrency(data.saldo)}</span>
         </div>
       </div>
@@ -55,7 +73,7 @@ function CustomCashFlowTooltip({ active, payload, showPending }: any) {
   );
 }
 
-export function CashFlowChart({ reportResult, showPending, entityNames }: CashFlowChartProps) {
+export function CashFlowChart({ reportResult, showPending, accumulated = false, entityNames }: CashFlowChartProps) {
   const {
     totalInflow,
     totalOutflow,
@@ -80,18 +98,29 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
   // Derivação correta da curva de saldo: quando showPending estiver ativo,
   // utiliza o saldo projetado acumulado (que já incorpora as faturas e pendências).
   const chartData = points.map(pt => {
+    const periodInflow = (pt.inflowCents + (showPending ? pt.pendingInflowCents : 0)) / 100;
+    const periodOutflow = (pt.outflowCents + (showPending ? pt.pendingOutflowCents : 0)) / 100;
     const ptSaldo = showPending && pt.projectedEndingBalanceCents !== undefined
       ? pt.projectedEndingBalanceCents / 100
       : (pt.endingBalance ?? 0);
     return {
       label: pt.label,
       periodKey: pt.periodKey,
-      entradas: pt.inflow,
-      saidas: pt.outflow,
-      resultado: pt.result,
+      entradas: periodInflow,
+      saidas: periodOutflow,
+      resultado: periodInflow - periodOutflow,
+      resultadoAcumulado: 0,
       saldo: ptSaldo,
+      entradasPendentes: pt.pendingInflowCents / 100,
+      saidasPendentes: pt.pendingOutflowCents / 100,
     };
   });
+  let accumulatedResult = 0;
+  chartData.forEach(data => {
+    accumulatedResult += data.resultado;
+    data.resultadoAcumulado = accumulatedResult;
+  });
+  const chartDataByKey = new Map(chartData.map(data => [data.periodKey, data]));
 
   // Diagnóstico de menor saldo do período para conferência de cobertura
   const minSaldoPoint = points.length > 0
@@ -114,9 +143,9 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
 
   // Cálculo de limites harmonizados para os eixos Y:
   // Evita que barras de despesas (ex.: 14k) fiquem visualmente mais altas que uma linha de saldo (ex.: 100k).
-  const maxMovimento = Math.max(0, ...chartData.flatMap(d => [d.entradas, d.saidas]));
+  const maxMovimento = Math.max(0, ...chartData.flatMap(d => [d.entradas, d.saidas, d.resultadoAcumulado]));
   const maxSaldo = Math.max(0, ...chartData.map(d => d.saldo));
-  const minSaldo = Math.min(0, ...chartData.map(d => d.saldo));
+  const minSaldo = Math.min(0, ...chartData.flatMap(d => [d.saldo, d.resultadoAcumulado]));
 
   // Escala Unificada: quando o saldo for positivo e expressivo, ambos os eixos compartilham o mesmo teto máximo,
   // garantindo que uma despesa de R$ 14k seja mostrada proporcionalmente bem abaixo de um saldo de R$ 100k.
@@ -228,19 +257,19 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
             <div>
               <span className="font-semibold block">
                 {minSaldoVal >= 0
-                  ? 'Cobertura total de pagamentos no período'
-                  : 'Atenção: risco de insuficiência de saldo no período'}
+                  ? 'Saldo não negativo nos pontos exibidos'
+                  : 'Atenção: saldo negativo em um ponto exibido'}
               </span>
               <span className="text-muted-foreground text-[11px]">
                 {minSaldoVal >= 0
-                  ? 'Todas as obrigações e contas previstas mantêm o saldo bancário positivo ao longo do intervalo.'
-                  : 'Em determinado ponto do período as despesas e faturas previstas superam a liquidez disponível.'}
+                  ? 'A linha permanece acima de zero nos pontos agrupados deste relatório.'
+                  : 'Em um dos pontos agrupados, as despesas e faturas previstas superam a liquidez disponível.'}
               </span>
             </div>
           </div>
           <div className="sm:text-right shrink-0">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
-              Menor saldo {showPending ? 'previsto' : 'atingido'}
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+              Menor saldo no gráfico {showPending ? 'previsto' : 'realizado'}
             </span>
             <span className={`text-sm font-mono font-bold ${minSaldoVal >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
               {formatCurrency(minSaldoVal)}
@@ -299,9 +328,9 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
               Visão Integrada de Caixa
             </span>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {showPending
-                ? 'Barras mostram receitas e despesas/faturas previstas no período; a linha indica o nível de saldo resultante.'
-                : 'Barras mostram receitas e despesas realizadas; a linha indica a evolução do saldo de caixa.'}
+                {showPending
+                ? `Barras mostram os movimentos de cada período; a linha indica o saldo previsto${accumulated ? ' e a linha roxa mostra o resultado acumulado' : ''}.`
+                : `Barras mostram os movimentos de cada período; a linha indica a evolução do saldo${accumulated ? ' e a linha roxa mostra o resultado acumulado' : ''}.`}
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
@@ -317,12 +346,26 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
               <span className="w-3 h-0.5 bg-blue-500 shrink-0" />
               Saldo {showPending ? 'Previsto' : 'de Caixa'}
             </span>
+            {accumulated && (
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-0.5 bg-purple-500 shrink-0" />
+                Resultado acumulado
+              </span>
+            )}
           </div>
         </div>
 
         <div className="h-80 sm:h-96 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 20, right: 15, left: -5, bottom: 10 }}>
+            <ComposedChart
+              data={chartData}
+              margin={{ top: 20, right: 15, left: -5, bottom: 10 }}
+              onClick={(state: any) => {
+                const index = state?.activeTooltipIndex;
+                if (typeof index === 'number' && points[index]) handleOpenDetails(points[index]);
+              }}
+              style={{ cursor: 'pointer' }}
+            >
               <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.25} />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis
@@ -339,7 +382,7 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
                 tick={{ fontSize: 11 }}
                 tickFormatter={v => `R$ ${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
               />
-              <Tooltip content={<CustomCashFlowTooltip showPending={showPending} />} />
+              <Tooltip content={<CustomCashFlowTooltip showPending={showPending} accumulated={accumulated} />} />
               <ReferenceLine y={0} yAxisId="saldo" stroke="currentColor" strokeOpacity={0.35} strokeDasharray="3 3" />
               <Bar
                 yAxisId="movimento"
@@ -367,6 +410,18 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
                 dot={{ r: 3.5, fill: '#3b82f6' }}
                 activeDot={{ r: 6 }}
               />
+              {accumulated && (
+                <Line
+                  yAxisId="movimento"
+                  type="monotone"
+                  dataKey="resultadoAcumulado"
+                  name="Resultado acumulado"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 5 }}
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -428,15 +483,15 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
                       )}
                     </td>
                     <td className="p-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(pt.inflow)}
+                      {formatCurrency(chartDataByKey.get(pt.periodKey)?.entradas ?? 0)}
                     </td>
                     <td className="p-3 text-right font-medium text-rose-600 dark:text-rose-400">
-                      {formatCurrency(pt.outflow)}
+                      {formatCurrency(chartDataByKey.get(pt.periodKey)?.saidas ?? 0)}
                     </td>
                     <td className={`p-3 text-right font-semibold ${
-                      pt.result >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                      (chartDataByKey.get(pt.periodKey)?.resultado ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                     }`}>
-                      {formatCurrency(pt.result)}
+                      {formatCurrency(chartDataByKey.get(pt.periodKey)?.resultado ?? 0)}
                     </td>
                     <td className="p-3 text-right text-foreground font-medium">
                       {showPending && pt.projectedEndingBalanceCents !== undefined
