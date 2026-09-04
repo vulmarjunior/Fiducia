@@ -112,6 +112,21 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
         : (minSaldoPoint.endingBalance ?? 0))
     : undefined;
 
+  // Cálculo de limites harmonizados para os eixos Y:
+  // Evita que barras de despesas (ex.: 14k) fiquem visualmente mais altas que uma linha de saldo (ex.: 100k).
+  const maxMovimento = Math.max(0, ...chartData.flatMap(d => [d.entradas, d.saidas]));
+  const maxSaldo = Math.max(0, ...chartData.map(d => d.saldo));
+  const minSaldo = Math.min(0, ...chartData.map(d => d.saldo));
+
+  // Escala Unificada: quando o saldo for positivo e expressivo, ambos os eixos compartilham o mesmo teto máximo,
+  // garantindo que uma despesa de R$ 14k seja mostrada proporcionalmente bem abaixo de um saldo de R$ 100k.
+  const globalMax = Math.max(maxMovimento, maxSaldo) * 1.1; // 10% de margem superior
+  const globalMin = minSaldo < 0 ? minSaldo * 1.1 : 0;
+
+  // Domínio compartilhado para manter coerência visual absoluta entre barras e linha
+  const domainY: [number, number] = [Math.floor(globalMin), Math.ceil(globalMax > 0 ? globalMax : 1000)];
+
+
   return (
     <div className="space-y-6">
       {/* 4 Cards de Indicadores */}
@@ -292,15 +307,15 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
           <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 shrink-0" />
-              Entradas (Esq.)
+              Entradas
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-rose-500 shrink-0" />
-              Saídas (Esq.)
+              Saídas
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-0.5 bg-blue-500 shrink-0" />
-              Saldo {showPending ? 'Previsto' : 'de Caixa'} (Dir.)
+              Saldo {showPending ? 'Previsto' : 'de Caixa'}
             </span>
           </div>
         </div>
@@ -313,12 +328,14 @@ export function CashFlowChart({ reportResult, showPending, entityNames }: CashFl
               <YAxis
                 yAxisId="movimento"
                 orientation="left"
+                domain={domainY}
                 tick={{ fontSize: 11 }}
                 tickFormatter={v => `R$ ${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
               />
               <YAxis
                 yAxisId="saldo"
                 orientation="right"
+                domain={domainY}
                 tick={{ fontSize: 11 }}
                 tickFormatter={v => `R$ ${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
               />
