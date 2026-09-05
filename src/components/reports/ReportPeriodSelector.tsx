@@ -18,7 +18,12 @@ export function ReportPeriodSelector({ range, onChange, future = false, monthly 
   const format = (value: string) => value.split('-').reverse().join('/');
   const valid = Boolean(draft.startDate && draft.endDate && draft.startDate <= draft.endDate);
   const apply = (value: ReportDateRange, preset?: string) => {
-    onChange(monthly ? { startDate: getMonthBounds(value.startDate.slice(0, 7)).startDate, endDate: getMonthBounds(value.endDate.slice(0, 7)).endDate } : value, preset);
+    onChange(
+      monthly && preset
+        ? { startDate: getMonthBounds(value.startDate.slice(0, 7)).startDate, endDate: getMonthBounds(value.endDate.slice(0, 7)).endDate }
+        : value,
+      preset
+    );
     setOpen(false);
   };
   return (

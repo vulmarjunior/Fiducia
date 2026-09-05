@@ -3,6 +3,17 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.18.1] — 2026-09-05 — Preservação do mês completo nos relatórios e faturas de cartão
+
+**Resultado:** O atalho "Este mês" e os atalhos de período no seletor do cabeçalho dos relatórios essenciais (Entradas × Saídas, Despesas, Receitas, Fluxo por Conta e Extrato) passam a selecionar o mês civil completo (do primeiro ao último dia do mês). Isso impede que faturas pendentes de cartão de crédito cujo vencimento ocorra no restante do mês corrente sejam descartadas pelo filtro de período.
+
+**Alterações técnicas:**
+- `src/components/reports/ReportHeader.tsx` — passa a prop `monthly` para o `<ReportPeriodSelector>`, harmonizando o atalho do dropdown com o botão "Mês atual" para cobrir a competência mensal integral.
+- `src/components/reports/ReportPeriodSelector.tsx` — garante que atalhos pré-definidos em modo mensal expandam para o início e fim dos meses correspondentes (`getMonthBounds`), preservando intervalos customizados quando informados manualmente pelo usuário.
+- `src/pages/Reports.tsx` — passa a prop `monthly` para o seletor do Extrato Mensal.
+
+---
+
 ## [0.18.0] — 2026-09-05 — Simulador de Decisões de Caixa e Sandbox Financeiro
 
 **Resultado:** Criação de um ambiente interativo de simulação de decisões financeiras ("E se...?"), permitindo que o usuário teste compras parceladas no cartão, despesas extras avulsas ou receitas futuras sobre a base de dados reais lançados sem poluir ou alterar o Firestore. O simulador projeta em tempo real a trajetória diária do saldo e compara a **Folga Livre (Margem de Caixa)**, o **Menor Saldo Previsto (pior momento)** e os **Dias em Risco de Déficit** antes e depois das hipóteses, com opção de ligar/desligar hipóteses individuais e de efetivar os lançamentos simulados no banco de dados com 1 clique.

@@ -133,6 +133,7 @@ export function ReportHeader({
       {/* Navegação mensal ou Intervalo Personalizado */}
       <div className="flex items-center gap-2 flex-wrap">
         <ReportPeriodSelector
+          monthly
           range={filters.customRange ?? getMonthBounds(filters.selectedMonth)}
           onChange={customRange => onFilterChange({ ...filters, customRange })}
         />

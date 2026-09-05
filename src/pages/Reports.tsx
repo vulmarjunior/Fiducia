@@ -946,7 +946,7 @@ export function Reports() {
               <Button variant="outline" size="sm" className="h-10 gap-1.5" onClick={handleExportStatementCsv}>
                 <FileDown className="h-3.5 w-3.5" /> Exportar CSV
               </Button>
-              <ReportPeriodSelector range={statementRange ?? getMonthBounds(selectedMonth)} onChange={setStatementRange} />
+              <ReportPeriodSelector monthly range={statementRange ?? getMonthBounds(selectedMonth)} onChange={setStatementRange} />
             </div>
           </div>
 
