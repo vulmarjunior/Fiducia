@@ -19,6 +19,8 @@ import { buildMonthlyStatement } from '../lib/monthlyStatement';
 import { MonthlyStatementEntries } from '../components/MonthlyStatementEntries';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { calculateCashMargin, CASH_SAFETY_RESERVE_KEY } from '../lib/cashCoverage';
+import { buildAccountFlowReport } from '../lib/reports/accountFlow';
+import { normalizeTransactions } from '../lib/reports/normalize';
  
 export function Dashboard() {
   const { open: openTxDialog } = useTransactionDialog();
@@ -158,20 +160,41 @@ export function Dashboard() {
   const monthlyExpense = monthlyStatement.expenseTotal;
   const monthlyBalance = monthlyIncome - monthlyExpense;
 
-  const cashCoverage = useMemo(
-    () => projectDailyBalance(accounts, transactions, creditCards, invoices, 90, recurrenceRules),
-    [accounts, transactions, creditCards, invoices, recurrenceRules]
-  );
+  // Projeção do mês atual com a mesma metodologia canônica do relatório Entradas × Saídas
+  const monthFlowReport = useMemo(() => {
+    const normalized = normalizeTransactions(transactions, categories, creditCards, invoices);
+    return buildAccountFlowReport(accounts, creditCards, invoices, normalized, {
+      selectedMonth: currentMonthStr,
+      status: 'all',
+      intervalType: 'day',
+      accumulated: false,
+      includePending: true,
+      includeSavings: false,
+    }).cashFlowResult;
+  }, [accounts, creditCards, invoices, transactions, categories, currentMonthStr]);
+
+  const projectedMonthEndingBalance = useMemo(() => {
+    if (!monthFlowReport?.points?.length) return monthFlowReport?.endingBalance ?? 0;
+    const last = monthFlowReport.points[monthFlowReport.points.length - 1];
+    return (last.projectedEndingBalanceCents ?? 0) / 100;
+  }, [monthFlowReport]);
+
+  const minProjectedMonthBalance = useMemo(() => {
+    if (!monthFlowReport?.points?.length) return projectedMonthEndingBalance;
+    const vals = monthFlowReport.points.map(p => (p.projectedEndingBalanceCents ?? 0) / 100);
+    return Math.min(...vals);
+  }, [monthFlowReport, projectedMonthEndingBalance]);
+
   const cashSafetyReserve = Math.max(0, Number(localStorage.getItem(CASH_SAFETY_RESERVE_KEY)) || 0);
-  const cashMargin = calculateCashMargin(cashCoverage.minimumBalance, cashSafetyReserve);
+  const cashMargin = projectedMonthEndingBalance - cashSafetyReserve;
 
   const sparklineData = useMemo(() => {
-    if (!cashCoverage?.dailyProjection?.length) return [];
-    return cashCoverage.dailyProjection.map((d: any) => ({
-      date: d.date,
-      balance: d.endingBalance,
+    if (!monthFlowReport?.points?.length) return [];
+    return monthFlowReport.points.map(p => ({
+      date: p.label,
+      balance: (p.projectedEndingBalanceCents ?? 0) / 100,
     }));
-  }, [cashCoverage]);
+  }, [monthFlowReport]);
 
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -306,11 +329,10 @@ export function Dashboard() {
         return { label: `${day} ${month}`, start: weekStart };
       });
     } else if (periodFilter === 'year') {
-      // Bug fix: usar formatação local em vez de toISOString() que usa UTC e pode retornar mês errado
-      return Array.from({length: 12}, (_, i) => {
-        const d = new Date();
-        d.setMonth(d.getMonth() - 11 + i);
-        const month = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+      const currentYear = new Date().getFullYear();
+      return Array.from({ length: 12 }, (_, i) => {
+        const d = new Date(currentYear, i, 1);
+        const month = `${currentYear}-${(i + 1).toString().padStart(2, '0')}`;
         return { month, label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') };
       });
     }
@@ -537,156 +559,145 @@ export function Dashboard() {
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(monthlyExpense)}</div>
         </div>
 
-        {/* Cobertura de Caixa */}
-        <div
-          className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
-          onClick={() => navigate('/reports', { state: { tab: 'projection' } })}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              navigate('/reports', { state: { tab: 'projection' } });
-            }
-          }}
+        {/* Saldo Previsto no Fim do Mês */}
+        <div 
+          onClick={() => navigate('/reports', { state: { tab: 'cashflow', month: currentMonthStr } })}
+          className="bg-card border border-border rounded-2xl p-5 shadow-sm relative overflow-hidden flex flex-col justify-between cursor-pointer hover:border-border/80 transition-colors"
         >
-          {/* Header com ícone dinâmico e badge de status claro */}
-          <div className="flex items-center justify-between mb-2">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${
-              cashCoverage.minimumBalance < 0
-                ? 'bg-fiducia-red/10 text-fiducia-red'
-                : cashMargin < 0
-                  ? 'bg-amber-500/10 text-amber-500'
-                  : 'bg-fiducia-green/10 text-fiducia-green'
-            }`}>
-              {cashCoverage.minimumBalance < 0 ? (
-                <ShieldAlert className="w-5 h-5" />
-              ) : cashMargin < 0 ? (
-                <ShieldAlert className="w-5 h-5" />
-              ) : (
-                <ShieldCheck className="w-5 h-5" />
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-tight uppercase ${
-                cashCoverage.minimumBalance < 0
-                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                minProjectedMonthBalance < 0
+                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
                   : cashMargin < 0
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                    ? 'bg-amber-500/10 text-amber-500'
+                    : 'bg-fiducia-green/10 text-fiducia-green'
               }`}>
-                {cashCoverage.minimumBalance < 0
-                  ? 'Risco de Déficit'
-                  : cashMargin < 0
-                    ? 'Consome Reserva'
-                    : 'Contas Cobertas'}
-              </span>
+                {minProjectedMonthBalance < 0 ? (
+                  <ShieldAlert className="w-5 h-5" />
+                ) : cashMargin < 0 ? (
+                  <ShieldAlert className="w-5 h-5" />
+                ) : (
+                  <ShieldCheck className="w-5 h-5" />
+                )}
+              </div>
 
-              <div className="relative group/tip" onClick={e => e.stopPropagation()}>
-                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
-                <div className="absolute right-0 top-6 w-64 max-w-[calc(100vw-3rem)] sm:w-72 p-3 bg-popover border border-border rounded-xl shadow-xl text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-20">
-                  <strong className="block mb-1 font-semibold text-foreground">Folga de Caixa (90 dias)</strong>
-                  Mostra a sua folga líquida estimada para novos compromissos após pagar todas as contas pendentes e faturas previstas nos próximos 90 dias, mantendo a sua reserva protegida.
-                  <br /><br />
-                  <strong>Equação transparente:</strong>
-                  <br />
-                  (+) Menor saldo previsto no período
-                  <br />
-                  (-) Reserva protegida definida por você
-                  <br />
-                  (=) Folga líquida livre para novos gastos
+              <div className="flex items-center gap-1.5">
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-tight uppercase ${
+                  minProjectedMonthBalance < 0
+                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                    : cashMargin < 0
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                }`}>
+                  {minProjectedMonthBalance < 0
+                    ? 'Risco de Déficit'
+                    : cashMargin < 0
+                      ? 'Consome Reserva'
+                      : 'Contas Cobertas'}
+                </span>
+
+                <div className="relative group/tip" onClick={e => e.stopPropagation()}>
+                  <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                  <div className="absolute right-0 top-6 w-64 max-w-[calc(100vw-3rem)] sm:w-72 p-3 bg-popover border border-border rounded-xl shadow-xl text-[11px] text-popover-foreground leading-relaxed opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all z-20">
+                    <strong className="block mb-1 font-semibold text-foreground">Saldo Previsto (Fim do Mês)</strong>
+                    Calcula a posição final estimada do seu caixa ao término deste mês, somando receitas previstas e deduzindo contas e faturas de cartão pendentes.
+                    <br /><br />
+                    <strong>Equação transparente do mês:</strong>
+                    <br />
+                    (+) Saldo inicial do mês
+                    <br />
+                    (+) Entradas previstas no mês
+                    <br />
+                    (-) Saídas e faturas previstas
+                    <br />
+                    (=) Saldo previsto ao final do mês
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="text-[13px] text-muted-foreground font-medium mb-0.5">
-            Folga Livre (90 dias)
-          </div>
-
-          <div className={`text-[24px] font-bold tracking-tight font-mono ${
-            cashMargin < 0 ? 'text-fiducia-red' : 'text-fiducia-green'
-          }`}>
-            {formatCurrency(cashMargin)}
-          </div>
-
-          {/* Mini Sparkline da trajetória de 90 dias */}
-          {sparklineData.length > 1 && (
-            <div className="h-9 w-full my-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={sparklineData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-                  <defs>
-                    <linearGradient id="dashCashSpark" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="0%"
-                        stopColor={cashCoverage.minimumBalance < 0 ? '#ef4444' : cashMargin < 0 ? '#f59e0b' : '#10b981'}
-                        stopOpacity={0.25}
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor={cashCoverage.minimumBalance < 0 ? '#ef4444' : cashMargin < 0 ? '#f59e0b' : '#10b981'}
-                        stopOpacity={0.0}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <ReferenceLine y={0} stroke="currentColor" strokeOpacity={0.25} strokeDasharray="2 2" />
-                  <Area
-                    type="monotone"
-                    dataKey="balance"
-                    stroke={cashCoverage.minimumBalance < 0 ? '#ef4444' : cashMargin < 0 ? '#f59e0b' : '#10b981'}
-                    strokeWidth={1.8}
-                    fill="url(#dashCashSpark)"
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="text-[13px] text-muted-foreground font-medium mb-0.5">
+              Saldo Previsto (Fim do Mês)
             </div>
-          )}
 
-          {/* Equação Transparente */}
-          <div className="mt-2 pt-2 border-t border-border/60 space-y-1 text-[11px]">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">
-                Menor saldo ({cashCoverage.minimumBalanceDate ? cashCoverage.minimumBalanceDate.split('-').reverse().join('/') : '—'}):
+            <div className={`text-[24px] font-bold tracking-tight font-mono ${
+              projectedMonthEndingBalance < 0 ? 'text-fiducia-red' : 'text-fiducia-green'
+            }`}>
+              {formatCurrency(projectedMonthEndingBalance)}
+            </div>
+
+            {/* Mini Sparkline da trajetória do mês */}
+            {sparklineData.length > 1 && (
+              <div className="h-9 w-full my-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={sparklineData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+                    <defs>
+                      <linearGradient id="dashCashSpark" x1="0" y1="0" x2="0" y2="1">
+                        <stop
+                          offset="0%"
+                          stopColor={minProjectedMonthBalance < 0 ? '#ef4444' : cashMargin < 0 ? '#f59e0b' : '#10b981'}
+                          stopOpacity={0.25}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor={minProjectedMonthBalance < 0 ? '#ef4444' : cashMargin < 0 ? '#f59e0b' : '#10b981'}
+                          stopOpacity={0.0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <ReferenceLine y={0} stroke="currentColor" strokeOpacity={0.25} strokeDasharray="2 2" />
+                    <Area
+                      type="monotone"
+                      dataKey="balance"
+                      stroke={minProjectedMonthBalance < 0 ? '#ef4444' : cashMargin < 0 ? '#f59e0b' : '#10b981'}
+                      strokeWidth={1.8}
+                      fill="url(#dashCashSpark)"
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Equação Transparente */}
+            <div className="mt-2 pt-2 border-t border-border/60 space-y-1 text-[11px]">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Entradas previstas no mês:</span>
+                <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
+                  +{formatCurrency(monthFlowReport.totalInflow)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Saídas e faturas previstas:</span>
+                <span className="font-mono font-medium text-rose-600 dark:text-rose-400">
+                  -{formatCurrency(monthFlowReport.totalOutflow)}
+                </span>
+              </div>
+              {cashSafetyReserve > 0 && (
+                <div className="flex items-center justify-between pt-1 border-t border-border/40">
+                  <span className="text-muted-foreground">Folga livre (sem reserva):</span>
+                  <span className={`font-mono font-semibold ${cashMargin < 0 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
+                    {formatCurrency(cashMargin)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[10px]">
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate('/simulator');
+                }}
+                className="text-fiducia-blue font-bold hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Sparkles className="w-3 h-3" /> Simular decisões de caixa →
               </span>
-              <span className={`font-mono font-semibold ${cashCoverage.minimumBalance < 0 ? 'text-fiducia-red' : 'text-foreground'}`}>
-                {formatCurrency(cashCoverage.minimumBalance)}
+              <span className="text-muted-foreground font-semibold hover:text-foreground">
+                Ver relatório →
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">(-) Reserva protegida:</span>
-              <span className="font-mono font-medium text-muted-foreground">
-                {formatCurrency(cashSafetyReserve)}
-              </span>
-            </div>
-          </div>
-
-          {/* Alertas contextuais se houver risco */}
-          {cashCoverage.daysAtRisk > 0 && (
-            <div className="mt-2 p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-600 dark:text-rose-400 font-medium leading-snug">
-              ⚠️ {cashCoverage.daysAtRisk} dia{cashCoverage.daysAtRisk > 1 ? 's' : ''} com saldo negativo projetado
-            </div>
-          )}
-          {cashCoverage.daysAtRisk === 0 && cashMargin < 0 && (
-            <div className="mt-2 p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 font-medium leading-snug">
-              ⚠️ Contas consom {formatCurrency(Math.abs(cashMargin))} além da reserva protegida
-            </div>
-          )}
-
-          <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[10px]">
-            <span
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate('/simulator');
-              }}
-              className="text-fiducia-blue font-bold hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <Sparkles className="w-3 h-3" /> Simular gasto ou receita →
-            </span>
-            <span className="text-muted-foreground font-semibold hover:text-foreground">
-              Ver projeção →
-            </span>
           </div>
         </div>
       </div>

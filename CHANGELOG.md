@@ -3,6 +3,17 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.18.2] — 2026-09-05 — Alinhamento do Card do Dashboard e Filtro Anual Civil
+
+**Resultado:** O card de projeção no Dashboard agora reflete com precisão contábil o **Saldo Previsto (Fim do Mês)** calculado pelo mesmo motor canônico do relatório *Entradas × Saídas* (`buildAccountFlowReport` com `includePending: true`), eliminando discrepâncias artificiais causadas pela projeção de 90 dias sem receitas futuras lançadas. Além disso, a opção "Ano" no seletor do Dashboard e o atalho "Este ano" nos relatórios passam a selecionar o **Ano Civil Vigente** (01/01 a 31/12 do ano atual) em vez dos últimos 12 meses móveis retroativos.
+
+**Alterações técnicas:**
+- `src/pages/Dashboard.tsx` — substituição do cálculo de 90 dias do card pelo motor de fluxo de caixa mensal (`buildAccountFlowReport`), detalhando entradas previstas, saídas + faturas de cartão e folga livre real (descontando reserva de segurança opcional); ajuste do filtro "Ano" para cobrir de Janeiro a Dezembro do ano civil atual.
+- `src/lib/reports/periodPresets.ts` — atalho `'year'` ("Este ano") atualizado para cobrir `01/01` até `31/12` do ano civil atual.
+- `src/lib/reports/periodPresets.test.ts` — inclusão de teste unitário validando a cobertura integral de 01/01 a 31/12 para `'year'`.
+
+---
+
 ## [0.18.1] — 2026-09-05 — Preservação do mês completo nos relatórios e faturas de cartão
 
 **Resultado:** O atalho "Este mês" e os atalhos de período no seletor do cabeçalho dos relatórios essenciais (Entradas × Saídas, Despesas, Receitas, Fluxo por Conta e Extrato) passam a selecionar o mês civil completo (do primeiro ao último dia do mês). Isso impede que faturas pendentes de cartão de crédito cujo vencimento ocorra no restante do mês corrente sejam descartadas pelo filtro de período.

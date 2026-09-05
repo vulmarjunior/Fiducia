@@ -32,7 +32,10 @@ export function resolvePeriodPreset(key: string, future = false, now = new Date(
   } else {
     if (key === 'week') start.setDate(start.getDate() - (start.getDay() + 6) % 7);
     else if (key === 'month') start.setDate(1);
-    else if (key === 'year') start.setMonth(0, 1);
+    else if (key === 'year') {
+      start.setMonth(0, 1);
+      end.setFullYear(start.getFullYear(), 11, 31);
+    }
     else if (key.endsWith('months')) start.setMonth(start.getMonth() - parseInt(key, 10) + 1, 1);
   }
   return { startDate: localDateString(start), endDate: localDateString(end) };

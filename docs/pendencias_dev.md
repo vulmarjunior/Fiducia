@@ -5,16 +5,16 @@
 
 ## Próxima pauta
 
-**Estado:** Simulador de Decisões de Caixa e Sandbox Financeiro (`v0.18.0`) implementado, testado e validado com sucesso. Permite simular despesas avulsas, receitas extras e compras parceladas no cartão de crédito em tempo real sobre a base de dados reais lançados sem alterar o banco de dados Firestore.
+**Estado:** Alinhamento do Card do Dashboard e Filtro Anual Civil (`v0.18.2`) implementado, testado e validado com sucesso. O card do Dashboard agora exibe o Saldo Previsto (Fim do Mês) com metodologia 100% idêntica ao relatório Entradas × Saídas (`buildAccountFlowReport` com `includePending: true`), e os filtros de "Ano" no Dashboard e "Este ano" nos relatórios cobrem o ano civil vigente (01/01 a 31/12).
 
-**Versão de base:** `0.18.0`.
+**Versão de base:** `0.18.2`.
 
-**Referência da última entrega:** `docs/archive/sessions/2026-09-05-simulador-cenarios-caixa.md`.
+**Referência da última entrega:** `CHANGELOG.md` (`[0.18.2]`).
 
 ### Próximo passo sugerido
 
-1. Validação visual e de experiência pelo usuário no ambiente local ou após deploy da v0.18.0.
-2. Continuidade do planejamento de novas melhorias ou auditorias do sistema.
+1. Validação em produção ou conferência visual no dashboard.
+2. Continuidade das demandas do usuário.
 
 ### Frente Android pausada
 

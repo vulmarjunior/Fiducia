@@ -14,6 +14,7 @@ describe('report period shortcuts', () => {
   });
   it('handles year boundaries and leap February', () => {
     expect(resolvePeriodPreset('12months', false, new Date(2026, 0, 5)).startDate).toBe('2025-02-01');
+    expect(resolvePeriodPreset('year', false, new Date(2026, 8, 4))).toEqual({ startDate: '2026-01-01', endDate: '2026-12-31' });
     expect(resolvePeriodPreset('month', true, new Date(2024, 1, 2)).endDate).toBe('2024-02-29');
   });
   it('counts future days inclusively and uses calendar months', () => {
