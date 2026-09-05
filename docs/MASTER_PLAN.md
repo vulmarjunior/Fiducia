@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.17.0` |
+| **Versão atual** | `0.18.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-09-04 (Navegação visível e períodos dos relatórios v0.17.0; registro em docs/archive/sessions/2026-09-04-periodos-relatorios.md) |
-| **Último deploy** | v0.15.5 em produção (v0.16.1 pronta para deploy) |
+| **Última alteração em código** | 2026-09-05 (Simulador de Decisões de Caixa e Sandbox Financeiro v0.18.0) |
+| **Último deploy** | v0.15.5 em produção (v0.18.0 pronta para deploy) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -87,6 +87,9 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-09-05 | v0.18.0 — Simulador de Decisões de Caixa e Sandbox Financeiro | Simulação / Projeção / UX / Decisão |
+| 2026-09-04 | v0.17.0 — Navegação visível e períodos dos relatórios | Relatórios / UX / Atalhos |
+| 2026-09-03 | v0.16.1 — Harmonização de escalas dos eixos Y e barra de ações rápidas | Relatórios / Gráficos / Reservas |
 | 2026-09-02 | v0.16.0 — Relatórios essenciais com 4 novas visões estruturadas | Relatórios / UX financeira / Exportações |
 | 2026-08-27 | v0.15.5 — Runtime inicial com fronteiras estáveis de cache | Performance / PWA / Build |
 | 2026-08-27 | v0.15.4 — Catálogo financeiro de ícones otimizado | Performance / PWA / Categorias |

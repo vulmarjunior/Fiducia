@@ -21,6 +21,7 @@ const Reconciliation = lazy(() => import('./pages/Reconciliation').then((module)
 const ActivityLog = lazy(() => import('./pages/ActivityLog').then((module) => ({ default: module.ActivityLog })));
 const SettingsPage = lazy(() => import('./pages/Settings').then((module) => ({ default: module.SettingsPage })));
 const ImportCenter = lazy(() => import('./pages/ImportCenter').then((module) => ({ default: module.ImportCenter })));
+const Simulator = lazy(() => import('./pages/Simulator').then((module) => ({ default: module.Simulator })));
 
 function LoadingScreen() {
   return <div role="status" className="min-h-[40vh] flex items-center justify-center text-muted-foreground">Carregando…</div>;
@@ -65,6 +66,7 @@ export default function App() {
                   <Route path="goals" element={<Goals />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="activity" element={<ActivityLog />} />
+                  <Route path="simulator" element={<Simulator />} />
                   <Route path="settings" element={<SettingsPage />} />
                 </Route>
               </Routes>

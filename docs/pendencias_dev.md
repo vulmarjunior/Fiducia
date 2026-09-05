@@ -5,16 +5,16 @@
 
 ## Próxima pauta
 
-**Estado:** Implementação local dos períodos e da navegação dos relatórios concluída. Lint, build e 88 testes aprovados. Conferência visual autenticada e publicação pendentes.
+**Estado:** Simulador de Decisões de Caixa e Sandbox Financeiro (`v0.18.0`) implementado, testado e validado com sucesso. Permite simular despesas avulsas, receitas extras e compras parceladas no cartão de crédito em tempo real sobre a base de dados reais lançados sem alterar o banco de dados Firestore.
 
-**Versão de base:** `0.17.0`.
+**Versão de base:** `0.18.0`.
 
-**Referência da última entrega:** `docs/archive/sessions/2026-09-04-periodos-relatorios.md`.
+**Referência da última entrega:** `docs/archive/sessions/2026-09-05-simulador-cenarios-caixa.md`.
 
 ### Próximo passo sugerido
 
-1. Validar visualmente os relatórios em desktop/mobile e conferir exportações com dados reais.
-2. Commit/push da entrega após revisão; ainda não publicados nesta sessão.
+1. Validação visual e de experiência pelo usuário no ambiente local ou após deploy da v0.18.0.
+2. Continuidade do planejamento de novas melhorias ou auditorias do sistema.
 
 ### Frente Android pausada
 

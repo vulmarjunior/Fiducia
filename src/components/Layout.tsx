@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { TransactionDialogProvider, useTransactionDialog } from '../contexts/TransactionDialogContext';
 
-import { LayoutDashboard, Receipt, CreditCard, Wallet, LogOut, Menu, Tags, PieChart, Target, FileText, Download, Tag, ListChecks, History, Settings, Sun, Moon, Upload, Plus, X } from 'lucide-react';
+import { LayoutDashboard, Receipt, CreditCard, Wallet, LogOut, Menu, Tags, PieChart, Target, FileText, Download, Tag, ListChecks, History, Settings, Sun, Moon, Upload, Plus, X, Sparkles } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
 import { lazy, Suspense, useState, useEffect } from 'react';
@@ -89,6 +89,7 @@ function LayoutContent() {
   const planningNavItems = [
     { name: 'Orçamentos', path: '/budgets', icon: PieChart },
     { name: 'Relatórios', path: '/reports', icon: FileText },
+    { name: 'Simulador', path: '/simulator', icon: Sparkles },
     { name: 'Metas', path: '/goals', icon: Target },
     { name: 'Categorias', path: '/categories', icon: Tags },
     { name: 'Tags', path: '/tags', icon: Tag },

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
+import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info, Sparkles } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, ReferenceLine } from 'recharts';
@@ -674,8 +674,19 @@ export function Dashboard() {
             </div>
           )}
 
-          <div className="mt-3 pt-2 border-t border-border text-[10px] text-fiducia-blue font-semibold text-right">
-            Ver projeção completa →
+          <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[10px]">
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/simulator');
+              }}
+              className="text-fiducia-blue font-bold hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <Sparkles className="w-3 h-3" /> Simular gasto ou receita →
+            </span>
+            <span className="text-muted-foreground font-semibold hover:text-foreground">
+              Ver projeção →
+            </span>
           </div>
         </div>
       </div>

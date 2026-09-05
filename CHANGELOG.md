@@ -3,6 +3,23 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.18.0] — 2026-09-05 — Simulador de Decisões de Caixa e Sandbox Financeiro
+
+**Resultado:** Criação de um ambiente interativo de simulação de decisões financeiras ("E se...?"), permitindo que o usuário teste compras parceladas no cartão, despesas extras avulsas ou receitas futuras sobre a base de dados reais lançados sem poluir ou alterar o Firestore. O simulador projeta em tempo real a trajetória diária do saldo e compara a **Folga Livre (Margem de Caixa)**, o **Menor Saldo Previsto (pior momento)** e os **Dias em Risco de Déficit** antes e depois das hipóteses, com opção de ligar/desligar hipóteses individuais e de efetivar os lançamentos simulados no banco de dados com 1 clique.
+
+**Alterações técnicas:**
+- `src/types/simulator.ts` — interfaces de tipos `SimulatedItem`, `SimulationComparison`, `SimulationChartPoint` e `SimulationItemType`.
+- `src/lib/simulatorEngine.ts` — motor canônico de simulação: geração de parcelas sintéticas em cartão com alocação precisa de `invoicePeriod` pelo ciclo de fechamento/vencimento; expansão de despesas/receitas recorrentes; execução de projeção comparativa dupla (Real vs. Simulado) reaproveitando `buildCashCoverageProjection`.
+- `src/lib/simulatorEngine.test.ts` — testes unitários automatizados validando parcelamento em cartão, toggle ativo/inativo, cálculo de margem/delta e identificação de dias em risco de déficit.
+- `src/components/simulator/SimulationItemForm.tsx` — formulário dinâmico e responsivo para inserção de hipóteses com `MoneyInput`, seletor de cartão de crédito e parcelas (1x a 24x) com cálculo instantâneo da parcela.
+- `src/components/simulator/SimulationCardComparison.tsx` — 4 cards de KPIs comparativos (Folga Livre, Menor Saldo, Dias de Risco e Saldo Final) com badges de status de segurança (`Seguro`, `Consome Reserva`, `Déficit`) e visualização clara de $\Delta$.
+- `src/components/simulator/SimulationChart.tsx` — gráfico de área e linha composto (`ComposedChart` Recharts) comparando a trajetória confirmada com a linha simulada e limiares de zero e reserva protegida.
+- `src/components/simulator/SimulationItemList.tsx` — lista de hipóteses com switches liga/desliga individuais e remoção.
+- `src/pages/Simulator.tsx` — página principal do simulador (`/simulator`), com persistência local de rascunhos no `localStorage`, seleção de horizonte temporal (30, 60, 90, 180 dias) e modal de confirmação para efetivação no Firestore.
+- `src/App.tsx` — registro da rota `/simulator` com carregamento lazy.
+- `src/components/Layout.tsx` — inclusão do atalho "Simulador" no menu lateral principal (`planningNavItems`).
+- `src/pages/Dashboard.tsx` — atalho "Simular gasto ou receita →" integrado diretamente no rodapé do card de Folga Livre (90 dias).
+
 ---
 
 ## [0.17.0] — 2026-09-04 — Relatórios visíveis e seleção de períodos
