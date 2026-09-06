@@ -63,6 +63,50 @@ export function calculateStartingBalanceCents(
   return initialCents + sumCents;
 }
 
+function getPreviousDate(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day));
+  value.setUTCDate(value.getUTCDate() - 1);
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}`;
+}
+
+function getPriorInvoiceObligationsCents(
+  invoices: Invoice[],
+  creditCards: CreditCard[],
+  transactions: NormalizedTransaction[],
+  startDate: string
+): number {
+  const priorCandidates: string[] = [];
+
+  for (const tx of transactions) {
+    if (tx.date < startDate) priorCandidates.push(tx.date);
+    const invoicePeriod = tx.invoicePeriod || tx.month;
+    if (invoicePeriod && `${invoicePeriod}-01` < startDate) {
+      priorCandidates.push(`${invoicePeriod}-01`);
+    }
+  }
+
+  for (const invoice of invoices) {
+    const periodStart = `${invoice.period}-01`;
+    if (periodStart < startDate) priorCandidates.push(periodStart);
+  }
+
+  if (priorCandidates.length === 0) return 0;
+
+  const earliestPriorDate = priorCandidates.sort()[0];
+  const rangeStart = `${earliestPriorDate.slice(0, 7)}-01`;
+  const rangeEnd = getPreviousDate(startDate);
+  if (rangeStart > rangeEnd) return 0;
+
+  return buildInvoiceObligations(
+    invoices,
+    creditCards,
+    transactions,
+    rangeStart.slice(0, 7),
+    { startDate: rangeStart, endDate: rangeEnd }
+  ).totalResidualCents;
+}
+
 export function checkAccountReconciliation(
   account: Account,
   transactions: NormalizedTransaction[]
@@ -205,6 +249,7 @@ export function buildAccountFlowReport(
 
   // Processamento por conta individual
   const accountFlowItems: AccountFlowItem[] = [];
+  let totalSelectedPriorPendingNetCents = 0;
 
   for (const account of activeAccounts) {
     const accountId = account.id || '';
@@ -218,6 +263,7 @@ export function buildAccountFlowReport(
     let pendingOutflowCents = 0;
     let openingCapitalCents = 0;
     let priorPendingCents = 0;
+    let priorPendingNetCents = 0;
     const accountEntries: NormalizedTransaction[] = [];
 
     // Estrutura de pontos por bucket para a conta
@@ -254,7 +300,7 @@ export function buildAccountFlowReport(
       }
     }
 
-    // Pendências anteriores ao intervalo: sinalizadas fora do período, sem incorporar no saldo
+    // Pendências anteriores ao intervalo: não alteram o saldo realizado, mas compõem o saldo inicial previsto.
     for (const tx of transactions) {
       if (tx.status !== 'pending') continue;
       if (tx.isCard) continue;
@@ -268,8 +314,11 @@ export function buildAccountFlowReport(
       ));
       if (effectCents !== 0) {
         priorPendingCents += Math.abs(effectCents);
+        priorPendingNetCents += effectCents;
       }
     }
+
+    totalSelectedPriorPendingNetCents += priorPendingNetCents;
 
     // Movimentações no período
     for (const tx of transactions) {
@@ -354,12 +403,16 @@ export function buildAccountFlowReport(
     const endingBalanceCents = realizedEndingBalanceCents;
 
     const pendingNetCents = pendingInflowCents - pendingOutflowCents;
-    const projectedEndingBalanceCents = realizedEndingBalanceCents + pendingNetCents;
+    const projectedStartingBalanceCents = includePending
+      ? startingBalanceCents + priorPendingNetCents
+      : startingBalanceCents;
+    const projectedEndingBalanceCents = includePending
+      ? projectedStartingBalanceCents + openingCapitalCents + (inflowCents - outflowCents) + pendingNetCents
+      : realizedEndingBalanceCents;
 
-    // Calcula saldos de cada bucket da conta
+    // Calcula saldos de cada bucket da conta. O realizado e o previsto evoluem em trilhas separadas.
     let runningBalanceCents = startingBalanceCents;
-    let runningPendingInflowCents = 0;
-    let runningPendingOutflowCents = 0;
+    let runningProjectedBalanceCents = projectedStartingBalanceCents;
     let runningAccumInflowCents = 0;
     let runningAccumOutflowCents = 0;
     let runningAccumResultCents = 0;
@@ -368,17 +421,17 @@ export function buildAccountFlowReport(
       const ptInflow = includePending ? pt.inflowCents + pt.pendingInflowCents : pt.inflowCents;
       const ptOutflow = includePending ? pt.outflowCents + pt.pendingOutflowCents : pt.outflowCents;
       const ptResult = ptInflow - ptOutflow;
+      const realizedPtResult = pt.inflowCents - pt.outflowCents;
 
       pt.resultCents = ptResult;
       pt.pendingResultCents = pt.pendingInflowCents - pt.pendingOutflowCents;
 
-      runningBalanceCents += pt.openingCapitalCents + ptResult;
-      runningPendingInflowCents += pt.pendingInflowCents;
-      runningPendingOutflowCents += pt.pendingOutflowCents;
+      runningBalanceCents += pt.openingCapitalCents + realizedPtResult;
+      runningProjectedBalanceCents += pt.openingCapitalCents + ptResult;
       pt.endingBalanceCents = runningBalanceCents;
       pt.endingBalance = fromCents(runningBalanceCents);
       pt.projectedEndingBalanceCents = includePending
-        ? runningBalanceCents + runningPendingInflowCents - runningPendingOutflowCents
+        ? runningProjectedBalanceCents
         : runningBalanceCents;
 
       if (accumulated) {
@@ -574,6 +627,17 @@ export function buildAccountFlowReport(
   );
   const invoiceObligationsIncludedInPoints = includePending && !isPartialAccountSelection;
 
+  // Obrigações vencidas antes do intervalo também precisam sobreviver na projeção.
+  // Pagamentos pendentes já cadastrados são deduzidos pelo motor canônico de faturas,
+  // evitando dupla contagem com as pendências bancárias anteriores ou do próprio período.
+  const priorInvoiceObligationsCents = includePending && !isPartialAccountSelection
+    ? getPriorInvoiceObligationsCents(invoices, creditCards, transactions, startDate)
+    : 0;
+
+  const totalConsolidatedProjectedStartingCents = includePending
+    ? totalConsolidatedStartingCents + totalSelectedPriorPendingNetCents - priorInvoiceObligationsCents
+    : totalConsolidatedStartingCents;
+
   // Injetar as obrigações residuais como saídas pendentes no bucket de vencimento,
   // para que faturas fechadas/abertas apareçam no gráfico e na tabela de Entradas × Saídas.
   // Em seleção parcial, as obrigações sem conta ficam expostas como nota, sem débito arbitrário.
@@ -612,8 +676,7 @@ export function buildAccountFlowReport(
   const totalConsolidatedEndingCents = totalConsolidatedStartingCents + totalConsolidatedOpeningCapitalCents + totalConsolidatedResultCents;
 
   let runningConsolidatedBalance = totalConsolidatedStartingCents;
-  let runningPendingInflowCents = 0;
-  let runningPendingOutflowCents = 0;
+  let runningConsolidatedProjectedBalance = totalConsolidatedProjectedStartingCents;
   let runningAccumConsolidatedInflow = 0;
   let runningAccumConsolidatedOutflow = 0;
   let runningAccumConsolidatedResult = 0;
@@ -624,18 +687,18 @@ export function buildAccountFlowReport(
     const ptInflow = includePending ? pt.inflowCents + pt.pendingInflowCents : pt.inflowCents;
     const ptOutflow = includePending ? pt.outflowCents + pt.pendingOutflowCents : pt.outflowCents;
     const ptResult = ptInflow - ptOutflow;
+    const realizedPtResult = pt.inflowCents - pt.outflowCents;
 
     // Saldo realizado permanece baseado apenas em movimentos realizados
-    pt.resultCents = pt.inflowCents - pt.outflowCents;
+    pt.resultCents = realizedPtResult;
     pt.pendingResultCents = pt.pendingInflowCents - pt.pendingOutflowCents;
 
-    runningConsolidatedBalance += pt.openingCapitalCents + pt.resultCents;
-    runningPendingInflowCents += pt.pendingInflowCents;
-    runningPendingOutflowCents += pt.pendingOutflowCents;
+    runningConsolidatedBalance += pt.openingCapitalCents + realizedPtResult;
+    runningConsolidatedProjectedBalance += pt.openingCapitalCents + ptResult;
     pt.endingBalanceCents = runningConsolidatedBalance;
     pt.endingBalance = fromCents(runningConsolidatedBalance);
     pt.projectedEndingBalanceCents = includePending
-      ? runningConsolidatedBalance + runningPendingInflowCents - runningPendingOutflowCents
+      ? runningConsolidatedProjectedBalance
       : runningConsolidatedBalance;
 
     if (accumulated) {
@@ -672,12 +735,18 @@ export function buildAccountFlowReport(
     : undefined;
   const consolidatedProjectedEndingCents = lastPointProjected !== undefined
     ? lastPointProjected
-    : totalConsolidatedEndingCents;
+    : totalConsolidatedProjectedStartingCents;
 
   const diagnostics = getReportDiagnostics(
     transactions.map(tx => tx.raw),
     transactions
   );
+
+  // CashFlowReportResult é a visão exibida. Em modo previsto, o saldo inicial mostrado
+  // deve ser o saldo inicial previsto; a visão realizada permanece preservada no AccountFlowResult.
+  const displayedStartingBalanceCents = includePending
+    ? totalConsolidatedProjectedStartingCents
+    : totalConsolidatedStartingCents;
 
   const cashFlowResult: CashFlowReportResult = {
     totalInflowCents: cashTotalInflowCents,
@@ -686,12 +755,12 @@ export function buildAccountFlowReport(
     totalInflow: fromCents(cashTotalInflowCents),
     totalOutflow: fromCents(cashTotalOutflowCents),
     netResult: fromCents(cashNetResultCents),
-    startingBalanceCents: totalConsolidatedStartingCents,
+    startingBalanceCents: displayedStartingBalanceCents,
     endingBalanceCents: totalConsolidatedEndingCents,
-    startingBalance: fromCents(totalConsolidatedStartingCents),
+    startingBalance: fromCents(displayedStartingBalanceCents),
     endingBalance: fromCents(totalConsolidatedEndingCents),
     openingCapitalCents: totalConsolidatedOpeningCapitalCents,
-    priorPendingCents: totalConsolidatedPriorPendingCents,
+    priorPendingCents: totalConsolidatedPriorPendingCents + priorInvoiceObligationsCents,
     invoiceObligationsCents: invoiceObligations.totalResidualCents,
     invoiceObligationsIncludedInPoints,
     diagnostics,
