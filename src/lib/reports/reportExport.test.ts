@@ -54,7 +54,7 @@ describe('reportExport', () => {
       categories: [
         {
           categoryId: 'cat-1',
-          categoryName: '=SUM(A1:A10)', // Tentativa de injeção de fórmula
+          categoryName: '=SUM(A1:A10)',
           totalCents: 15000,
           total: 150,
           percent: 100,
@@ -68,7 +68,6 @@ describe('reportExport', () => {
     };
 
     const csv = buildCategoryReportCsv(result, filters);
-    // Verifica se a célula perigosa foi neutralizada com apóstrofo e aspas
     expect(csv).toContain("\"'=SUM(A1:A10)\"");
     expect(csv).toContain('150,00');
   });
@@ -151,6 +150,10 @@ describe('reportExport', () => {
       netResult: 300,
       openingCapitalCents: 0,
       priorPendingCents: 0,
+      priorPendingBankCents: 0,
+      priorPendingEntries: [],
+      priorInvoiceObligationsCents: 0,
+      priorInvoiceObligations: [],
       invoiceObligationsCents: 0,
       invoiceObligationsIncludedInPoints: false,
       diagnostics: { invalidCount: 0, excludedCount: 0 },
@@ -267,6 +270,10 @@ describe('reportExport', () => {
       endingBalance: 1300,
       openingCapitalCents: 0,
       priorPendingCents: 0,
+      priorPendingBankCents: 0,
+      priorPendingEntries: [],
+      priorInvoiceObligationsCents: 0,
+      priorInvoiceObligations: [],
       invoiceObligationsCents: 0,
       invoiceObligationsIncludedInPoints: false,
       diagnostics: { invalidCount: 0, excludedCount: 0 },
