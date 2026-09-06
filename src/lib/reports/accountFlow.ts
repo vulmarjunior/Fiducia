@@ -70,12 +70,12 @@ function getPreviousDate(date: string): string {
   return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}`;
 }
 
-function getPriorInvoiceObligationsCents(
+function getPriorInvoiceObligations(
   invoices: Invoice[],
   creditCards: CreditCard[],
   transactions: NormalizedTransaction[],
   startDate: string
-): number {
+) {
   const priorCandidates: string[] = [];
 
   for (const tx of transactions) {
@@ -91,12 +91,16 @@ function getPriorInvoiceObligationsCents(
     if (periodStart < startDate) priorCandidates.push(periodStart);
   }
 
-  if (priorCandidates.length === 0) return 0;
+  if (priorCandidates.length === 0) {
+    return { obligations: [], totalResidualCents: 0 };
+  }
 
   const earliestPriorDate = priorCandidates.sort()[0];
   const rangeStart = `${earliestPriorDate.slice(0, 7)}-01`;
   const rangeEnd = getPreviousDate(startDate);
-  if (rangeStart > rangeEnd) return 0;
+  if (rangeStart > rangeEnd) {
+    return { obligations: [], totalResidualCents: 0 };
+  }
 
   return buildInvoiceObligations(
     invoices,
@@ -104,7 +108,7 @@ function getPriorInvoiceObligationsCents(
     transactions,
     rangeStart.slice(0, 7),
     { startDate: rangeStart, endDate: rangeEnd }
-  ).totalResidualCents;
+  );
 }
 
 export function checkAccountReconciliation(
@@ -197,6 +201,10 @@ export function buildAccountFlowReport(
       endingBalance: 0,
       openingCapitalCents: 0,
       priorPendingCents: 0,
+      priorPendingBankCents: 0,
+      priorPendingEntries: [],
+      priorInvoiceObligationsCents: 0,
+      priorInvoiceObligations: [],
       invoiceObligationsCents: 0,
       invoiceObligationsIncludedInPoints: false,
       diagnostics: { invalidCount: 0, excludedCount: 0 },
@@ -243,6 +251,18 @@ export function buildAccountFlowReport(
       : new Set(getAvailableAccountIds(accounts));
 
   const activeAccounts = accounts.filter(a => selectedAccountIds.has(a.id || ''));
+
+  // Pendências bancárias anteriores que realmente afetam a seleção consolidada.
+  // Transferências internas entre contas selecionadas são neutras e não entram no diagnóstico.
+  const priorPendingEntries = transactions.filter(tx => {
+    if (tx.status !== 'pending' || tx.isCard || tx.isValid === false || tx.date >= startDate) return false;
+    const fromSelected = Boolean(tx.accountId && selectedAccountIds.has(tx.accountId));
+    const toSelected = Boolean(tx.destinationAccountId && selectedAccountIds.has(tx.destinationAccountId));
+    if (!fromSelected && !toSelected) return false;
+    if (tx.type === 'transfer' && fromSelected && toSelected) return false;
+    return true;
+  });
+  const priorPendingBankCents = priorPendingEntries.reduce((sum, tx) => sum + tx.amountCents, 0);
 
   // Buckets para agregação temporal
   const buckets = generateBuckets(startDate, endDate, intervalType);
@@ -304,6 +324,7 @@ export function buildAccountFlowReport(
     for (const tx of transactions) {
       if (tx.status !== 'pending') continue;
       if (tx.isCard) continue;
+      if (tx.isValid === false) continue;
       if (tx.date >= startDate) continue;
       const isOrigin = tx.accountId === accountId;
       const isDest = tx.destinationAccountId === accountId;
@@ -630,9 +651,10 @@ export function buildAccountFlowReport(
   // Obrigações vencidas antes do intervalo também precisam sobreviver na projeção.
   // Pagamentos pendentes já cadastrados são deduzidos pelo motor canônico de faturas,
   // evitando dupla contagem com as pendências bancárias anteriores ou do próprio período.
-  const priorInvoiceObligationsCents = includePending && !isPartialAccountSelection
-    ? getPriorInvoiceObligationsCents(invoices, creditCards, transactions, startDate)
-    : 0;
+  const priorInvoiceObligations = includePending && !isPartialAccountSelection
+    ? getPriorInvoiceObligations(invoices, creditCards, transactions, startDate)
+    : { obligations: [], totalResidualCents: 0 };
+  const priorInvoiceObligationsCents = priorInvoiceObligations.totalResidualCents;
 
   const totalConsolidatedProjectedStartingCents = includePending
     ? totalConsolidatedStartingCents + totalSelectedPriorPendingNetCents - priorInvoiceObligationsCents
@@ -760,7 +782,11 @@ export function buildAccountFlowReport(
     startingBalance: fromCents(displayedStartingBalanceCents),
     endingBalance: fromCents(totalConsolidatedEndingCents),
     openingCapitalCents: totalConsolidatedOpeningCapitalCents,
-    priorPendingCents: totalConsolidatedPriorPendingCents + priorInvoiceObligationsCents,
+    priorPendingCents: priorPendingBankCents + priorInvoiceObligationsCents,
+    priorPendingBankCents,
+    priorPendingEntries,
+    priorInvoiceObligationsCents,
+    priorInvoiceObligations: priorInvoiceObligations.obligations,
     invoiceObligationsCents: invoiceObligations.totalResidualCents,
     invoiceObligationsIncludedInPoints,
     diagnostics,

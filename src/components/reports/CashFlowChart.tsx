@@ -13,6 +13,7 @@ import {
 import type { CashFlowPoint, CashFlowReportResult } from '../../types/reports';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
+import { PriorPendingDetailsDialog } from './PriorPendingDetailsDialog';
 import { ArrowUpRight, ArrowDownRight, Scale, Wallet, Clock, ArrowLeftRight, Info, CreditCard, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 interface CashFlowChartProps {
@@ -85,6 +86,7 @@ export function CashFlowChart({ reportResult, showPending, accumulated = false, 
 
   const [selectedPoint, setSelectedPoint] = useState<CashFlowPoint | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [priorPendingOpen, setPriorPendingOpen] = useState(false);
 
   const handleOpenDetails = (pt: CashFlowPoint) => {
     setSelectedPoint(pt);
@@ -283,7 +285,7 @@ export function CashFlowChart({ reportResult, showPending, accumulated = false, 
         </div>
       )}
 
-      {(reportResult.openingCapitalCents !== 0 || reportResult.priorPendingCents !== 0 || reportResult.diagnostics.invalidCount > 0 || (showPending && reportResult.invoiceObligationsCents > 0)) && (
+      {(reportResult.openingCapitalCents !== 0 || (showPending && reportResult.priorPendingCents !== 0) || reportResult.diagnostics.invalidCount > 0 || (showPending && reportResult.invoiceObligationsCents > 0)) && (
         <div className="flex flex-col gap-1.5 p-3 bg-muted/40 border border-border rounded-lg text-xs text-muted-foreground">
           {reportResult.openingCapitalCents !== 0 && (
             <span className="flex items-center gap-1.5">
@@ -291,18 +293,36 @@ export function CashFlowChart({ reportResult, showPending, accumulated = false, 
               Capital de abertura de contas abertas no período: <strong>{formatCurrency(reportResult.openingCapitalCents / 100)}</strong> — exibido como Saldo de abertura, não como receita.
             </span>
           )}
-          {reportResult.priorPendingCents !== 0 && (
-            <span className="flex items-center gap-1.5">
+          {showPending && reportResult.priorPendingBankCents > 0 && (
+            <button
+              type="button"
+              onClick={() => setPriorPendingOpen(true)}
+              className="flex items-center gap-1.5 text-left hover:text-foreground transition-colors"
+            >
               <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              Pendentes anteriores ao período: <strong>{formatCurrency(reportResult.priorPendingCents / 100)}</strong> — sinalizados fora do período, sem incorporação silenciosa.
-            </span>
+              <span>
+                Lançamentos bancários pendentes anteriores: <strong>{formatCurrency(reportResult.priorPendingBankCents / 100)}</strong> — considerados no saldo inicial previsto. <span className="font-semibold underline underline-offset-2">Ver detalhes</span>
+              </span>
+            </button>
+          )}
+          {showPending && reportResult.priorInvoiceObligationsCents > 0 && (
+            <button
+              type="button"
+              onClick={() => setPriorPendingOpen(true)}
+              className="flex items-center gap-1.5 text-left hover:text-foreground transition-colors"
+            >
+              <CreditCard className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span>
+                Faturas anteriores com saldo residual: <strong>{formatCurrency(reportResult.priorInvoiceObligationsCents / 100)}</strong> — consideradas no saldo inicial previsto. <span className="font-semibold underline underline-offset-2">Ver detalhes</span>
+              </span>
+            </button>
           )}
           {showPending && reportResult.invoiceObligationsCents > 0 && (
             <span className="flex items-center gap-1.5">
               <CreditCard className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               {reportResult.invoiceObligationsIncludedInPoints ? (
                 <>
-                  Faturas de cartão (valor residual) incluídas nas pendências: <strong>{formatCurrency(reportResult.invoiceObligationsCents / 100)}</strong> — distribuídas pelo vencimento.
+                  Faturas de cartão (valor residual) incluídas nas pendências do período: <strong>{formatCurrency(reportResult.invoiceObligationsCents / 100)}</strong> — distribuídas pelo vencimento.
                 </>
               ) : (
                 <>
@@ -543,6 +563,14 @@ export function CashFlowChart({ reportResult, showPending, accumulated = false, 
           entityNames={entityNames}
         />
       )}
+
+      <PriorPendingDetailsDialog
+        open={priorPendingOpen}
+        onOpenChange={setPriorPendingOpen}
+        bankEntries={reportResult.priorPendingEntries}
+        invoiceObligations={reportResult.priorInvoiceObligations}
+        entityNames={entityNames}
+      />
     </div>
   );
 }
