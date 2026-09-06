@@ -145,7 +145,7 @@ describe('origem auditável das pendências anteriores', () => {
       },
     ];
 
-    const normalized = normalizeTransactions(transactions, [card], []);
+    const normalized = normalizeTransactions(transactions, [], [card]);
     const { cashFlowResult } = buildAccountFlowReport(
       [account],
       [card],
