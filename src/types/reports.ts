@@ -124,6 +124,10 @@ export interface CashFlowReportResult {
   endingBalance?: number;
   openingCapitalCents: number;
   priorPendingCents: number;
+  priorPendingBankCents: number;
+  priorPendingEntries: NormalizedTransaction[];
+  priorInvoiceObligationsCents: number;
+  priorInvoiceObligations: UnallocatedInvoiceObligation[];
   invoiceObligationsCents: number;
   invoiceObligationsIncludedInPoints: boolean;
   diagnostics: ReportDiagnostics;
