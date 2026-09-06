@@ -1,3 +1,5 @@
+import { getInvoiceFinancialSummary } from '../lib/invoicePayment';
+
 export function getInvoicePeriod(
   purchaseDate: Date,
   closingDay: number
@@ -43,15 +45,27 @@ export function getInvoiceStatus(
   return 'paga';
 }
 
+/**
+ * Identificação canônica de vínculo com cartão.
+ * Registros atuais usam creditCardId. accountId/destinationAccountId são fallback legado.
+ * Quando creditCardId existe, ele prevalece para evitar que um vínculo legado obsoleto
+ * faça o mesmo lançamento aparecer em dois cartões.
+ */
+export function transactionBelongsToCard(tx: any, cardId: string): boolean {
+  if (!tx || !cardId) return false;
+  if (typeof tx.creditCardId === 'string' && tx.creditCardId) {
+    return tx.creditCardId === cardId;
+  }
+  return tx.accountId === cardId || tx.destinationAccountId === cardId;
+}
+
 /** Calcula somente o crédito ainda comprometido, sem somar faturas totalmente pagas. */
 export function calculateCreditLimitUsage(
   cardId: string,
   transactions: any[],
   invoices: any[],
 ): number {
-  const cardTransactions = transactions.filter((tx: any) =>
-    tx.creditCardId === cardId || tx.accountId === cardId || tx.destinationAccountId === cardId,
-  );
+  const cardTransactions = transactions.filter((tx: any) => transactionBelongsToCard(tx, cardId));
   const periods = new Set<string>();
 
   for (const tx of cardTransactions) {
@@ -80,4 +94,3 @@ export function calculateCreditLimitUsage(
 
   return Math.max(0, Math.round(usage * 100) / 100);
 }
-import { getInvoiceFinancialSummary } from '../lib/invoicePayment';
