@@ -10,7 +10,6 @@ export interface InvoiceResidualAnalysis {
 }
 
 export function getInvoiceDueDate(period: string, dueDay: number): string {
-  // period é YYYY-MM
   const [yearStr, monthStr] = period.split('-');
   const year = parseInt(yearStr, 10);
   const month = parseInt(monthStr, 10);
@@ -23,14 +22,13 @@ export function buildInvoiceObligations(
   invoices: Invoice[],
   creditCards: CreditCard[],
   transactions: NormalizedTransaction[],
-  targetPeriod: string, // YYYY-MM
+  targetPeriod: string,
   customRange?: { startDate: string; endDate: string }
 ): InvoiceResidualAnalysis {
   const cardMap = new Map(creditCards.map(c => [c.id || '', c]));
   const obligations: UnallocatedInvoiceObligation[] = [];
   let totalResidualCents = 0;
 
-  // Mapa de IDs oficiais de pagamento para o cartão e período da fatura
   const paymentTxToInvoiceMap = new Map<string, { cardId: string; period: string }>();
   for (const inv of invoices) {
     if (inv.paymentTransactionIds && Array.isArray(inv.paymentTransactionIds)) {
@@ -45,12 +43,9 @@ export function buildInvoiceObligations(
     }
   }
 
-  // Identifica pagamentos bancários pendentes agendados (F2: COMPRAS NÃO SÃO AGENDAMENTOS!)
   const pendingPaymentsByCardPeriod = new Map<string, number>();
   for (const tx of transactions) {
     if (tx.status !== 'pending') continue;
-
-    // Se for compra comum de cartão, NÃO é pagamento de fatura
     if (tx.isCard && !tx.isInvoicePayment) continue;
 
     let cardId = '';
@@ -72,7 +67,6 @@ export function buildInvoiceObligations(
     }
   }
 
-  // Faturas multi-mês: se houver customRange, considera todos os meses que o intervalo intercepta
   const allowedPeriods = new Set<string>();
   if (customRange) {
     const months = getMonthsInRange(customRange.startDate, customRange.endDate);
@@ -81,7 +75,6 @@ export function buildInvoiceObligations(
     allowedPeriods.add(targetPeriod);
   }
 
-  // Coletar todos os pares (cardId, period) existentes em invoices ou em compras de cartão
   const cardPeriods = new Map<string, { cardId: string; period: string; inv?: Invoice }>();
 
   for (const inv of invoices) {
@@ -112,17 +105,28 @@ export function buildInvoiceObligations(
     const dueDay = card?.dueDay || 10;
     const dueDate = getInvoiceDueDate(period, dueDay);
 
-    // F7: Se houver customRange, o dueDate deve estar estritamente dentro do intervalo
-    if (customRange) {
-      if (dueDate < customRange.startDate || dueDate > customRange.endDate) {
-        continue;
-      }
+    if (customRange && (dueDate < customRange.startDate || dueDate > customRange.endDate)) {
+      continue;
     }
+
+    const sourceEntries = transactions.filter(tx => {
+      if (tx.status === 'cancelled') return false;
+      if (!tx.isCard || tx.isInvoicePayment) return false;
+      const txCardId = tx.cardId || tx.raw.creditCardId || '';
+      const txPeriod = tx.invoicePeriod || tx.month;
+      return txCardId === cardId && txPeriod === period;
+    });
+
+    const purchasesCents = sourceEntries.reduce(
+      (sum, tx) => sum + (tx.isCredit ? -tx.amountCents : tx.amountCents),
+      0
+    );
 
     let totalCents = 0;
     let paidCents = 0;
     let remainingCents = 0;
     let invoiceStatus = 'aberta';
+    let sourceKind: 'invoice_document' | 'card_transactions' = inv ? 'invoice_document' : 'card_transactions';
 
     if (inv) {
       const summary = getInvoiceFinancialSummary(inv);
@@ -131,33 +135,12 @@ export function buildInvoiceObligations(
       remainingCents = toCents(summary.remainingAmount);
       invoiceStatus = summary.status;
 
-      // Se o total da fatura for 0 ou indefinido, calcula pelas compras do período
       if (totalCents === 0) {
-        let purchasesCents = 0;
-        for (const tx of transactions) {
-          if (tx.status === 'cancelled') continue;
-          if (tx.isCard && !tx.isInvoicePayment && (tx.cardId === cardId || tx.raw.creditCardId === cardId)) {
-            const txPeriod = tx.invoicePeriod || tx.month;
-            if (txPeriod === period) {
-              purchasesCents += tx.isCredit ? -tx.amountCents : tx.amountCents;
-            }
-          }
-        }
         totalCents = Math.max(0, purchasesCents);
         remainingCents = Math.max(0, totalCents - paidCents);
+        sourceKind = 'card_transactions';
       }
     } else {
-      // F2/Caso 09: Sem documento de fatura criado, calcula pelas compras de cartão
-      let purchasesCents = 0;
-      for (const tx of transactions) {
-        if (tx.status === 'cancelled') continue;
-        if (tx.isCard && !tx.isInvoicePayment && (tx.cardId === cardId || tx.raw.creditCardId === cardId)) {
-          const txPeriod = tx.invoicePeriod || tx.month;
-          if (txPeriod === period) {
-            purchasesCents += tx.isCredit ? -tx.amountCents : tx.amountCents;
-          }
-        }
-      }
       totalCents = Math.max(0, purchasesCents);
       paidCents = 0;
       remainingCents = totalCents;
@@ -168,11 +151,8 @@ export function buildInvoiceObligations(
       continue;
     }
 
-    // Deduz qualquer pagamento pendente já cadastrado no banco para esta mesma fatura
     const key = `${cardId}_${period}`;
     const pendingRegisteredCents = pendingPaymentsByCardPeriod.get(key) || 0;
-
-    // F2: O residual a exibir é o restante da fatura menos o que já está agendado
     const netSyntheticRemainingCents = Math.max(0, remainingCents - pendingRegisteredCents);
 
     if (netSyntheticRemainingCents > 0) {
@@ -186,6 +166,8 @@ export function buildInvoiceObligations(
         remainingAmountCents: netSyntheticRemainingCents,
         invoiceStatus,
         hasPendingPayment: pendingRegisteredCents > 0,
+        sourceKind,
+        sourceEntries,
       });
 
       totalResidualCents += netSyntheticRemainingCents;
