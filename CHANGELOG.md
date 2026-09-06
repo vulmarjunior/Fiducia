@@ -3,6 +3,21 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.19.0] — 2026-09-05 — Simulador de Decisões de Caixa baseado em Entradas × Saídas Mensal
+
+**Resultado:** O Simulador de Caixa (`/simulator`) foi totalmente reformulado para utilizar o motor canônico de **Entradas × Saídas Mensal** (`buildAccountFlowReport` com `includePending: true`). Elimina os déficits e alertas falsos que ocorriam na antiga projeção diária acumulada de 90 dias quando não havia receitas futuras cadastradas com meses de antecedência. Agora, o simulador apresenta um comparativo transparente mês a mês (em tabela detalhada e gráfico de barras + linha de saldo), demonstrando com fidelidade o impacto de compras parceladas no cartão de crédito, receitas extras e despesas avulsas sobre o saldo final de cada competência, mantendo a efetivação no Firestore com 1 clique.
+
+**Alterações técnicas:**
+- `src/types/simulator.ts` — inclusão dos tipos `SimulationHorizon`, `SimulationMonthPoint` e `SimulationSummary`.
+- `src/lib/simulatorEngine.ts` — criação da função `runMonthlySimulationComparison` e do helper `getHorizonDates`, executando em paralelo o fluxo de caixa para a base real e a base simulada (com transações sintéticas de parcelas de cartão e receitas/despesas) com intervalos dinâmicos (`current_month`, `3_months`, `6_months`, `current_year`).
+- `src/lib/simulatorEngine.test.ts` — adição de testes unitários para a simulação mensal, validando alocação de parcelas nas faturas futuras e cálculo do saldo final previsto.
+- `src/components/simulator/SimulationCardComparison.tsx` — redesenho dos 4 cards de KPIs para Saldo Final Previsto (Real vs Simulado), Entradas Previstas, Saídas & Faturas e Variação Líquida de Caixa ($\Delta$).
+- `src/components/simulator/SimulationMonthTable.tsx` — novo componente de tabela mês a mês com comparativo linha a linha de Entradas, Saídas/Faturas, Resultado Líquido e Saldo Final Previsto.
+- `src/components/simulator/SimulationChart.tsx` — novo gráfico ComposedChart comparando barras de Entradas e Saídas simuladas com a evolução da linha de Saldo Base vs Saldo Simulado.
+- `src/pages/Simulator.tsx` — integração completa com seleção de horizontes (`Mês Atual`, `3 Meses`, `6 Meses`, `Ano Atual`), cards de KPIs, gráfico, tabela comparativa, lista de hipóteses e modal de efetivação.
+
+---
+
 ## [0.18.2] — 2026-09-05 — Alinhamento do Card do Dashboard e Filtro Anual Civil
 
 **Resultado:** O card de projeção no Dashboard agora reflete com precisão contábil o **Saldo Previsto (Fim do Mês)** calculado pelo mesmo motor canônico do relatório *Entradas × Saídas* (`buildAccountFlowReport` com `includePending: true`), eliminando discrepâncias artificiais causadas pela projeção de 90 dias sem receitas futuras lançadas. Além disso, a opção "Ano" no seletor do Dashboard e o atalho "Este ano" nos relatórios passam a selecionar o **Ano Civil Vigente** (01/01 a 31/12 do ano atual) em vez dos últimos 12 meses móveis retroativos.

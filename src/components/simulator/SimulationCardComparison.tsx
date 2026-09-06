@@ -1,35 +1,29 @@
 import React from 'react';
-import { SimulationComparison } from '../../types/simulator';
-import { ShieldCheck, ShieldAlert, AlertTriangle, TrendingDown, ArrowRight, Calendar, Info } from 'lucide-react';
+import { SimulationSummary } from '../../types/simulator';
+import { ArrowRight, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 
 interface SimulationCardComparisonProps {
-  comparison: SimulationComparison;
-  days: number;
-  safetyReserve: number;
+  summary: SimulationSummary;
+  horizonLabel: string;
+  safetyReserve?: number;
 }
 
 export function SimulationCardComparison({
-  comparison,
-  days,
-  safetyReserve,
+  summary,
+  horizonLabel,
+  safetyReserve = 0,
 }: SimulationCardComparisonProps) {
   const fmt = (val: number) =>
     `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const fmtDate = (dStr: string) => {
-    if (!dStr) return '—';
-    const [y, m, d] = dStr.split('-');
-    return `${d}/${m}/${y}`;
-  };
-
-  const isAtDeficitRisk = comparison.simulatedMinBalance < 0;
-  const isConsumingReserve = comparison.simulatedMargin < 0 && !isAtDeficitRisk;
+  const isAtDeficit = summary.simulatedFinalBalance < 0;
+  const isConsumingReserve = safetyReserve > 0 && (summary.simulatedFinalBalance - safetyReserve < 0) && !isAtDeficit;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* 1. Card Folga Livre (Margem de Caixa) */}
+      {/* 1. Saldo Final Previsto */}
       <div className={`p-4 rounded-2xl border transition-all ${
-        isAtDeficitRisk
+        isAtDeficit
           ? 'bg-rose-500/5 border-rose-500/30'
           : isConsumingReserve
             ? 'bg-amber-500/5 border-amber-500/30'
@@ -38,138 +32,125 @@ export function SimulationCardComparison({
         <div>
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-              Folga Livre ({days}d)
+              Saldo Final Previsto ({horizonLabel})
             </span>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-              isAtDeficitRisk
+              isAtDeficit
                 ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                 : isConsumingReserve
                   ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                   : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
             }`}>
-              {isAtDeficitRisk ? 'Déficit' : isConsumingReserve ? 'Consome Reserva' : 'Seguro'}
+              {isAtDeficit ? 'Déficit' : isConsumingReserve ? 'Consome Reserva' : 'Positivo'}
             </span>
           </div>
 
           <div className="flex items-baseline gap-2 mb-1">
             <div className="text-[13px] font-mono text-muted-foreground line-through">
-              {fmt(comparison.realMargin)}
+              {fmt(summary.realFinalBalance)}
             </div>
             <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
             <div className={`text-[22px] font-bold font-mono tracking-tight ${
-              comparison.simulatedMargin < 0 ? 'text-fiducia-red' : 'text-fiducia-green'
+              summary.simulatedFinalBalance < 0 ? 'text-fiducia-red' : 'text-fiducia-green'
             }`}>
-              {fmt(comparison.simulatedMargin)}
+              {fmt(summary.simulatedFinalBalance)}
             </div>
           </div>
         </div>
 
         <div className="pt-2 border-t border-border/60 text-[11px] flex items-center justify-between text-muted-foreground">
-          <span>Impacto na margem:</span>
-          <strong className={`font-mono font-bold ${comparison.marginDelta < 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
-            {comparison.marginDelta > 0 ? '+' : ''}{fmt(comparison.marginDelta)}
+          <span>Impacto no bolso:</span>
+          <strong className={`font-mono font-bold ${summary.finalBalanceDelta < 0 ? 'text-fiducia-red' : summary.finalBalanceDelta > 0 ? 'text-fiducia-green' : 'text-muted-foreground'}`}>
+            {summary.finalBalanceDelta > 0 ? '+' : ''}{fmt(summary.finalBalanceDelta)}
           </strong>
         </div>
       </div>
 
-      {/* 2. Card Pior Saldo Previsto (Menor Saldo) */}
+      {/* 2. Total de Entradas Previstas */}
       <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-              Menor Saldo Previsto
+              Entradas Previstas
             </span>
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <Calendar className="w-3 h-3" />
-              <span>{fmtDate(comparison.simulatedMinBalanceDate)}</span>
-            </div>
+            <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
 
           <div className="flex items-baseline gap-2 mb-1">
             <div className="text-[13px] font-mono text-muted-foreground line-through">
-              {fmt(comparison.realMinBalance)}
+              {fmt(summary.realTotalInflow)}
             </div>
             <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
-            <div className={`text-[22px] font-bold font-mono tracking-tight ${
-              comparison.simulatedMinBalance < 0 ? 'text-fiducia-red' : 'text-foreground'
-            }`}>
-              {fmt(comparison.simulatedMinBalance)}
+            <div className="text-[22px] font-bold font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
+              {fmt(summary.simulatedTotalInflow)}
             </div>
           </div>
         </div>
 
         <div className="pt-2 border-t border-border/60 text-[11px] flex items-center justify-between text-muted-foreground">
-          <span>Reserva protegida:</span>
+          <span>Receitas simuladas:</span>
+          <strong className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+            +{fmt(summary.inflowDelta)}
+          </strong>
+        </div>
+      </div>
+
+      {/* 3. Saídas e Faturas Previstas */}
+      <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Saídas e Faturas
+            </span>
+            <TrendingDown className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+          </div>
+
+          <div className="flex items-baseline gap-2 mb-1">
+            <div className="text-[13px] font-mono text-muted-foreground line-through">
+              {fmt(summary.realTotalOutflow)}
+            </div>
+            <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
+            <div className="text-[22px] font-bold font-mono tracking-tight text-rose-600 dark:text-rose-400">
+              {fmt(summary.simulatedTotalOutflow)}
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-border/60 text-[11px] flex items-center justify-between text-muted-foreground">
+          <span>Gastos / Parcelas simulados:</span>
+          <strong className="font-mono font-semibold text-rose-600 dark:text-rose-400">
+            +{fmt(summary.outflowDelta)}
+          </strong>
+        </div>
+      </div>
+
+      {/* 4. Variação Líquida de Caixa */}
+      <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Variação Líquida (Delta)
+            </span>
+            <Wallet className="w-4 h-4 text-fiducia-blue" />
+          </div>
+
+          <div className="flex items-baseline gap-2 mb-1">
+            <div className={`text-[22px] font-bold font-mono tracking-tight ${
+              summary.finalBalanceDelta < 0
+                ? 'text-fiducia-red'
+                : summary.finalBalanceDelta > 0
+                  ? 'text-fiducia-green'
+                  : 'text-foreground'
+            }`}>
+              {summary.finalBalanceDelta > 0 ? '+' : ''}{fmt(summary.finalBalanceDelta)}
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-border/60 text-[11px] flex items-center justify-between text-muted-foreground">
+          <span>Saldo inicial do caixa:</span>
           <strong className="font-mono font-semibold text-foreground">
-            {fmt(safetyReserve)}
-          </strong>
-        </div>
-      </div>
-
-      {/* 3. Card Dias em Risco de Déficit */}
-      <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
-        <div>
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-              Dias com Saldo Negativo
-            </span>
-            {comparison.simulatedDaysAtRisk > 0 ? (
-              <ShieldAlert className="w-4 h-4 text-fiducia-red" />
-            ) : (
-              <ShieldCheck className="w-4 h-4 text-fiducia-green" />
-            )}
-          </div>
-
-          <div className="flex items-baseline gap-2 mb-1">
-            <div className="text-[13px] font-mono text-muted-foreground line-through">
-              {comparison.realDaysAtRisk} dia{comparison.realDaysAtRisk !== 1 ? 's' : ''}
-            </div>
-            <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
-            <div className={`text-[22px] font-bold font-mono tracking-tight ${
-              comparison.simulatedDaysAtRisk > 0 ? 'text-fiducia-red' : 'text-fiducia-green'
-            }`}>
-              {comparison.simulatedDaysAtRisk} dia{comparison.simulatedDaysAtRisk !== 1 ? 's' : ''}
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-2 border-t border-border/60 text-[11px] flex items-center justify-between text-muted-foreground">
-          <span>Variação de risco:</span>
-          <strong className={comparison.simulatedDaysAtRisk > comparison.realDaysAtRisk ? 'text-fiducia-red' : 'text-foreground'}>
-            {comparison.simulatedDaysAtRisk > comparison.realDaysAtRisk
-              ? `+${comparison.simulatedDaysAtRisk - comparison.realDaysAtRisk} dia(s) crítico(s)`
-              : 'Sem aumento de risco'}
-          </strong>
-        </div>
-      </div>
-
-      {/* 4. Card Saldo Final Projetado */}
-      <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
-        <div>
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-              Saldo Final ({days}d)
-            </span>
-            <TrendingDown className="w-4 h-4 text-fiducia-blue" />
-          </div>
-
-          <div className="flex items-baseline gap-2 mb-1">
-            <div className="text-[13px] font-mono text-muted-foreground line-through">
-              {fmt(comparison.realEndingBalance)}
-            </div>
-            <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
-            <div className={`text-[22px] font-bold font-mono tracking-tight ${
-              comparison.simulatedEndingBalance < 0 ? 'text-fiducia-red' : 'text-fiducia-blue'
-            }`}>
-              {fmt(comparison.simulatedEndingBalance)}
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-2 border-t border-border/60 text-[11px] flex items-center justify-between text-muted-foreground">
-          <span>Impacto líquido total:</span>
-          <strong className={`font-mono font-bold ${comparison.endingBalanceDelta < 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
-            {comparison.endingBalanceDelta > 0 ? '+' : ''}{fmt(comparison.endingBalanceDelta)}
+            {fmt(summary.initialBalance)}
           </strong>
         </div>
       </div>

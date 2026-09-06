@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateSimulatedTransactions, runSimulationComparison } from './simulatorEngine';
+import { generateSimulatedTransactions, runSimulationComparison, runMonthlySimulationComparison } from './simulatorEngine';
 import { SimulatedItem } from '../types/simulator';
 
 describe('simulatorEngine', () => {
@@ -15,7 +15,7 @@ describe('simulatorEngine', () => {
     },
   ];
 
-  const mockAccounts = [
+  const mockAccounts: import('../types').Account[] = [
     {
       id: 'acc-1',
       name: 'Conta Corrente',
@@ -130,4 +130,64 @@ describe('simulatorEngine', () => {
     expect(result.comparison.simulatedDaysAtRisk).toBeGreaterThan(0);
     expect(result.dailyAlerts.length).toBeGreaterThan(0);
   });
+
+  it('calcula comparativo mensal de Entradas x Saídas corretamente', () => {
+    const refDate = new Date(2026, 8, 5); // 05/09/2026
+
+    const items: SimulatedItem[] = [
+      {
+        id: 'sim-extra-income',
+        name: 'Freelance',
+        type: 'income',
+        amount: 1500,
+        date: '2026-09-15',
+        enabled: true,
+        accountId: 'acc-1',
+        createdAt: '2026-09-05',
+      },
+      {
+        id: 'sim-tv-installment',
+        name: 'Smart TV',
+        type: 'card_expense',
+        amount: 2000,
+        date: '2026-09-10',
+        enabled: true,
+        installments: 2, // 1000 em Out/26 e 1000 em Nov/26
+        cardId: 'card-1',
+        createdAt: '2026-09-05',
+      },
+    ];
+
+    const res = runMonthlySimulationComparison({
+      accounts: [{ ...mockAccounts[0], initialBalance: 4000, balance: 4000 }],
+      transactions: [],
+      creditCards: mockCreditCards,
+      invoices: [],
+      categories: [],
+      simulatedItems: items,
+      horizon: '3_months',
+      referenceDate: refDate,
+    });
+
+    expect(res.horizon).toBe('3_months');
+    expect(res.startDate).toBe('2026-09-01');
+    expect(res.endDate).toBe('2026-11-30');
+    expect(res.monthPoints).toHaveLength(3);
+
+    // Setembro (2026-09): Receita extra de 1500
+    const sep = res.monthPoints.find(p => p.monthKey === '2026-09');
+    expect(sep).toBeDefined();
+    expect(sep?.inflowDelta).toBe(1500);
+
+    // Saldo inicial 4000 + 1500 de entrada = 5500
+    expect(sep?.simulatedEndingBalance).toBe(5500);
+
+    // Resumo final do período
+    expect(res.summary.simulatedTotalInflow).toBe(1500);
+    expect(res.summary.simulatedTotalOutflow).toBe(2000); // 2 parcelas de 1000
+    // Saldo final: 4000 + 1500 - 2000 = 3500
+    expect(res.summary.simulatedFinalBalance).toBe(3500);
+    expect(res.summary.finalBalanceDelta).toBe(-500);
+  });
 });
+

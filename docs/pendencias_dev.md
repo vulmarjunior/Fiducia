@@ -5,15 +5,15 @@
 
 ## Próxima pauta
 
-**Estado:** Alinhamento do Card do Dashboard e Filtro Anual Civil (`v0.18.2`) implementado, testado e validado com sucesso. O card do Dashboard agora exibe o Saldo Previsto (Fim do Mês) com metodologia 100% idêntica ao relatório Entradas × Saídas (`buildAccountFlowReport` com `includePending: true`), e os filtros de "Ano" no Dashboard e "Este ano" nos relatórios cobrem o ano civil vigente (01/01 a 31/12).
+**Estado:** Simulador de Decisões de Caixa baseado em Entradas × Saídas Mensal (`v0.19.0`) implementado, testado e validado com sucesso. O motor foi alinhado ao cálculo canônico de fluxo mensal de caixa (`buildAccountFlowReport` com `includePending: true`), exibindo comparativo transparente mês a mês (em tabela e gráfico) e eliminando os déficits artificiais da antiga projeção contínua de 90 dias.
 
-**Versão de base:** `0.18.2`.
+**Versão de base:** `0.19.0`.
 
-**Referência da última entrega:** `CHANGELOG.md` (`[0.18.2]`).
+**Referência da última entrega:** `CHANGELOG.md` (`[0.19.0]`).
 
 ### Próximo passo sugerido
 
-1. Validação em produção ou conferência visual no dashboard.
+1. Validação da experiência pelo usuário no navegador.
 2. Continuidade das demandas do usuário.
 
 ### Frente Android pausada

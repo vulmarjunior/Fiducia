@@ -42,3 +42,35 @@ export interface SimulationChartPoint {
   simulatedBalance: number;
   diff: number;
 }
+
+export type SimulationHorizon = 'current_month' | '3_months' | '6_months' | 'current_year';
+
+export interface SimulationMonthPoint {
+  monthKey: string;
+  monthLabel: string;
+  realInflow: number;
+  simulatedInflow: number;
+  inflowDelta: number;
+  realOutflow: number;
+  simulatedOutflow: number;
+  outflowDelta: number;
+  realNetResult: number;
+  simulatedNetResult: number;
+  netResultDelta: number;
+  realEndingBalance: number;
+  simulatedEndingBalance: number;
+  endingBalanceDelta: number;
+}
+
+export interface SimulationSummary {
+  initialBalance: number;
+  realTotalInflow: number;
+  simulatedTotalInflow: number;
+  inflowDelta: number;
+  realTotalOutflow: number;
+  simulatedTotalOutflow: number;
+  outflowDelta: number;
+  realFinalBalance: number;
+  simulatedFinalBalance: number;
+  finalBalanceDelta: number;
+}

@@ -1,7 +1,63 @@
-import { CreditCard, Transaction } from '../types';
-import { SimulatedItem, SimulationComparison, SimulationChartPoint } from '../types/simulator';
+import { Account, Category, CreditCard, Invoice, Transaction } from '../types';
+import {
+  SimulatedItem,
+  SimulationComparison,
+  SimulationChartPoint,
+  SimulationHorizon,
+  SimulationMonthPoint,
+  SimulationSummary,
+} from '../types/simulator';
 import { calculateInvoicePeriod, parseLocalDate } from './utils';
 import { buildCashCoverageProjection, calculateCashMargin } from './cashCoverage';
+import { buildAccountFlowReport } from './reports/accountFlow';
+import { normalizeTransactions, fromCents } from './reports/normalize';
+import { ReportFilters } from '../types/reports';
+
+export function getHorizonDates(
+  horizon: SimulationHorizon,
+  referenceDate: Date = new Date()
+): { startDate: string; endDate: string } {
+  const y = referenceDate.getFullYear();
+  const m = referenceDate.getMonth();
+
+  if (horizon === 'current_month') {
+    const endDay = new Date(y, m + 1, 0).getDate();
+    return {
+      startDate: `${y}-${String(m + 1).padStart(2, '0')}-01`,
+      endDate: `${y}-${String(m + 1).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`,
+    };
+  }
+
+  if (horizon === '3_months') {
+    const endMonth = m + 2;
+    const targetDate = new Date(y, endMonth + 1, 0);
+    const endY = targetDate.getFullYear();
+    const endM = targetDate.getMonth() + 1;
+    const endD = targetDate.getDate();
+    return {
+      startDate: `${y}-${String(m + 1).padStart(2, '0')}-01`,
+      endDate: `${endY}-${String(endM).padStart(2, '0')}-${String(endD).padStart(2, '0')}`,
+    };
+  }
+
+  if (horizon === '6_months') {
+    const endMonth = m + 5;
+    const targetDate = new Date(y, endMonth + 1, 0);
+    const endY = targetDate.getFullYear();
+    const endM = targetDate.getMonth() + 1;
+    const endD = targetDate.getDate();
+    return {
+      startDate: `${y}-${String(m + 1).padStart(2, '0')}-01`,
+      endDate: `${endY}-${String(endM).padStart(2, '0')}-${String(endD).padStart(2, '0')}`,
+    };
+  }
+
+  // current_year
+  return {
+    startDate: `${y}-01-01`,
+    endDate: `${y}-12-31`,
+  };
+}
 
 /**
  * Gera transações sintéticas pendentes a partir das hipóteses simuladas ativas.
@@ -217,3 +273,153 @@ export function runSimulationComparison({
     simulatedProjection,
   };
 }
+
+export interface MonthlySimulationResult {
+  horizon: SimulationHorizon;
+  startDate: string;
+  endDate: string;
+  summary: SimulationSummary;
+  monthPoints: SimulationMonthPoint[];
+  baseReport: import('../types/reports').AccountFlowReportResult;
+  simulatedReport: import('../types/reports').AccountFlowReportResult;
+  simulatedTransactions: Transaction[];
+}
+
+/**
+ * Motor canônico de simulação baseado no relatório de Entradas × Saídas (Fluxo Mensal).
+ * Compara o Cenário Base (dados reais) com o Cenário Simulado (dados reais + hipóteses ativas)
+ * sem distorções temporais ou déficits artificiais.
+ */
+export function runMonthlySimulationComparison({
+  accounts,
+  transactions,
+  creditCards,
+  invoices,
+  categories = [],
+  simulatedItems,
+  horizon = '3_months',
+  includeSavings = false,
+  referenceDate = new Date(),
+}: {
+  accounts: Account[];
+  transactions: Transaction[];
+  creditCards: CreditCard[];
+  invoices: Invoice[];
+  categories?: Category[];
+  simulatedItems: SimulatedItem[];
+  horizon?: SimulationHorizon;
+  includeSavings?: boolean;
+  referenceDate?: Date;
+}): MonthlySimulationResult {
+  const { startDate, endDate } = getHorizonDates(horizon, referenceDate);
+
+  // 1. Gera transações sintéticas para as hipóteses ativas (horizonte de 365 dias para cobrir as parcelas)
+  const syntheticTxs = generateSimulatedTransactions(simulatedItems, creditCards, 365);
+
+  // 2. Normaliza base real
+  const normalizedBase = normalizeTransactions(transactions, categories, creditCards, invoices);
+
+  // 3. Normaliza cenário simulado (base real + sintéticos)
+  const allTxs = [...transactions, ...syntheticTxs];
+  const normalizedSimulated = normalizeTransactions(allTxs, categories, creditCards, invoices);
+
+  // 4. Configuração de filtros para o buildAccountFlowReport mensal
+  const filters: ReportFilters = {
+    selectedMonth: startDate.slice(0, 7),
+    customRange: { startDate, endDate },
+    intervalType: 'month',
+    status: 'all',
+    accumulated: false,
+    includePending: true,
+    includeSavings,
+  };
+
+  // 5. Executa ambos os fluxos canônicos
+  const baseRes = buildAccountFlowReport(accounts, creditCards, invoices, normalizedBase, filters);
+  const simRes = buildAccountFlowReport(accounts, creditCards, invoices, normalizedSimulated, filters);
+
+  const basePoints = baseRes.cashFlowResult.points;
+  const simPoints = simRes.cashFlowResult.points;
+
+  // 6. Monta pontos comparativos mês a mês
+  const monthPoints: SimulationMonthPoint[] = basePoints.map((basePt, idx) => {
+    const simPt = simPoints[idx] || basePt;
+
+    const realInflow = basePt.inflow;
+    const simulatedInflow = simPt.inflow;
+    const inflowDelta = Math.round((simulatedInflow - realInflow) * 100) / 100;
+
+    const realOutflow = basePt.outflow;
+    const simulatedOutflow = simPt.outflow;
+    const outflowDelta = Math.round((simulatedOutflow - realOutflow) * 100) / 100;
+
+    const realNetResult = basePt.result;
+    const simulatedNetResult = simPt.result;
+    const netResultDelta = Math.round((simulatedNetResult - realNetResult) * 100) / 100;
+
+    const realEndingBalance = basePt.projectedEndingBalanceCents !== undefined
+      ? fromCents(basePt.projectedEndingBalanceCents)
+      : (basePt.endingBalance || 0);
+
+    const simulatedEndingBalance = simPt.projectedEndingBalanceCents !== undefined
+      ? fromCents(simPt.projectedEndingBalanceCents)
+      : (simPt.endingBalance || 0);
+
+    const endingBalanceDelta = Math.round((simulatedEndingBalance - realEndingBalance) * 100) / 100;
+
+    return {
+      monthKey: basePt.periodKey,
+      monthLabel: basePt.label,
+      realInflow,
+      simulatedInflow,
+      inflowDelta,
+      realOutflow,
+      simulatedOutflow,
+      outflowDelta,
+      realNetResult,
+      simulatedNetResult,
+      netResultDelta,
+      realEndingBalance,
+      simulatedEndingBalance,
+      endingBalanceDelta,
+    };
+  });
+
+  // 7. Sumário consolidado do período selecionado
+  const realTotalInflow = baseRes.cashFlowResult.totalInflow;
+  const simulatedTotalInflow = simRes.cashFlowResult.totalInflow;
+  const inflowDelta = Math.round((simulatedTotalInflow - realTotalInflow) * 100) / 100;
+
+  const realTotalOutflow = baseRes.cashFlowResult.totalOutflow;
+  const simulatedTotalOutflow = simRes.cashFlowResult.totalOutflow;
+  const outflowDelta = Math.round((simulatedTotalOutflow - realTotalOutflow) * 100) / 100;
+
+  const realFinalBalance = baseRes.accountFlowResult.consolidatedProjectedEndingBalance;
+  const simulatedFinalBalance = simRes.accountFlowResult.consolidatedProjectedEndingBalance;
+  const finalBalanceDelta = Math.round((simulatedFinalBalance - realFinalBalance) * 100) / 100;
+
+  const summary: SimulationSummary = {
+    initialBalance: baseRes.cashFlowResult.startingBalance,
+    realTotalInflow,
+    simulatedTotalInflow,
+    inflowDelta,
+    realTotalOutflow,
+    simulatedTotalOutflow,
+    outflowDelta,
+    realFinalBalance,
+    simulatedFinalBalance,
+    finalBalanceDelta,
+  };
+
+  return {
+    horizon,
+    startDate,
+    endDate,
+    summary,
+    monthPoints,
+    baseReport: baseRes.accountFlowResult,
+    simulatedReport: simRes.accountFlowResult,
+    simulatedTransactions: syntheticTxs,
+  };
+}
+
