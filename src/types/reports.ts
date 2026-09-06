@@ -14,8 +14,8 @@ export interface ReportCustomRange {
 export interface ReportFilters {
   selectedMonth: string; // YYYY-MM
   customRange?: ReportCustomRange;
-  categoryIds?: string[]; // IDs explicitamente selecionados; undefined = todas; [] = nenhuma
-  originIds?: string[];   // IDs de contas ou cartões; undefined = todas; [] = nenhuma
+  categoryIds?: string[];
+  originIds?: string[];
   status: PaymentStatusFilter;
   intervalType: ReportIntervalType;
   accumulated: boolean;
@@ -25,8 +25,8 @@ export interface ReportFilters {
 
 export interface NormalizedTransaction {
   id: string;
-  date: string; // YYYY-MM-DD
-  month: string; // YYYY-MM
+  date: string;
+  month: string;
   invoicePeriod?: string;
   amountCents: number;
   description: string;
@@ -39,15 +39,15 @@ export interface NormalizedTransaction {
   accountId?: string;
   destinationAccountId?: string;
   isInvoicePayment: boolean;
-  isCredit: boolean; // estorno ou crédito no cartão
-  isValid: boolean; // false quando data/valor não podem ser interpretados
+  isCredit: boolean;
+  isValid: boolean;
   invalidReason?: string;
   raw: Transaction;
 }
 
 export interface ReportDiagnostics {
-  invalidCount: number; // registros excluídos por data/valor inválidos
-  excludedCount: number; // registros excluídos por status cancelado
+  invalidCount: number;
+  excludedCount: number;
 }
 
 export interface CategoryDistributionItem {
@@ -67,10 +67,10 @@ export interface CategoryDistributionItem {
 export interface CategoryEvolutionPoint {
   periodKey: string;
   label: string;
-  values: Record<string, number>; // categoryId -> valor em reais (retrocompatível)
+  values: Record<string, number>;
   total: number;
   entriesCount: number;
-  valuesCents: Record<string, number>; // categoryId -> valor em centavos (fonte canônica)
+  valuesCents: Record<string, number>;
   totalCents: number;
 }
 
@@ -105,8 +105,8 @@ export interface CashFlowPoint {
   pendingInflowCents: number;
   pendingOutflowCents: number;
   pendingResultCents: number;
-  openingCapitalCents: number; // capital inicial de conta aberta no período (não é receita)
-  priorPendingCents: number; // pendências anteriores ao intervalo, sinalizadas fora do período
+  openingCapitalCents: number;
+  priorPendingCents: number;
   projectedEndingBalanceCents?: number;
   entries: NormalizedTransaction[];
 }
@@ -174,6 +174,8 @@ export interface UnallocatedInvoiceObligation {
   remainingAmountCents: number;
   invoiceStatus: string;
   hasPendingPayment: boolean;
+  sourceKind?: 'invoice_document' | 'card_transactions';
+  sourceEntries?: NormalizedTransaction[];
 }
 
 export interface AccountFlowReportResult {
