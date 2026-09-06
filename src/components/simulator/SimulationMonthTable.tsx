@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { SimulationMonthPoint, SimulationIntervalType } from '../../types/simulator';
-import { Calendar, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Calendar, ArrowRight, Eye, EyeOff, ChevronRight } from 'lucide-react';
 
 interface SimulationMonthTableProps {
   monthPoints: SimulationMonthPoint[];
   intervalType?: SimulationIntervalType;
   safetyReserve?: number;
+  onSelectPoint?: (point: SimulationMonthPoint) => void;
 }
 
 export function SimulationMonthTable({
   monthPoints,
   intervalType = 'month',
   safetyReserve = 0,
+  onSelectPoint,
 }: SimulationMonthTableProps) {
   const [hideEmptyDays, setHideEmptyDays] = useState(false);
   const fmt = (val: number) =>
@@ -36,8 +38,8 @@ export function SimulationMonthTable({
             </h3>
             <p className="text-xs text-muted-foreground">
               {isDaily
-                ? 'Acompanhe dia a dia como as decisões afetam cada dia do período'
-                : 'Acompanhe mês a mês como as hipóteses afetam entradas, faturas e o saldo final previsto'}
+                ? 'Clique em qualquer dia para ver os lançamentos detalhados'
+                : 'Clique em qualquer mês para ver os lançamentos detalhados'}
             </p>
           </div>
         </div>
@@ -80,10 +82,18 @@ export function SimulationMonthTable({
                 const isConsumingReserve = safetyReserve > 0 && (pt.simulatedEndingBalance - safetyReserve < 0) && !isNegativeFinal;
 
                 return (
-                  <tr key={pt.monthKey} className="hover:bg-muted/20 transition-colors">
+                  <tr
+                    key={pt.monthKey}
+                    onClick={() => onSelectPoint?.(pt)}
+                    className="hover:bg-muted/40 transition-colors cursor-pointer group"
+                    title="Clique para ver os lançamentos deste período"
+                  >
                     {/* Data / Mês */}
                     <td className="py-3 px-4 font-bold text-foreground whitespace-nowrap">
-                      {pt.monthLabel}
+                      <div className="flex items-center gap-1.5">
+                        <span className="group-hover:text-fiducia-blue transition-colors">{pt.monthLabel}</span>
+                        <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-fiducia-blue transition-opacity shrink-0" />
+                      </div>
                     </td>
 
                     {/* Entradas */}

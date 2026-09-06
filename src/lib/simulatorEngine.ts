@@ -385,6 +385,7 @@ export function runMonthlySimulationComparison({
       realEndingBalance,
       simulatedEndingBalance,
       endingBalanceDelta,
+      entries: simPt.entries || basePt.entries || [],
     };
   });
 

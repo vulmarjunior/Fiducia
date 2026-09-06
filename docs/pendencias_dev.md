@@ -5,11 +5,11 @@
 
 ## Próxima pauta
 
-**Estado:** Cenários Salvos e Sincronizados no Firestore (`v0.20.0`) implementado, testado e validado com sucesso. O Simulador agora permite salvar, alternar, renomear, carregar e excluir múltiplos cenários no Firebase Firestore com isolamento por usuário, garantindo persistência e sincronização entre diferentes instâncias e dispositivos.
+**Estado:** Detalhamento de Lançamentos por Período no Simulador (`v0.20.1`) implementado, testado e validado com sucesso. O Simulador agora abre o modal `ReportDetailsDialog` ao clicar em qualquer dia ou mês (na tabela ou no gráfico), exibindo as movimentações detalhadas de caixa (reais e simuladas) que compõem o saldo do período.
 
-**Versão de base:** `0.20.0`.
+**Versão de base:** `0.20.1`.
 
-**Referência da última entrega:** `CHANGELOG.md` (`[0.20.0]`).
+**Referência da última entrega:** `CHANGELOG.md` (`[0.20.1]`).
 
 ### Próximo passo sugerido
 

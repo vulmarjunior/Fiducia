@@ -17,6 +17,7 @@ import {
   SimulationHorizon,
   SimulationIntervalType,
   SimulationScenario,
+  SimulationMonthPoint,
 } from '../types/simulator';
 import { CASH_SAFETY_RESERVE_KEY } from '../lib/cashCoverage';
 import {
@@ -31,6 +32,7 @@ import { SimulationChart } from '../components/simulator/SimulationChart';
 import { SimulationMonthTable } from '../components/simulator/SimulationMonthTable';
 import { SimulationItemList } from '../components/simulator/SimulationItemList';
 import { SaveScenarioDialog } from '../components/simulator/SaveScenarioDialog';
+import { ReportDetailsDialog } from '../components/reports/ReportDetailsDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PageHelp } from '../components/PageHelp';
 import { Button } from '../components/ui/button';
@@ -113,6 +115,17 @@ export function Simulator() {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState<boolean>(false);
   const [isSavingScenario, setIsSavingScenario] = useState<boolean>(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
+
+  // Modal de Detalhes de Lançamentos
+  const [selectedPoint, setSelectedPoint] = useState<SimulationMonthPoint | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
+
+  const entityNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    accounts.forEach(a => { if (a.id) map[a.id] = a.name; });
+    creditCards.forEach(c => { if (c.id) map[c.id] = c.name; });
+    return map;
+  }, [accounts, creditCards]);
 
   const safetyReserve = Math.max(0, Number(localStorage.getItem(CASH_SAFETY_RESERVE_KEY)) || 0);
 
@@ -674,6 +687,10 @@ export function Simulator() {
             data={monthlySimulation.monthPoints}
             intervalType={intervalType}
             safetyReserve={safetyReserve}
+            onSelectPoint={(pt) => {
+              setSelectedPoint(pt);
+              setDetailsOpen(true);
+            }}
           />
 
           {/* 3. TABELA COMPARATIVA (DIÁRIA OU MENSAL) */}
@@ -681,6 +698,10 @@ export function Simulator() {
             monthPoints={monthlySimulation.monthPoints}
             intervalType={intervalType}
             safetyReserve={safetyReserve}
+            onSelectPoint={(pt) => {
+              setSelectedPoint(pt);
+              setDetailsOpen(true);
+            }}
           />
 
           {/* 4. GRID: FORMULÁRIO + LISTA DE HIPÓTESES */}
@@ -782,6 +803,20 @@ export function Simulator() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL DE DETALHES DOS LANÇAMENTOS DO PERÍODO */}
+      {selectedPoint && (
+        <ReportDetailsDialog
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          title={`Lançamentos — ${selectedPoint.monthLabel}`}
+          subtitle={`${selectedPoint.entries?.length || 0} lançamento(s) de caixa no período`}
+          entries={selectedPoint.entries || []}
+          context={{ type: 'cashflow' }}
+          invoices={invoices}
+          entityNames={entityNames}
+        />
+      )}
     </div>
   );
 }

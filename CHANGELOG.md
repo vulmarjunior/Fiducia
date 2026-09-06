@@ -3,6 +3,19 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.20.1] — 2026-09-05 — Detalhamento de Lançamentos por Período no Simulador
+
+**Resultado:** Adicionado o modal de detalhamento de lançamentos (`ReportDetailsDialog`) ao Simulador de Decisões de Caixa (`/simulator`), reproduzindo exatamente o comportamento e layout de **Receitas × Despesas** / **Entradas × Saídas**. Ao clicar em qualquer linha da tabela de fluxo (seja no modo Diário ou Mensal) ou em qualquer ponto do gráfico comparativo, abre-se o modal exibindo a lista completa de lançamentos que compõem o caixa do período selecionado (incluindo receitas, despesas bancárias, faturas e parcelas simuladas), com seus valores, ícones de categoria, conta/cartão e status de efetivação.
+
+**Alterações técnicas:**
+- `src/types/simulator.ts` — inclusão da propriedade `entries` em `SimulationMonthPoint`.
+- `src/lib/simulatorEngine.ts` — propagação das transações normalizadas (`NormalizedTransaction[]`) do motor de fluxo de caixa para cada ponto de simulação.
+- `src/components/simulator/SimulationMonthTable.tsx` — suporte ao clique em linhas com `onSelectPoint`, hover styling com seta indicativa e cursor pointer.
+- `src/components/simulator/SimulationChart.tsx` — suporte ao clique nos elementos do gráfico interativo via `onSelectPoint`.
+- `src/pages/Simulator.tsx` — integração do modal `ReportDetailsDialog` conectado ao ponto clicado, com mapeamento de contas e cartões (`entityNames`).
+
+---
+
 ## [0.20.0] — 2026-09-05 — Cenários Salvos e Sincronizados no Firestore
 
 **Resultado:** Implementado o gerenciador completo de **Cenários Salvos** no Firestore para o Simulador de Caixa (`/simulator`). O usuário agora pode salvar múltiplos cenários com nomes personalizados (ex: *"Reforma da Casa"*, *"Troca de Carro"*, *"Viagem de Férias"*), alternar instantaneamente entre eles por um seletor e sincronizá-los em tempo real entre diferentes dispositivos, navegadores e instâncias (celular, tablet e computador). Inclui opções para salvar alterações no cenário ativo, salvar como novo cenário, criar novo em branco e excluir cenários com confirmação.

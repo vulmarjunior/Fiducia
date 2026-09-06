@@ -61,6 +61,7 @@ export interface SimulationMonthPoint {
   realEndingBalance: number;
   simulatedEndingBalance: number;
   endingBalanceDelta: number;
+  entries?: import('./reports').NormalizedTransaction[];
 }
 
 export interface SimulationSummary {

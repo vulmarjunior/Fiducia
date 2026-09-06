@@ -16,12 +16,14 @@ interface SimulationChartProps {
   data: SimulationMonthPoint[];
   intervalType?: SimulationIntervalType;
   safetyReserve?: number;
+  onSelectPoint?: (point: SimulationMonthPoint) => void;
 }
 
 export function SimulationChart({
   data,
   intervalType = 'month',
   safetyReserve = 0,
+  onSelectPoint,
 }: SimulationChartProps) {
   const fmt = (v: number) =>
     `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -71,7 +73,16 @@ export function SimulationChart({
 
       <div className="h-[300px] w-full pt-2">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+          <ComposedChart
+            data={data}
+            margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+            onClick={(e: any) => {
+              if (e && e.activePayload && e.activePayload[0]?.payload) {
+                onSelectPoint?.(e.activePayload[0].payload as SimulationMonthPoint);
+              }
+            }}
+            style={{ cursor: onSelectPoint ? 'pointer' : 'default' }}
+          >
             <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
             <XAxis
               dataKey="monthLabel"
