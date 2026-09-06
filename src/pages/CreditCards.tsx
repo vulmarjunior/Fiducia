@@ -13,7 +13,7 @@ import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ChevronDown
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
 import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, isInvoiceClosed, findSeriesTransactions, isEffectivelyPaid } from '../lib/utils';
-import { calculateCreditLimitUsage } from '../utils/creditCardUtils';
+import { calculateCreditLimitUsage, transactionBelongsToCard } from '../utils/creditCardUtils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
 import {
@@ -61,7 +61,6 @@ export function CreditCards() {
   const [invoiceViewMode, setInvoiceViewMode] = useState<'organized' | 'chronological'>('organized');
   const [isFutureCommitmentExpanded, setIsFutureCommitmentExpanded] = useState(false);
 
-  // PDF Import state
   const [isPdfReviewOpen, setIsPdfReviewOpen] = useState(false);
   const [pdfTransactions, setPdfTransactions] = useState<PdfTransaction[]>([]);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
@@ -69,7 +68,6 @@ export function CreditCards() {
   const pdfInputRef = React.useRef<HTMLInputElement>(null);
   const [isInvoiceReconciliationOpen, setIsInvoiceReconciliationOpen] = useState(false);
 
-  // PDF Export
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const handleExportInvoicePDF = async () => {
@@ -78,7 +76,7 @@ export function CreditCards() {
     try {
       const currentPeriod = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
       const periodTransactions = transactions.filter(t =>
-        (t.accountId === selectedCardForInvoice.id || t.destinationAccountId === selectedCardForInvoice.id) &&
+        transactionBelongsToCard(t, selectedCardForInvoice.id) &&
         t.invoicePeriod === currentPeriod
       );
       const invoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === currentPeriod);
@@ -168,10 +166,9 @@ export function CreditCards() {
     return calculateCreditLimitUsage(cardId, transactions, invoices);
   };
 
-
   const calculatePeriodBalance = (cardId: string, period: string) => {
     const periodTransactions = transactions.filter(t => 
-      (t.accountId === cardId || t.destinationAccountId === cardId) && 
+      transactionBelongsToCard(t, cardId) && 
       t.invoicePeriod === period
     );
     
@@ -184,7 +181,7 @@ export function CreditCards() {
       .reduce((acc, t) => acc + t.amount, 0);
       
     const incomes = periodTransactions
-      .filter(t => (t.type === 'income' || t.type === 'receita') && t.accountId === cardId)
+      .filter(t => t.type === 'income' || t.type === 'receita')
       .reduce((acc, t) => acc + t.amount, 0);
 
     return expenses - payments - incomes;
@@ -228,7 +225,6 @@ export function CreditCards() {
       handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'creditCards');
     }
   };
-
 
   const handlePayInvoice = async () => {
     if (isPayingInvoice) return;
@@ -362,7 +358,8 @@ export function CreditCards() {
   };
 
   const handleMoveInvoice = async (tx: any, direction: 'prev' | 'next') => {
-    if (isPeriodClosed(tx.date, tx.accountId, cards, invoices, closedPeriods)) {
+    const cardId = tx.creditCardId || tx.accountId;
+    if (isPeriodClosed(tx.date, cardId, cards, invoices, closedPeriods)) {
       toast.error('Não é possível editar um lançamento de um mês fechado.');
       return;
     }
@@ -388,7 +385,7 @@ export function CreditCards() {
 
       const newInvoicePeriod = `${year}-${month.toString().padStart(2, '0')}`;
 
-      if (isPeriodClosed(tx.date, tx.accountId, cards, invoices, closedPeriods, newInvoicePeriod)) {
+      if (isPeriodClosed(tx.date, cardId, cards, invoices, closedPeriods, newInvoicePeriod)) {
         toast.error('Não é possível mover um lançamento para uma fatura fechada.');
         return;
       }
@@ -409,6 +406,7 @@ export function CreditCards() {
 
   const handleEstornoTx = async (t: any) => {
     if (!user) return;
+    const cardId = t.creditCardId || (cards.some(c => c.id === t.accountId) ? t.accountId : selectedCardForInvoice?.id);
     try {
       const ref = doc(collection(db, 'transactions'));
       await runTransaction(db, async (transaction) => {
@@ -418,7 +416,8 @@ export function CreditCards() {
           amount: t.amount,
           date: new Date().toISOString().split('T')[0],
           description: `Estorno: ${t.description}`,
-          accountId: t.accountId,
+          creditCardId: cardId,
+          accountId: t.accountId || cardId,
           categoryId: t.categoryId || '',
           status: 'pago',
           parentId: t.id,
@@ -442,7 +441,7 @@ export function CreditCards() {
     const transactionsToDelete = findSeriesTransactions(t, transactions, deleteScope);
 
     for (const tx of transactionsToDelete) {
-      if (isPeriodClosed(tx.date, tx.accountId, cards, invoices, closedPeriods)) {
+      if (isPeriodClosed(tx.date, tx.creditCardId || tx.accountId, cards, invoices, closedPeriods)) {
         toast.error(`Não é possível excluir um lançamento de um mês fechado.`);
         return;
       }
@@ -477,7 +476,10 @@ export function CreditCards() {
 
         const affectedCardPeriods = new Set<string>();
         for (const tx of transactionsToDelete) {
-          if (tx.invoicePeriod) {
+          if (!tx.invoicePeriod) continue;
+          if (tx.creditCardId) {
+            affectedCardPeriods.add(`${tx.creditCardId}|${tx.invoicePeriod}`);
+          } else {
             if (cards.some(c => c.id === tx.accountId)) affectedCardPeriods.add(`${tx.accountId}|${tx.invoicePeriod}`);
             if (cards.some(c => c.id === tx.destinationAccountId)) affectedCardPeriods.add(`${tx.destinationAccountId}|${tx.invoicePeriod}`);
           }
@@ -490,7 +492,7 @@ export function CreditCards() {
           const deletedIds = new Set(transactionsToDelete.map(dt => dt.id));
           const hasRemaining = transactions.some(tx =>
             !deletedIds.has(tx.id) &&
-            (tx.accountId === cardId || tx.destinationAccountId === cardId) &&
+            transactionBelongsToCard(tx, cardId) &&
             tx.invoicePeriod === period
           );
           if (!hasRemaining) {
@@ -544,8 +546,9 @@ export function CreditCards() {
 
     try {
       for (const tx of transactions) {
-        if (tx.type === 'expense' && tx.accountId) {
-          const card = cards.find(c => c.id === tx.accountId);
+        if (tx.type === 'expense' || tx.type === 'despesa') {
+          const cardId = tx.creditCardId || (cards.some(c => c.id === tx.accountId) ? tx.accountId : null);
+          const card = cardId ? cards.find(c => c.id === cardId) : null;
           if (card) {
             const newPeriod = calculateInvoicePeriod(tx.date, card.closingDay, card.dueDay);
             if (tx.invoicePeriod !== newPeriod) {
@@ -624,7 +627,6 @@ export function CreditCards() {
       const batch = writeBatch(db);
       let totalCreated = 0;
 
-      // Pré-processa quais transações expandir
       const expandMap = new Map<string, boolean>();
       for (const s of expandedSeries) {
         expandMap.set(s.txId, true);
@@ -644,7 +646,6 @@ export function CreditCards() {
         const origDate = parseLocalDate(tx.date);
         const shouldExpand = expandMap.has(tx.id);
 
-        // Extrai installmentInfo mesmo se não expandir — sempre salva metadados
         let mainInstallmentNumber: number | undefined;
         let mainTotalInstallments: number | undefined;
 
@@ -660,7 +661,6 @@ export function CreditCards() {
           ? doc(collection(db, 'transactions')).id
           : undefined;
 
-        // Transação principal (a que está na fatura atual)
         const txRef = doc(collection(db, 'transactions'));
         const origDateIso = dateToLocalISOString(tx.date);
         batch.set(txRef, {
@@ -687,51 +687,50 @@ export function CreditCards() {
         });
         totalCreated++;
 
-        // Parcelas futuras — cria apenas se o usuário expandiu a série
         if (shouldExpand && mainInstallmentNumber !== undefined && mainTotalInstallments !== undefined) {
           const remaining = mainTotalInstallments - mainInstallmentNumber;
 
-            for (let i = 1; i <= remaining; i++) {
-              const futureDate = new Date(origDate);
-              futureDate.setMonth(futureDate.getMonth() + i);
-              const futureYear = futureDate.getFullYear();
-              const futureMonth = String(futureDate.getMonth() + 1).padStart(2, '0');
-              const futureDay = String(futureDate.getDate()).padStart(2, '0');
-              const futureDateStr = `${futureYear}-${futureMonth}-${futureDay}`;
-              const futurePeriod = calculateInvoicePeriod(
-                futureDateStr,
-                selectedCardForInvoice.closingDay,
-                selectedCardForInvoice.dueDay
-              );
-              const futureInstallment = mainInstallmentNumber + i;
-              const postingDateIso = dateToLocalISOString(futureDateStr);
+          for (let i = 1; i <= remaining; i++) {
+            const futureDate = new Date(origDate);
+            futureDate.setMonth(futureDate.getMonth() + i);
+            const futureYear = futureDate.getFullYear();
+            const futureMonth = String(futureDate.getMonth() + 1).padStart(2, '0');
+            const futureDay = String(futureDate.getDate()).padStart(2, '0');
+            const futureDateStr = `${futureYear}-${futureMonth}-${futureDay}`;
+            const futurePeriod = calculateInvoicePeriod(
+              futureDateStr,
+              selectedCardForInvoice.closingDay,
+              selectedCardForInvoice.dueDay
+            );
+            const futureInstallment = mainInstallmentNumber + i;
+            const postingDateIso = dateToLocalISOString(futureDateStr);
 
-              const futureRef = doc(collection(db, 'transactions'));
-              batch.set(futureRef, {
-                userId: user.uid,
-                type: tx.type,
-                amount: tx.amount,
-                date: postingDateIso,
-                description: `${tx.description} (${futureInstallment}/${mainTotalInstallments})`,
-                creditCardId: selectedCardForInvoice.id,
-                accountId: selectedCardForInvoice.id,
-                invoicePeriod: futurePeriod,
-                status: 'pendente',
-                reconciliationStatus: 'nao_conciliado',
-                categoryId: resolvedCategoryId,
-                parentId,
-                installmentNumber: futureInstallment,
-                totalInstallments: mainTotalInstallments,
-                originalPurchaseDate: origDateIso,
-                postingDate: postingDateIso,
-                isSystemGeneratedDate: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              });
-              totalCreated++;
-            }
+            const futureRef = doc(collection(db, 'transactions'));
+            batch.set(futureRef, {
+              userId: user.uid,
+              type: tx.type,
+              amount: tx.amount,
+              date: postingDateIso,
+              description: `${tx.description} (${futureInstallment}/${mainTotalInstallments})`,
+              creditCardId: selectedCardForInvoice.id,
+              accountId: selectedCardForInvoice.id,
+              invoicePeriod: futurePeriod,
+              status: 'pendente',
+              reconciliationStatus: 'nao_conciliado',
+              categoryId: resolvedCategoryId,
+              parentId,
+              installmentNumber: futureInstallment,
+              totalInstallments: mainTotalInstallments,
+              originalPurchaseDate: origDateIso,
+              postingDate: postingDateIso,
+              isSystemGeneratedDate: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+            totalCreated++;
           }
         }
+      }
 
       await batch.commit();
 
@@ -781,7 +780,7 @@ export function CreditCards() {
   const classifyInvoiceTransaction = (t: any, cardId: string, currentPeriod: string) => {
     if ((t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === cardId) return 'PAGAMENTOS_AJUSTES';
     if ((t.type === 'transfer' || t.type === 'transferencia') && t.accountId === cardId) return 'OUTROS_DEBITOS';
-    if ((t.type === 'income' || t.type === 'receita') && t.accountId === cardId) return 'CREDITOS_ESTORNOS';
+    if ((t.type === 'income' || t.type === 'receita') && transactionBelongsToCard(t, cardId)) return 'CREDITOS_ESTORNOS';
     if (t.installmentNumber && t.installmentNumber >= 2) return 'PARCELAMENTOS_ANTERIORES';
     return 'COMPRAS_DO_PERIODO';
   };
@@ -1127,9 +1126,8 @@ export function CreditCards() {
               const previousSummary = getInvoiceFinancialSummary(previousInvoice, calculatePeriodBalance(selectedCardForInvoice.id, previousPeriod));
               const previousBalance = previousSummary.remainingAmount;
               
-              // Filter transactions by period and search term
               const filteredTransactions = transactions.filter(t => {
-                const matchesCard = t.accountId === selectedCardForInvoice.id || t.destinationAccountId === selectedCardForInvoice.id;
+                const matchesCard = transactionBelongsToCard(t, selectedCardForInvoice.id);
                 const matchesPeriod = t.invoicePeriod === currentPeriod;
                 const matchesSearch = invoiceSearchTerm === '' || 
                   t.description.toLowerCase().includes(invoiceSearchTerm.toLowerCase()) ||
@@ -1140,9 +1138,8 @@ export function CreditCards() {
                 return matchesCard && matchesPeriod && matchesSearch;
               });
 
-              // All transactions for the period (ignoring search for totals)
               const periodTransactions = transactions.filter(t => 
-                (t.accountId === selectedCardForInvoice.id || t.destinationAccountId === selectedCardForInvoice.id) && 
+                transactionBelongsToCard(t, selectedCardForInvoice.id) && 
                 t.invoicePeriod === currentPeriod
               );
               
@@ -1155,7 +1152,7 @@ export function CreditCards() {
                 .reduce((acc, t) => acc + t.amount, 0);
                 
               const periodIncomes = periodTransactions
-                .filter(t => (t.type === 'income' || t.type === 'receita') && t.accountId === selectedCardForInvoice.id)
+                .filter(t => t.type === 'income' || t.type === 'receita')
                 .reduce((acc, t) => acc + t.amount, 0);
 
               const calculatedInvoiceTotal = previousBalance + periodExpenses - legacyPeriodPayments - periodIncomes;
@@ -1361,7 +1358,7 @@ export function CreditCards() {
                       const sorted = sortGroup(txs, g.key);
                       const subtotal = sorted.reduce((acc, t) => {
                         const isPayment = (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === selectedCardForInvoice.id;
-                        const isIncome = (t.type === 'income' || t.type === 'receita') && t.accountId === selectedCardForInvoice.id;
+                        const isIncome = t.type === 'income' || t.type === 'receita';
                         return isPayment || isIncome ? acc - t.amount : acc + t.amount;
                       }, 0);
 
@@ -1377,7 +1374,7 @@ export function CreditCards() {
                             <tbody className="divide-y">
                               {sorted.map((t: any) => {
                                 const isPayment = (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === selectedCardForInvoice.id;
-                                const isIncome = (t.type === 'income' || t.type === 'receita') && t.accountId === selectedCardForInvoice.id;
+                                const isIncome = t.type === 'income' || t.type === 'receita';
                                 const isNegative = isPayment || isIncome;
                                 const hasOriginalDate = t.originalPurchaseDate && t.installmentNumber && t.installmentNumber >= 2;
                                 const displayDate = (t.installmentNumber && t.installmentNumber >= 2) ? (t.postingDate || t.date) : t.date;
@@ -1438,9 +1435,7 @@ export function CreditCards() {
                                               <ChevronRight className="w-4 h-4 mr-2" />
                                               Mover p/ Seguinte
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                              onClick={() => openTxDialog({ editId: t.id })}
-                                            >
+                                            <DropdownMenuItem onClick={() => openTxDialog({ editId: t.id })}>
                                               <Edit className="w-4 h-4 mr-2" />
                                               Editar
                                             </DropdownMenuItem>
@@ -1489,7 +1484,7 @@ export function CreditCards() {
                             })
                             .map((t) => {
                               const isPayment = (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === selectedCardForInvoice.id;
-                              const isIncome = (t.type === 'income' || t.type === 'receita') && t.accountId === selectedCardForInvoice.id;
+                              const isIncome = t.type === 'income' || t.type === 'receita';
                               const isNegative = isPayment || isIncome;
                               const displayDate = t.postingDate || t.date;
                               const hasOriginalDate = t.originalPurchaseDate && t.installmentNumber && t.installmentNumber >= 2;
@@ -1549,9 +1544,7 @@ export function CreditCards() {
                                             <ChevronRight className="w-4 h-4 mr-2" />
                                             Mover p/ Seguinte
                                           </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={() => openTxDialog({ editId: t.id })}
-                                          >
+                                          <DropdownMenuItem onClick={() => openTxDialog({ editId: t.id })}>
                                             <Edit className="w-4 h-4 mr-2" />
                                             Editar
                                           </DropdownMenuItem>
@@ -1583,7 +1576,7 @@ export function CreditCards() {
                   {(() => {
                     const futureTxs = transactions
                       .filter(t =>
-                        t.accountId === selectedCardForInvoice.id &&
+                        transactionBelongsToCard(t, selectedCardForInvoice.id) &&
                         t.installmentNumber &&
                         t.totalInstallments &&
                         t.invoicePeriod > currentPeriod &&
@@ -1789,7 +1782,6 @@ export function CreditCards() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Transaction Confirmation */}
       <Dialog open={!!txToDelete} onOpenChange={(open) => !open && setTxToDelete(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -1847,7 +1839,7 @@ export function CreditCards() {
           categories={categories}
           invoices={invoices}
           systemTransactions={transactions.filter(t =>
-            (t.accountId === selectedCardForInvoice.id || t.destinationAccountId === selectedCardForInvoice.id) &&
+            transactionBelongsToCard(t, selectedCardForInvoice.id) &&
             t.invoicePeriod === `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`
           )}
         />

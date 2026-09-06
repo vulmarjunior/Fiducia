@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCreditLimitUsage, getInvoicePeriod } from './creditCardUtils';
+import { calculateCreditLimitUsage, getInvoicePeriod, transactionBelongsToCard } from './creditCardUtils';
 
 describe('getInvoicePeriod', () => {
   it('Compra antes do corte (deve ficar no mês atual)', () => {
@@ -28,6 +28,26 @@ describe('getInvoicePeriod', () => {
   });
 });
 
+describe('transactionBelongsToCard', () => {
+  it('reconhece lançamento atual somente por creditCardId', () => {
+    expect(transactionBelongsToCard({ creditCardId: 'c6' }, 'c6')).toBe(true);
+  });
+
+  it('mantém compatibilidade com lançamento legado por accountId', () => {
+    expect(transactionBelongsToCard({ accountId: 'c6' }, 'c6')).toBe(true);
+  });
+
+  it('mantém compatibilidade com pagamento legado por destinationAccountId', () => {
+    expect(transactionBelongsToCard({ destinationAccountId: 'c6' }, 'c6')).toBe(true);
+  });
+
+  it('faz creditCardId prevalecer sobre vínculo legado divergente', () => {
+    const tx = { creditCardId: 'c6', accountId: 'itau', destinationAccountId: 'itau' };
+    expect(transactionBelongsToCard(tx, 'c6')).toBe(true);
+    expect(transactionBelongsToCard(tx, 'itau')).toBe(false);
+  });
+});
+
 describe('calculateCreditLimitUsage', () => {
   it('ignora compras de fatura totalmente paga', () => {
     const transactions = [
@@ -45,5 +65,10 @@ describe('calculateCreditLimitUsage', () => {
     const transactions = [{ id: 'current', creditCardId: 'itau', accountId: 'itau', type: 'expense', amount: 1000, invoicePeriod: '2026-08' }];
     const invoices = [{ cardId: 'itau', period: '2026-08', status: 'parcial', totalAmount: 1000, paidAmount: 400 }];
     expect(calculateCreditLimitUsage('itau', transactions, invoices)).toBe(600);
+  });
+
+  it('inclui compra moderna sem accountId na utilização do limite', () => {
+    const transactions = [{ id: 'modern', creditCardId: 'c6', type: 'expense', amount: 357.97, invoicePeriod: '2025-12' }];
+    expect(calculateCreditLimitUsage('c6', transactions, [])).toBe(357.97);
   });
 });
