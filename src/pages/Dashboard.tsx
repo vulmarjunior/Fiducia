@@ -144,7 +144,6 @@ export function Dashboard() {
   const monthlyExpenseTransactions = monthlyStatement.expenseEntries.map(entry => entry.transaction);
   const monthlyExpense = monthlyStatement.expenseTotal;
 
-  // Projeção do mês atual com a mesma metodologia canônica do relatório Entradas × Saídas
   const monthFlowReport = useMemo(() => {
     const normalized = normalizeTransactions(transactions, categories, creditCards, invoices);
     return buildAccountFlowReport(accounts, creditCards, invoices, normalized, {
@@ -184,7 +183,6 @@ export function Dashboard() {
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   const prevMonthStr = getPreviousPeriod(currentMonthStr);
-  // Comparativos usam a mesma regra de caixa do mês selecionado, incluindo pagamentos vinculados de fatura.
   const previousMonthlyStatement = buildMonthlyStatement(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), prevMonthStr);
   const prevIncome = previousMonthlyStatement.incomeTotal;
   const prevExpense = previousMonthlyStatement.expenseTotal;
@@ -200,7 +198,6 @@ export function Dashboard() {
     return !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && isExpenseType(t) && isPendingStatus(t) && d < currentDateStr && d >= thirtyDaysAgo;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Bug fix: excluir transações de cartão de crédito das listas de receitas pendentes
   const overdueIncomes = transactions.filter(t => {
     const d = t.date.split('T')[0];
     return isIncomeType(t) && isPendingStatus(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && d < currentDateStr && d >= thirtyDaysAgo;
@@ -211,16 +208,12 @@ export function Dashboard() {
     return isIncomeType(t) && isPendingStatus(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && d >= currentDateStr && d <= thirtyDaysFromNow;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
 
-  // Calculate unpaid credit card invoices
   const unpaidInvoices = creditCards.flatMap(card => {
     const currentPeriod = calculateInvoicePeriod(new Date(), card.closingDay, card.dueDay);
     const previousPeriod = getPreviousPeriod(currentPeriod);
     
-    // Check if an invoice is closed
     const isClosed = (period: string) => {
       const [year, month] = period.split('-').map(Number);
-      // The period month is the DUE month.
-      // If dueDay <= closingDay, it closed in the PREVIOUS month.
       let closingMonth = month - 1;
       let closingYear = year;
       if (card.dueDay <= card.closingDay) {
@@ -232,7 +225,6 @@ export function Dashboard() {
     };
 
     return [previousPeriod, currentPeriod].map(period => {
-      // Only show if closed
       if (!isClosed(period)) return null;
 
       const periodTx = transactions.filter(t => 
@@ -296,6 +288,45 @@ export function Dashboard() {
     return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const CashFlowTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const point = payload[0]?.payload;
+    if (!point) return null;
+
+    const income = Number(point.income) || 0;
+    const expense = Number(point.expense) || 0;
+    const net = income - expense;
+    const result = showValues
+      ? `${net >= 0 ? '+' : '-'} ${formatCurrency(Math.abs(net))}`
+      : formatCurrency(net);
+
+    return (
+      <div className="min-w-[220px] rounded-xl border border-border bg-card p-3 shadow-lg">
+        <div className="mb-2 text-[12px] font-bold text-foreground">{point.tooltipLabel || point.name}</div>
+        <div className="space-y-1.5 text-[12px]">
+          <div className="flex items-center justify-between gap-6">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <span className="h-2 w-2 rounded-full bg-fiducia-green" />
+              Receitas
+            </span>
+            <strong className="font-mono text-fiducia-green">{formatCurrency(income)}</strong>
+          </div>
+          <div className="flex items-center justify-between gap-6">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <span className="h-2 w-2 rounded-full bg-fiducia-red" />
+              Despesas
+            </span>
+            <strong className="font-mono text-fiducia-red">{formatCurrency(expense)}</strong>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-6 border-t border-border pt-2">
+            <span className="font-semibold text-foreground">Resultado do período</span>
+            <strong className={`font-mono ${net >= 0 ? 'text-fiducia-green' : 'text-fiducia-red'}`}>{result}</strong>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const getChartPeriods = () => {
     if (periodFilter === 'week') {
       return Array.from({length: 8}, (_, i) => {
@@ -305,22 +336,33 @@ export function Dashboard() {
         weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
         const month = weekStart.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
         const day = weekStart.getDate();
-        return { label: `${day} ${month}`, start: weekStart };
+        return {
+          label: `${day} ${month}`,
+          start: weekStart,
+          tooltipLabel: `Semana de ${weekStart.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}`,
+        };
       });
     } else if (periodFilter === 'year') {
       const currentYear = new Date().getFullYear();
       return Array.from({ length: 12 }, (_, i) => {
         const d = new Date(currentYear, i, 1);
         const month = `${currentYear}-${(i + 1).toString().padStart(2, '0')}`;
-        return { month, label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') };
+        return {
+          month,
+          label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
+          tooltipLabel: d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+        };
       });
     }
-    // Bug fix: usar formatação local para modo mês
     return Array.from({length: 6}, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - 5 + i);
       const month = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-      return { month, label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') };
+      return {
+        month,
+        label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
+        tooltipLabel: d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+      };
     });
   };
 
@@ -333,12 +375,12 @@ export function Dashboard() {
       const weekEnd = new Date(p.start);
       weekEnd.setDate(weekEnd.getDate() + 7);
       const weekTx = transactions.filter(t => {
-        // Bug fix: parseLocalDate evita bug de timezone de new Date("YYYY-MM-DD")
         const td = parseLocalDate(t.date.split('T')[0]);
         return td >= p.start && td < weekEnd;
       });
       return {
         name: p.label.charAt(0).toUpperCase() + p.label.slice(1),
+        tooltipLabel: p.tooltipLabel,
         income: weekTx.filter(t => isIncomeType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
         expense: weekTx.filter(t => isExpenseType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
       };
@@ -357,6 +399,7 @@ export function Dashboard() {
       : 0;
     return {
       name: p.label.charAt(0).toUpperCase() + p.label.slice(1),
+      tooltipLabel: p.tooltipLabel,
       income: mTx.filter(t => isIncomeType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0),
       expense: mTx.filter(t => isExpenseType(t) && isChartRelevant(t) && !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && t.type !== 'transferencia' && t.type !== 'transfer').reduce((sum, t) => sum + t.amount, 0) + invoiceExpense,
     };
@@ -395,7 +438,6 @@ export function Dashboard() {
           </div>
         </DialogContent>
       </Dialog>
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <div className="text-[13px] text-muted-foreground font-medium mb-1 flex items-center gap-2">
@@ -452,19 +494,15 @@ export function Dashboard() {
           }}
         />
       )}
-      {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {/* Saldo Total */}
         <div className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-xl bg-fiducia-blue/10 text-fiducia-blue flex items-center justify-center group-hover:scale-110 transition-transform">
               <Wallet className="w-5 h-5" />
             </div>
-            <div className="text-[11px] font-bold text-fiducia-blue bg-fiducia-blue/10 px-2 py-1 rounded-full">
-              Ativo
-            </div>
+            <div className="text-[11px] font-bold text-fiducia-blue bg-fiducia-blue/10 px-2 py-1 rounded-full">Ativo</div>
           </div>
-<div className="mb-1 flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
+          <div className="mb-1 flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
             Saldo Geral
             <MetricExplanationDialog
               title="Saldo Geral"
@@ -485,7 +523,6 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Receitas */}
         <div role="button" tabIndex={0} aria-label="Detalhar receitas do mês" onClick={() => setStatementDetail('income')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setStatementDetail('income'); } }} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-xl bg-fiducia-green/10 text-fiducia-green flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -511,7 +548,6 @@ export function Dashboard() {
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(monthlyIncome)}</div>
         </div>
 
-        {/* Despesas */}
         <div role="button" tabIndex={0} aria-label="Detalhar despesas do mês" onClick={() => setStatementDetail('expense')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setStatementDetail('expense'); } }} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-xl bg-fiducia-red/10 text-fiducia-red flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -538,7 +574,6 @@ export function Dashboard() {
           <div className="text-[24px] font-bold tracking-tight font-mono text-foreground">{formatCurrency(monthlyExpense)}</div>
         </div>
 
-        {/* Saldo Previsto no Fim do Mês */}
         <div 
           onClick={() => navigate('/reports', { state: { tab: 'cashflow', month: currentMonthStr } })}
           className="bg-card border border-border rounded-2xl p-5 shadow-sm relative overflow-hidden flex flex-col justify-between cursor-pointer hover:border-border/80 transition-colors"
@@ -596,9 +631,7 @@ export function Dashboard() {
               </div>
             </div>
 
-            <div className="text-[13px] text-muted-foreground font-medium mb-0.5">
-              Saldo Previsto (Fim do Mês)
-            </div>
+            <div className="text-[13px] text-muted-foreground font-medium mb-0.5">Saldo Previsto (Fim do Mês)</div>
 
             <div className={`text-[24px] font-bold tracking-tight font-mono ${
               projectedMonthEndingBalance < 0 ? 'text-fiducia-red' : 'text-fiducia-green'
@@ -606,7 +639,6 @@ export function Dashboard() {
               {formatCurrency(projectedMonthEndingBalance)}
             </div>
 
-            {/* Mini Sparkline da trajetória do mês */}
             {sparklineData.length > 1 && (
               <div className="h-9 w-full my-2">
                 <ResponsiveContainer width="100%" height="100%">
@@ -639,26 +671,19 @@ export function Dashboard() {
               </div>
             )}
 
-            {/* Equação Transparente */}
             <div className="mt-2 pt-2 border-t border-border/60 space-y-1 text-[11px]">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Entradas previstas no mês:</span>
-                <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                  +{formatCurrency(monthFlowReport.totalInflow)}
-                </span>
+                <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">+{formatCurrency(monthFlowReport.totalInflow)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Saídas e faturas previstas:</span>
-                <span className="font-mono font-medium text-rose-600 dark:text-rose-400">
-                  -{formatCurrency(monthFlowReport.totalOutflow)}
-                </span>
+                <span className="font-mono font-medium text-rose-600 dark:text-rose-400">-{formatCurrency(monthFlowReport.totalOutflow)}</span>
               </div>
               {cashSafetyReserve > 0 && (
                 <div className="flex items-center justify-between pt-1 border-t border-border/40">
                   <span className="text-muted-foreground">Folga livre (sem reserva):</span>
-                  <span className={`font-mono font-semibold ${cashMargin < 0 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
-                    {formatCurrency(cashMargin)}
-                  </span>
+                  <span className={`font-mono font-semibold ${cashMargin < 0 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>{formatCurrency(cashMargin)}</span>
                 </div>
               )}
             </div>
@@ -673,19 +698,14 @@ export function Dashboard() {
               >
                 <Sparkles className="w-3 h-3" /> Simular decisões de caixa →
               </span>
-              <span className="text-muted-foreground font-semibold hover:text-foreground">
-                Ver relatório →
-              </span>
+              <span className="text-muted-foreground font-semibold hover:text-foreground">Ver relatório →</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* CONTENT GRID */}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
-        {/* LEFT COL */}
         <div className="flex flex-col gap-6">
-           {/* Chart Card */}
            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
              <div className="flex items-center justify-between p-5 border-b border-border">
                <div>
@@ -736,18 +756,11 @@ export function Dashboard() {
                      tick={{ fontSize: 11, fontWeight: 500, fill: 'var(--text-muted)' }} 
                      dy={10} 
                    />
-                   <Tooltip 
-                     contentStyle={{ 
-                       borderRadius: '12px', 
-                       border: '1px solid var(--border-color)', 
-                       fontSize: '12px',
-                       boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                       backgroundColor: 'var(--card)'
-                     }} 
-                   />
+                   <Tooltip content={<CashFlowTooltip />} />
                    <Area 
                      type="monotone" 
-                     dataKey="income" 
+                     dataKey="income"
+                     name="Receitas"
                      stroke="var(--fiducia-green)" 
                      strokeWidth={2}
                      fillOpacity={1} 
@@ -755,7 +768,8 @@ export function Dashboard() {
                    />
                    <Area 
                      type="monotone" 
-                     dataKey="expense" 
+                     dataKey="expense"
+                     name="Despesas"
                      stroke="var(--fiducia-red)" 
                      strokeWidth={2}
                      fillOpacity={1} 
@@ -766,7 +780,6 @@ export function Dashboard() {
              </div>
            </div>
 
-            {/* Minhas Contas Card */}
             <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
               <div className="flex items-center justify-between p-5 border-b border-border">
                 <div className="flex items-center gap-2">
@@ -820,7 +833,6 @@ export function Dashboard() {
               </div>
             </div>
 
-            {/* Meus Cartões Card */}
             <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
               <div className="flex items-center gap-2 p-5 border-b border-border">
                 <div className="w-8 h-8 rounded-lg bg-fiducia-amber/10 text-fiducia-amber flex items-center justify-center">
@@ -872,10 +884,7 @@ export function Dashboard() {
             </div>
         </div>
 
-        {/* RIGHT COL */}
         <div className="flex flex-col gap-6">
-
-          {/* Bills to Pay */}
           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
             <div className="flex items-center justify-between p-5 border-b border-border bg-fiducia-red/5">
               <div className="flex items-center gap-2">
@@ -928,7 +937,6 @@ export function Dashboard() {
             </div>
           </div>
 
-          {/* Bills to Receive */}
           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
             <div className="flex items-center justify-between p-5 border-b border-border bg-fiducia-green/5">
               <div className="flex items-center gap-2">
@@ -969,7 +977,6 @@ export function Dashboard() {
             </div>
           </div>
 
-          {/* Extra sections toggle for mobile */}
           <div className="lg:hidden">
             <button
               onClick={() => setExtraSectionsOpen(!extraSectionsOpen)}
@@ -980,7 +987,6 @@ export function Dashboard() {
             </button>
           </div>
 
-          {/* Goals */}
           <div className={`${extraSectionsOpen ? 'block' : 'hidden'} lg:block bg-card border border-border rounded-2xl overflow-hidden shadow-sm`}>
             <div className="flex items-center justify-between p-5 border-b border-border bg-secondary/10">
               <div className="flex items-center gap-2">
@@ -1020,7 +1026,6 @@ export function Dashboard() {
             </div>
           </div>
 
-          {/* Budgets */}
           <div className={`${extraSectionsOpen ? 'block' : 'hidden'} lg:block bg-card border border-border rounded-2xl overflow-hidden shadow-sm`}>
             <div className="flex items-center justify-between p-5 border-b border-border bg-secondary/10">
               <div className="flex items-center gap-2">
