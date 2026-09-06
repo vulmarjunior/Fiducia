@@ -276,6 +276,7 @@ export function runSimulationComparison({
 
 export interface MonthlySimulationResult {
   horizon: SimulationHorizon;
+  intervalType: import('../types/simulator').SimulationIntervalType;
   startDate: string;
   endDate: string;
   summary: SimulationSummary;
@@ -286,9 +287,9 @@ export interface MonthlySimulationResult {
 }
 
 /**
- * Motor canônico de simulação baseado no relatório de Entradas × Saídas (Fluxo Mensal).
+ * Motor canônico de simulação baseado no relatório de Entradas × Saídas (Fluxo de Caixa).
  * Compara o Cenário Base (dados reais) com o Cenário Simulado (dados reais + hipóteses ativas)
- * sem distorções temporais ou déficits artificiais.
+ * com granularidade diária ou mensal, sem distorções temporais ou déficits artificiais.
  */
 export function runMonthlySimulationComparison({
   accounts,
@@ -298,6 +299,7 @@ export function runMonthlySimulationComparison({
   categories = [],
   simulatedItems,
   horizon = '3_months',
+  intervalType = 'month',
   includeSavings = false,
   referenceDate = new Date(),
 }: {
@@ -308,6 +310,7 @@ export function runMonthlySimulationComparison({
   categories?: Category[];
   simulatedItems: SimulatedItem[];
   horizon?: SimulationHorizon;
+  intervalType?: import('../types/simulator').SimulationIntervalType;
   includeSavings?: boolean;
   referenceDate?: Date;
 }): MonthlySimulationResult {
@@ -323,11 +326,11 @@ export function runMonthlySimulationComparison({
   const allTxs = [...transactions, ...syntheticTxs];
   const normalizedSimulated = normalizeTransactions(allTxs, categories, creditCards, invoices);
 
-  // 4. Configuração de filtros para o buildAccountFlowReport mensal
+  // 4. Configuração de filtros para o buildAccountFlowReport (diário ou mensal)
   const filters: ReportFilters = {
     selectedMonth: startDate.slice(0, 7),
     customRange: { startDate, endDate },
-    intervalType: 'month',
+    intervalType,
     status: 'all',
     accumulated: false,
     includePending: true,
@@ -413,6 +416,7 @@ export function runMonthlySimulationComparison({
 
   return {
     horizon,
+    intervalType,
     startDate,
     endDate,
     summary,

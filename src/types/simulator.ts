@@ -44,6 +44,7 @@ export interface SimulationChartPoint {
 }
 
 export type SimulationHorizon = 'current_month' | '3_months' | '6_months' | 'current_year';
+export type SimulationIntervalType = 'day' | 'month';
 
 export interface SimulationMonthPoint {
   monthKey: string;

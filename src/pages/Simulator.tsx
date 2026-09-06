@@ -3,9 +3,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
 import { CreditCard, Account, Category, Transaction, Invoice } from '../types';
-import { SimulatedItem, SimulationHorizon } from '../types/simulator';
+import { SimulatedItem, SimulationHorizon, SimulationIntervalType } from '../types/simulator';
 import { CASH_SAFETY_RESERVE_KEY } from '../lib/cashCoverage';
-import { runMonthlySimulationComparison, generateSimulatedTransactions } from '../lib/simulatorEngine';
+import { runMonthlySimulationComparison, generateSimulatedTransactions, getHorizonDates } from '../lib/simulatorEngine';
 import { SimulationItemForm } from '../components/simulator/SimulationItemForm';
 import { SimulationCardComparison } from '../components/simulator/SimulationCardComparison';
 import { SimulationChart } from '../components/simulator/SimulationChart';
@@ -21,16 +21,33 @@ import {
   DialogDescription,
   DialogFooter,
 } from '../components/ui/dialog';
-import { Sparkles, CheckCircle2, Loader2 } from 'lucide-react';
+import {
+  Sparkles,
+  CheckCircle2,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  Calendar,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 const STORAGE_KEY = 'fiducia_simulated_items';
 
 const HORIZON_OPTIONS: { id: SimulationHorizon; label: string }[] = [
-  { id: 'current_month', label: 'Mês Atual' },
+  { id: 'current_month', label: 'Mês' },
   { id: '3_months', label: '3 Meses' },
   { id: '6_months', label: '6 Meses' },
-  { id: 'current_year', label: 'Ano Atual' },
+  { id: 'current_year', label: 'Ano' },
+];
+
+const MONTH_NAMES_FULL = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+];
+const MONTH_NAMES_SHORT = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
 ];
 
 export function Simulator() {
@@ -54,6 +71,12 @@ export function Simulator() {
   });
 
   const [horizon, setHorizon] = useState<SimulationHorizon>('3_months');
+  const [intervalType, setIntervalType] = useState<SimulationIntervalType>('month');
+  const [referenceDate, setReferenceDate] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+
   const [includeSavings, setIncludeSavings] = useState<boolean>(false);
   const [isCommitModalOpen, setIsCommitModalOpen] = useState<boolean>(false);
   const [isCommitting, setIsCommitting] = useState<boolean>(false);
@@ -110,7 +133,66 @@ export function Simulator() {
     };
   }, [user, isAuthReady]);
 
-  // Motor Canônico de Simulação Mensal (Entradas × Saídas)
+  // Navegação temporal mês a mês / ano a ano
+  const handlePrev = () => {
+    setReferenceDate(prev => {
+      if (horizon === 'current_year') {
+        return new Date(prev.getFullYear() - 1, prev.getMonth(), 1);
+      }
+      return new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
+    });
+  };
+
+  const handleNext = () => {
+    setReferenceDate(prev => {
+      if (horizon === 'current_year') {
+        return new Date(prev.getFullYear() + 1, prev.getMonth(), 1);
+      }
+      return new Date(prev.getFullYear(), prev.getMonth() + 1, 1);
+    });
+  };
+
+  const handleResetToCurrent = () => {
+    const now = new Date();
+    setReferenceDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  };
+
+  const isCurrentPeriod = useMemo(() => {
+    const now = new Date();
+    if (horizon === 'current_year') {
+      return referenceDate.getFullYear() === now.getFullYear();
+    }
+    return (
+      referenceDate.getFullYear() === now.getFullYear() &&
+      referenceDate.getMonth() === now.getMonth()
+    );
+  }, [referenceDate, horizon]);
+
+  const handleHorizonChange = (newHorizon: SimulationHorizon) => {
+    setHorizon(newHorizon);
+    if (newHorizon === 'current_year') {
+      setIntervalType('month');
+    }
+  };
+
+  const periodTitle = useMemo(() => {
+    const { startDate, endDate } = getHorizonDates(horizon, referenceDate);
+    const [startY, startM] = startDate.split('-').map(Number);
+    const [endY, endM] = endDate.split('-').map(Number);
+
+    if (horizon === 'current_month') {
+      return `${MONTH_NAMES_FULL[startM - 1]} de ${startY}`;
+    }
+    if (horizon === 'current_year') {
+      return `Ano ${startY}`;
+    }
+    if (startY === endY) {
+      return `${MONTH_NAMES_SHORT[startM - 1]} a ${MONTH_NAMES_SHORT[endM - 1]} de ${startY}`;
+    }
+    return `${MONTH_NAMES_SHORT[startM - 1]}/${startY} a ${MONTH_NAMES_SHORT[endM - 1]}/${endY}`;
+  }, [horizon, referenceDate]);
+
+  // Motor Canônico de Simulação (Entradas × Saídas com suporte a Diário e Mensal)
   const monthlySimulation = useMemo(() => {
     return runMonthlySimulationComparison({
       accounts,
@@ -120,9 +202,11 @@ export function Simulator() {
       categories,
       simulatedItems,
       horizon,
+      intervalType,
       includeSavings,
+      referenceDate,
     });
-  }, [accounts, transactions, creditCards, invoices, categories, simulatedItems, horizon, includeSavings]);
+  }, [accounts, transactions, creditCards, invoices, categories, simulatedItems, horizon, intervalType, includeSavings, referenceDate]);
 
   const handleAddItem = (item: SimulatedItem) => {
     setSimulatedItems(prev => [item, ...prev]);
@@ -145,7 +229,6 @@ export function Simulator() {
   };
 
   const activeSimulatedCount = simulatedItems.filter(i => i.enabled).length;
-  const currentHorizonLabel = HORIZON_OPTIONS.find(h => h.id === horizon)?.label || '3 Meses';
 
   // Efetivação das hipóteses no banco de dados Firestore
   const handleCommitToFirestore = async () => {
@@ -187,7 +270,6 @@ export function Simulator() {
       }
 
       toast.success(`${syntheticTxs.length} lançamento(s) agendado(s) criado(s) com sucesso!`);
-      // Limpa os itens efetivados da simulação
       setSimulatedItems(prev => prev.filter(i => !i.enabled));
       setIsCommitModalOpen(false);
     } catch (err) {
@@ -215,16 +297,16 @@ export function Simulator() {
               description="Um ambiente seguro de testes baseado no relatório de Entradas × Saídas para prever o impacto de decisões financeiras antes de assumir novos compromissos."
               items={[
                 {
-                  label: 'Isolamento Total',
-                  desc: 'As hipóteses criadas aqui ficam salvas apenas no seu navegador e não afetam seu saldo nem seus relatórios reais.',
+                  label: 'Navegação Mês a Mês e Ano a Ano',
+                  desc: 'Navegue pelas setas para avaliar competências futuras (ex: próximos meses ou anos seguintes) com total clareza.',
+                },
+                {
+                  label: 'Visão Diária ou Mensal',
+                  desc: 'Alterne entre o detalhamento dia a dia ou o consolidado mensal para analisar exatamente quando o saldo oscila.',
                 },
                 {
                   label: 'Motor de Entradas × Saídas',
-                  desc: 'Usa exatamente o mesmo cálculo canônico de fluxo mensal da Fiducia, evitando distorções ou déficits artificiais por falta de receitas futuras cadastradas.',
-                },
-                {
-                  label: 'Parcelamento no Cartão',
-                  desc: 'Ao simular compras parceladas no cartão, as parcelas são alocadas com precisão nas faturas dos meses correspondentes com base no fechamento e vencimento.',
+                  desc: 'Usa exatamente o mesmo cálculo canônico de fluxo da Fiducia, evitando distorções ou déficits artificiais por falta de receitas futuras cadastradas.',
                 },
                 {
                   label: 'Efetivação Opcional',
@@ -234,19 +316,78 @@ export function Simulator() {
             />
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Simule compras parceladas, despesas extras ou receitas e acompanhe o impacto mês a mês no seu fluxo de caixa e saldo final previsto
+            Simule compras parceladas, despesas extras ou receitas e acompanhe o impacto dia a dia ou mês a mês no fluxo de caixa
           </p>
         </div>
 
-        {/* Controles de Horizonte e Efetivação */}
+        {/* Efetivar (se houver hipóteses ativas) */}
+        {activeSimulatedCount > 0 && (
+          <Button
+            onClick={() => setIsCommitModalOpen(true)}
+            className="self-start md:self-auto h-9 px-3.5 text-xs font-bold gap-1.5 bg-fiducia-blue text-white hover:bg-fiducia-blue/90 shadow-xs rounded-xl"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Efetivar ({activeSimulatedCount})</span>
+          </Button>
+        )}
+      </div>
+
+      {/* BARRA DE CONTROLES: NAVEGAÇÃO TEMPORAL, HORIZONTE E DIÁRIO/MENSAL */}
+      <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 flex-wrap">
+        {/* Navegador Temporal: Setas < > e Título do Período */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-secondary/60 rounded-xl border border-border p-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrev}
+              className="h-8 w-8 rounded-lg hover:bg-background"
+              title={horizon === 'current_year' ? 'Ano anterior' : 'Mês anterior'}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNext}
+              className="h-8 w-8 rounded-lg hover:bg-background"
+              title={horizon === 'current_year' ? 'Próximo ano' : 'Próximo mês'}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 font-bold text-sm sm:text-base text-foreground">
+              <Calendar className="w-4 h-4 text-fiducia-blue" />
+              <span>{periodTitle}</span>
+            </div>
+
+            {!isCurrentPeriod && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetToCurrent}
+                className="h-7 px-2 text-[11px] gap-1 font-semibold text-muted-foreground hover:text-foreground"
+                title="Voltar para a data atual"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>{horizon === 'current_year' ? 'Ano atual' : 'Hoje'}</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Controles de Horizonte e Agrupamento (Diário / Mensal) */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Seletor de Horizonte */}
           <div className="inline-flex bg-secondary/60 p-1 rounded-xl border border-border">
             {HORIZON_OPTIONS.map((opt) => (
               <button
                 key={opt.id}
                 type="button"
-                onClick={() => setHorizon(opt.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                onClick={() => handleHorizonChange(opt.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   horizon === opt.id
                     ? 'bg-background text-foreground shadow-xs font-bold'
                     : 'text-muted-foreground hover:text-foreground'
@@ -257,15 +398,31 @@ export function Simulator() {
             ))}
           </div>
 
-          {activeSimulatedCount > 0 && (
-            <Button
-              onClick={() => setIsCommitModalOpen(true)}
-              className="h-9 px-3.5 text-xs font-bold gap-1.5 bg-fiducia-blue text-white hover:bg-fiducia-blue/90 shadow-xs rounded-xl"
+          {/* Toggle Diário | Mensal */}
+          <div className="inline-flex bg-secondary/60 p-1 rounded-xl border border-border">
+            <button
+              type="button"
+              onClick={() => setIntervalType('day')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                intervalType === 'day'
+                  ? 'bg-background text-foreground shadow-xs font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Efetivar ({activeSimulatedCount})</span>
-            </Button>
-          )}
+              Diário
+            </button>
+            <button
+              type="button"
+              onClick={() => setIntervalType('month')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                intervalType === 'month'
+                  ? 'bg-background text-foreground shadow-xs font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Mensal
+            </button>
+          </div>
         </div>
       </div>
 
@@ -279,19 +436,21 @@ export function Simulator() {
           {/* 1. CARDS DE KPIS COMPARATIVOS */}
           <SimulationCardComparison
             summary={monthlySimulation.summary}
-            horizonLabel={currentHorizonLabel}
+            horizonLabel={periodTitle}
             safetyReserve={safetyReserve}
           />
 
-          {/* 2. GRÁFICO COMPARATIVO MENSAL (ENTRADAS, SAÍDAS E SALDO) */}
+          {/* 2. GRÁFICO COMPARATIVO (DIÁRIO OU MENSAL) */}
           <SimulationChart
             data={monthlySimulation.monthPoints}
+            intervalType={intervalType}
             safetyReserve={safetyReserve}
           />
 
-          {/* 3. TABELA COMPARATIVA MÊS A MÊS */}
+          {/* 3. TABELA COMPARATIVA (DIÁRIA OU MENSAL) */}
           <SimulationMonthTable
             monthPoints={monthlySimulation.monthPoints}
+            intervalType={intervalType}
             safetyReserve={safetyReserve}
           />
 

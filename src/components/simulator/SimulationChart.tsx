@@ -10,20 +10,23 @@ import {
   CartesianGrid,
   ReferenceLine,
 } from 'recharts';
-import { SimulationMonthPoint } from '../../types/simulator';
+import { SimulationMonthPoint, SimulationIntervalType } from '../../types/simulator';
 
 interface SimulationChartProps {
   data: SimulationMonthPoint[];
+  intervalType?: SimulationIntervalType;
   safetyReserve?: number;
 }
 
 export function SimulationChart({
   data,
+  intervalType = 'month',
   safetyReserve = 0,
 }: SimulationChartProps) {
   const fmt = (v: number) =>
     `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const isDaily = intervalType === 'day';
   const minEnding = data.length > 0 ? Math.min(...data.map(d => d.simulatedEndingBalance)) : 0;
   const simColor =
     minEnding < 0
@@ -36,9 +39,13 @@ export function SimulationChart({
     <div className="bg-card border border-border rounded-2xl p-5 shadow-xs space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
         <div>
-          <h3 className="text-[14px] font-bold text-foreground">Fluxo Mensal e Trajetória do Saldo</h3>
+          <h3 className="text-[14px] font-bold text-foreground">
+            {isDaily ? 'Fluxo Diário e Trajetória do Saldo' : 'Fluxo Mensal e Trajetória do Saldo'}
+          </h3>
           <p className="text-[11px] text-muted-foreground">
-            Barras mostram as entradas e saídas simuladas; as linhas comparam a evolução do saldo final previsto
+            {isDaily
+              ? 'Barras mostram entradas e saídas de cada dia; as linhas comparam a trajetória do saldo diário'
+              : 'Barras mostram as entradas e saídas simuladas; as linhas comparam a evolução do saldo final previsto'}
           </p>
         </div>
 
@@ -70,7 +77,7 @@ export function SimulationChart({
               dataKey="monthLabel"
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 11 }}
+              tick={{ fontSize: isDaily && data.length > 20 ? 9 : 11 }}
               dy={8}
             />
             <YAxis
@@ -86,10 +93,14 @@ export function SimulationChart({
                 const point = payload[0]?.payload as SimulationMonthPoint;
                 if (!point) return null;
 
+                const titleLabel = isDaily
+                  ? `Data: ${point.monthKey.split('-').reverse().join('/')}`
+                  : `Mês: ${point.monthLabel}`;
+
                 return (
                   <div className="bg-popover border border-border p-3 rounded-xl shadow-xl text-xs space-y-1.5 min-w-[220px]">
                     <div className="font-bold text-foreground border-b border-border pb-1">
-                      Mês: {point.monthLabel}
+                      {titleLabel}
                     </div>
                     <div className="flex items-center justify-between text-muted-foreground">
                       <span>Entradas:</span>
@@ -139,8 +150,8 @@ export function SimulationChart({
             )}
 
             {/* Barras de Entradas e Saídas */}
-            <Bar dataKey="simulatedInflow" fill="#10b981" opacity={0.65} radius={[4, 4, 0, 0]} maxBarSize={32} />
-            <Bar dataKey="simulatedOutflow" fill="#f43f5e" opacity={0.65} radius={[4, 4, 0, 0]} maxBarSize={32} />
+            <Bar dataKey="simulatedInflow" fill="#10b981" opacity={0.65} radius={[4, 4, 0, 0]} maxBarSize={isDaily ? 18 : 32} />
+            <Bar dataKey="simulatedOutflow" fill="#f43f5e" opacity={0.65} radius={[4, 4, 0, 0]} maxBarSize={isDaily ? 18 : 32} />
 
             {/* Linha do Saldo Base Real */}
             <Line
@@ -149,7 +160,7 @@ export function SimulationChart({
               stroke="#94a3b8"
               strokeWidth={1.8}
               strokeDasharray="4 4"
-              dot={{ r: 3, fill: '#94a3b8' }}
+              dot={isDaily && data.length > 31 ? false : { r: 3, fill: '#94a3b8' }}
               isAnimationActive={false}
             />
 
@@ -159,7 +170,7 @@ export function SimulationChart({
               dataKey="simulatedEndingBalance"
               stroke={simColor}
               strokeWidth={2.5}
-              dot={{ r: 4, fill: simColor }}
+              dot={isDaily && data.length > 31 ? false : { r: 4, fill: simColor }}
               isAnimationActive={false}
             />
           </ComposedChart>

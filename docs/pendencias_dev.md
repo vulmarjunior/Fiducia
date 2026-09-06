@@ -5,11 +5,11 @@
 
 ## Próxima pauta
 
-**Estado:** Simulador de Decisões de Caixa baseado em Entradas × Saídas Mensal (`v0.19.0`) implementado, testado e validado com sucesso. O motor foi alinhado ao cálculo canônico de fluxo mensal de caixa (`buildAccountFlowReport` com `includePending: true`), exibindo comparativo transparente mês a mês (em tabela e gráfico) e eliminando os déficits artificiais da antiga projeção contínua de 90 dias.
+**Estado:** Navegação Temporal e Visualização Diária no Simulador (`v0.19.1`) implementada, testada e validada com sucesso. O Simulador agora permite avançar e retroceder no tempo mês a mês e ano a ano pelas setas `<` e `>`, além de permitir alternar entre a visão **Diária** (dia a dia com detecção de oscilação de saldo) e **Mensal**.
 
-**Versão de base:** `0.19.0`.
+**Versão de base:** `0.19.1`.
 
-**Referência da última entrega:** `CHANGELOG.md` (`[0.19.0]`).
+**Referência da última entrega:** `CHANGELOG.md` (`[0.19.1]`).
 
 ### Próximo passo sugerido
 

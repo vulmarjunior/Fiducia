@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.19.0` |
+| **Versão atual** | `0.19.1` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-09-05 (Simulador de Decisões de Caixa baseado em Entradas × Saídas Mensal v0.19.0) |
-| **Último deploy** | v0.15.5 em produção (v0.19.0 pronta para deploy) |
+| **Última alteração em código** | 2026-09-05 (Navegação Temporal e Visualização Diária no Simulador v0.19.1) |
+| **Último deploy** | v0.15.5 em produção (v0.19.1 pronta para deploy) |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 

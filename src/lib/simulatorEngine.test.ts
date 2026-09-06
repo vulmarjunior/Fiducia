@@ -189,5 +189,58 @@ describe('simulatorEngine', () => {
     expect(res.summary.simulatedFinalBalance).toBe(3500);
     expect(res.summary.finalBalanceDelta).toBe(-500);
   });
+
+  it('suporta modo diário e navegação para ano futuro', () => {
+    // 1. Modo diário para Setembro de 2026
+    const refDate = new Date(2026, 8, 1);
+    const dailyRes = runMonthlySimulationComparison({
+      accounts: [{ ...mockAccounts[0], initialBalance: 4000, balance: 4000 }],
+      transactions: [],
+      creditCards: mockCreditCards,
+      invoices: [],
+      categories: [],
+      simulatedItems: [
+        {
+          id: 'sim-daily',
+          name: 'Jantar',
+          type: 'expense',
+          amount: 250,
+          date: '2026-09-12',
+          enabled: true,
+          accountId: 'acc-1',
+          createdAt: '2026-09-05',
+        },
+      ],
+      horizon: 'current_month',
+      intervalType: 'day',
+      referenceDate: refDate,
+    });
+
+    expect(dailyRes.intervalType).toBe('day');
+    expect(dailyRes.monthPoints).toHaveLength(30); // 30 dias em setembro
+    const day12 = dailyRes.monthPoints.find(p => p.monthKey === '2026-09-12');
+    expect(day12).toBeDefined();
+    expect(day12?.outflowDelta).toBe(250);
+    expect(day12?.simulatedEndingBalance).toBe(3750);
+
+    // 2. Navegação para ano seguinte (2027)
+    const nextYearDate = new Date(2027, 0, 1);
+    const yearRes = runMonthlySimulationComparison({
+      accounts: [{ ...mockAccounts[0], initialBalance: 4000, balance: 4000 }],
+      transactions: [],
+      creditCards: mockCreditCards,
+      invoices: [],
+      categories: [],
+      simulatedItems: [],
+      horizon: 'current_year',
+      intervalType: 'month',
+      referenceDate: nextYearDate,
+    });
+
+    expect(yearRes.startDate).toBe('2027-01-01');
+    expect(yearRes.endDate).toBe('2027-12-31');
+    expect(yearRes.monthPoints).toHaveLength(12);
+  });
 });
+
 

@@ -3,6 +3,20 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.19.1] — 2026-09-05 — Navegação Temporal e Visualização Diária no Simulador
+
+**Resultado:** Adicionada navegação temporal dinâmica (setas `<` e `>` para avançar e retroceder mês a mês e ano a ano) no Simulador de Decisões de Caixa (`/simulator`), permitindo planejar cenários para qualquer competência futura ou passada. Incluído também o seletor de granularidade **Diário | Mensal**, permitindo alternar entre o fluxo detalhado dia a dia do mês (com visualização das oscilações diárias de saldo) e o consolidado mensal.
+
+**Alterações técnicas:**
+- `src/pages/Simulator.tsx` — adicionada barra de controle com navegador temporal (`<` e `>`), título dinâmico do período (ex: "Setembro de 2026", "Ano 2027"), botão de retorno rápido "Hoje" / "Ano atual" e toggle de agrupamento "Diário" vs "Mensal".
+- `src/lib/simulatorEngine.ts` — integração do parâmetro `intervalType: 'day' | 'month'` em `runMonthlySimulationComparison`, repassando para o motor de buckets e gerando pontos diários precisos para cada dia da competência.
+- `src/types/simulator.ts` — inclusão do tipo `SimulationIntervalType`.
+- `src/components/simulator/SimulationMonthTable.tsx` — suporte à visualização diária com título dinâmico, coluna de data e botão para alternar entre "Exibir todos os dias" e "Ocultar dias sem movimentação".
+- `src/components/simulator/SimulationChart.tsx` — suporte a plotagem de barras e linha diárias com tooltips contextualizados com a data específica (`DD/MM/AAAA`).
+- `src/lib/simulatorEngine.test.ts` — testes unitários validando simulação com `intervalType: 'day'` e navegação para ano futuro (`2027`).
+
+---
+
 ## [0.19.0] — 2026-09-05 — Simulador de Decisões de Caixa baseado em Entradas × Saídas Mensal
 
 **Resultado:** O Simulador de Caixa (`/simulator`) foi totalmente reformulado para utilizar o motor canônico de **Entradas × Saídas Mensal** (`buildAccountFlowReport` com `includePending: true`). Elimina os déficits e alertas falsos que ocorriam na antiga projeção diária acumulada de 90 dias quando não havia receitas futuras cadastradas com meses de antecedência. Agora, o simulador apresenta um comparativo transparente mês a mês (em tabela detalhada e gráfico de barras + linha de saldo), demonstrando com fidelidade o impacto de compras parceladas no cartão de crédito, receitas extras e despesas avulsas sobre o saldo final de cada competência, mantendo a efetivação no Firestore com 1 clique.
