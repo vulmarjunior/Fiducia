@@ -1,9 +1,12 @@
 {
   "name": "react-example",
   "private": true,
-  "version": "0.20.3",
+  "version": "0.20.4",
   "type": "module",
   "scripts": {
+    "sync:version": "node scripts/sync-version.mjs",
+    "predev": "npm run sync:version",
+    "prebuild": "npm run sync:version",
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
