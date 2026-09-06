@@ -100,32 +100,75 @@ export function PriorPendingDetailsDialog({
                 Nenhuma obrigação residual de fatura anterior encontrada.
               </div>
             ) : (
-              <div className="divide-y divide-border/40 rounded-lg border border-border overflow-hidden">
-                {invoiceObligations.map(item => (
-                  <div key={`${item.cardId}-${item.period}`} className="p-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="p-2 rounded-full shrink-0 bg-amber-500/10 text-amber-500">
-                        <CreditCard className="w-4 h-4" />
+              <div className="space-y-3">
+                {invoiceObligations.map(item => {
+                  const sourceEntries = item.sourceEntries || [];
+                  const sourceTotal = sourceEntries.reduce((sum, entry) => sum + (entry.isCredit ? -entry.amountCents : entry.amountCents), 0);
+                  return (
+                    <div key={`${item.cardId}-${item.period}`} className="rounded-lg border border-border overflow-hidden">
+                      <div className="p-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2 rounded-full shrink-0 bg-amber-500/10 text-amber-500">
+                            <CreditCard className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-foreground truncate">{item.cardName}</div>
+                            <div className="text-xs text-muted-foreground flex flex-wrap gap-x-1.5">
+                              <span>Fatura {item.period}</span>
+                              {item.dueDate && <><span>•</span><span>Venc. {item.dueDate.split('-').reverse().join('/')}</span></>}
+                              <span>•</span>
+                              <span>Status: {item.invoiceStatus}</span>
+                              {item.hasPendingPayment && <><span>•</span><span>há pagamento pendente abatido</span></>}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5">
+                              Total {formatCurrency(item.totalAmountCents / 100)} · pago {formatCurrency(item.paidAmountCents / 100)}
+                            </div>
+                          </div>
+                        </div>
+                        <strong className="font-mono text-sm text-rose-600 dark:text-rose-400 shrink-0">
+                          -{formatCurrency(item.remainingAmountCents / 100)}
+                        </strong>
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-foreground truncate">{item.cardName}</div>
-                        <div className="text-xs text-muted-foreground flex flex-wrap gap-x-1.5">
-                          <span>Fatura {item.period}</span>
-                          {item.dueDate && <><span>•</span><span>Venc. {item.dueDate.split('-').reverse().join('/')}</span></>}
-                          <span>•</span>
-                          <span>Status: {item.invoiceStatus}</span>
-                          {item.hasPendingPayment && <><span>•</span><span>há pagamento pendente abatido</span></>}
+
+                      <div className="border-t border-border bg-muted/20 p-3 space-y-2">
+                        <div className="text-[11px] text-muted-foreground">
+                          Origem do total: <strong className="text-foreground">{item.sourceKind === 'card_transactions' ? 'compras/lançamentos do cartão' : 'documento de fatura salvo'}</strong>.
                         </div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          Total {formatCurrency(item.totalAmountCents / 100)} · pago {formatCurrency(item.paidAmountCents / 100)}
-                        </div>
+
+                        {sourceEntries.length > 0 ? (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                              <span>{sourceEntries.length} lançamento(s) associado(s) a {item.period}</span>
+                              <span>Soma: {formatCurrency(sourceTotal / 100)}</span>
+                            </div>
+                            {sourceEntries.map(entry => (
+                              <button
+                                key={entry.id}
+                                type="button"
+                                onClick={() => entry.raw?.id && openTransactionDialog({ editId: entry.raw.id })}
+                                className="w-full rounded-md border border-border bg-background/50 px-2.5 py-2 text-left hover:bg-muted/50 transition-colors flex items-center justify-between gap-3"
+                              >
+                                <div className="min-w-0">
+                                  <div className="text-xs font-medium text-foreground truncate">{entry.description || 'Sem descrição'}</div>
+                                  <div className="text-[10px] text-muted-foreground">
+                                    {entry.date.split('-').reverse().join('/')} · período da fatura {entry.invoicePeriod || entry.month}
+                                  </div>
+                                </div>
+                                <strong className={`font-mono text-xs shrink-0 ${entry.isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                  {entry.isCredit ? '+' : '-'}{formatCurrency(entry.amountCents / 100)}
+                                </strong>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-muted-foreground">
+                            Nenhuma compra do cartão foi encontrada para compor este valor. O residual vem do documento de fatura salvo no banco de dados. Nesse caso, a inconsistência está no registro da própria fatura, não em um lançamento visível.
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <strong className="font-mono text-sm text-rose-600 dark:text-rose-400 shrink-0">
-                      -{formatCurrency(item.remainingAmountCents / 100)}
-                    </strong>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>

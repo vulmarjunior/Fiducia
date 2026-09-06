@@ -21,6 +21,16 @@ const filters = {
   includePending: true,
 };
 
+const card: CreditCard = {
+  id: 'card-1',
+  name: 'C6',
+  limit: 5000,
+  closingDay: 2,
+  dueDay: 10,
+  createdAt: '',
+  userId: 'u1',
+};
+
 describe('origem auditável das pendências anteriores', () => {
   it('expõe lançamentos bancários pendentes anteriores sem duplicar transferência interna', () => {
     const secondAccount: Account = {
@@ -74,17 +84,7 @@ describe('origem auditável das pendências anteriores', () => {
     expect(cashFlowResult.priorPendingCents).toBe(35797);
   });
 
-  it('expõe separadamente fatura anterior com saldo residual', () => {
-    const card: CreditCard = {
-      id: 'card-1',
-      name: 'C6',
-      limit: 5000,
-      closingDay: 2,
-      dueDay: 10,
-      createdAt: '',
-      userId: 'u1',
-    };
-
+  it('identifica quando o residual vem do documento de fatura sem compras correspondentes', () => {
     const invoices: Invoice[] = [
       {
         id: 'invoice-sep',
@@ -106,15 +106,60 @@ describe('origem auditável das pendências anteriores', () => {
     );
 
     expect(cashFlowResult.priorPendingBankCents).toBe(0);
-    expect(cashFlowResult.priorPendingEntries).toHaveLength(0);
     expect(cashFlowResult.priorInvoiceObligationsCents).toBe(35797);
-    expect(cashFlowResult.priorInvoiceObligations).toHaveLength(1);
     expect(cashFlowResult.priorInvoiceObligations[0]).toMatchObject({
       cardId: 'card-1',
       cardName: 'C6',
       period: '2026-09',
       remainingAmountCents: 35797,
+      sourceKind: 'invoice_document',
+      sourceEntries: [],
     });
-    expect(cashFlowResult.priorPendingCents).toBe(35797);
+  });
+
+  it('mostra quais compras de cartão reconstruíram uma fatura sem documento salvo', () => {
+    const transactions: Transaction[] = [
+      {
+        id: 'card-purchase-1',
+        userId: 'u1',
+        type: 'expense',
+        amount: 200,
+        date: '2025-12-03',
+        creditCardId: 'card-1',
+        invoicePeriod: '2025-12',
+        status: 'paid',
+        description: 'Compra antiga 1',
+        createdAt: '',
+      },
+      {
+        id: 'card-purchase-2',
+        userId: 'u1',
+        type: 'expense',
+        amount: 157.97,
+        date: '2025-12-09',
+        creditCardId: 'card-1',
+        invoicePeriod: '2025-12',
+        status: 'paid',
+        description: 'Compra antiga 2',
+        createdAt: '',
+      },
+    ];
+
+    const normalized = normalizeTransactions(transactions, [], [card]);
+    const { cashFlowResult } = buildAccountFlowReport(
+      [account],
+      [card],
+      [],
+      normalized,
+      filters
+    );
+
+    const obligation = cashFlowResult.priorInvoiceObligations.find(item => item.period === '2025-12');
+    expect(obligation).toBeDefined();
+    expect(obligation).toMatchObject({
+      remainingAmountCents: 35797,
+      sourceKind: 'card_transactions',
+    });
+    expect(obligation?.sourceEntries?.map(entry => entry.id)).toEqual(['card-purchase-1', 'card-purchase-2']);
   });
 });
