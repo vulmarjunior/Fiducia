@@ -10,7 +10,7 @@ import {
   CartesianGrid,
   ReferenceLine,
 } from 'recharts';
-import type { CashFlowPoint, CashFlowReportResult, NormalizedTransaction } from '../../types/reports';
+import type { CashFlowPoint, CashFlowReportResult } from '../../types/reports';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
 import { ArrowUpRight, ArrowDownRight, Scale, Wallet, Clock, ArrowLeftRight, Info, CreditCard, ShieldCheck, ShieldAlert } from 'lucide-react';

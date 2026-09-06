@@ -3,6 +3,24 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.20.2] — 2026-09-05 — Limpeza de Código, Eliminação de Dead Code e Otimização
+
+**Resultado:** Realizada varredura completa de limpeza de código no repositório. Foram removidos arquivos temporários e órfãos na raiz (`0`, `check.mjs`, logs do Vite), primitivas de componentes não utilizadas (`avatar.tsx`, `table.tsx`), cálculos ociosos no `Dashboard` (como inscrição ociosa de `recurrenceRules` no Firestore e variáveis não consumidas), funções mortas e dezenas de imports não utilizados em páginas, componentes e bibliotecas. O bundle de produção foi enxugado com segurança, sem qualquer impacto em funcionalidades em uso.
+
+**Alterações técnicas:**
+- Exclusão de arquivos órfãos da raiz: `0`, `check.mjs`, `tmp-vite.err.log`, `tmp-vite.out.log`.
+- Exclusão de primitivas não utilizadas: `src/components/ui/avatar.tsx`, `src/components/ui/table.tsx`.
+- `src/pages/Dashboard.tsx` — remoção de listener redundante do Firestore (`recurrenceRules`), eliminação de cálculos de `currentMonthTransactions`, `invoicePaymentTransactionIds`, `monthlyBalance` e `upcomingExpenses`.
+- `src/pages/Reports.tsx` — remoção de variáveis ociosas (`totalBalance`, `cashTotals`, `projEndMonthStr`) e setters sem uso (`setCashflowPeriod`, `setShowPending`).
+- `src/pages/Transactions.tsx` — remoção de import não utilizado `motion` de `motion/react`, 7 ícones Lucide não renderizados e helper local não utilizado `formatMonthYear`.
+- `src/pages/CreditCards.tsx` — remoção da função não referenciada `calculateInvoiceTotal` e de imports ociosos (`setDoc`, `ArrowUpRight`, `FileText`, `PlusCircle`, `getSeriesKey`, `getCategoryIcon`).
+- `src/pages/Audit.tsx` — remoção de `selectedAccount` e `isSource` ociosos.
+- `src/pages/Reconciliation.tsx` — remoção de `ignoredImported`, `Label` e `Check`.
+- `src/pages/Budgets.tsx`, `Categories.tsx`, `Tags.tsx`, `ActivityLog.tsx`, `Simulator.tsx` — limpeza de imports e setters não utilizados.
+- `src/components/` e `src/lib/` — limpeza de imports de ícones, funções e types não utilizados em `AccountFlowView`, `CashFlowChart`, `CategoryDistributionChart`, `CategoryEvolutionChart`, `ReportHeader`, `ReportFilterDrawer`, `pdfTemplates`, `invoiceEvents`, `categoryReport` e `ofxParser`.
+
+---
+
 ## [0.20.1] — 2026-09-05 — Detalhamento de Lançamentos por Período no Simulador
 
 **Resultado:** Adicionado o modal de detalhamento de lançamentos (`ReportDetailsDialog`) ao Simulador de Decisões de Caixa (`/simulator`), reproduzindo exatamente o comportamento e layout de **Receitas × Despesas** / **Entradas × Saídas**. Ao clicar em qualquer linha da tabela de fluxo (seja no modo Diário ou Mensal) ou em qualquer ponto do gráfico comparativo, abre-se o modal exibindo a lista completa de lançamentos que compõem o caixa do período selecionado (incluindo receitas, despesas bancárias, faturas e parcelas simuladas), com seus valores, ícones de categoria, conta/cartão e status de efetivação.

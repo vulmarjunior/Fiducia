@@ -80,10 +80,6 @@ export function Audit() {
     return transactions.filter(t => t.accountId === selectedAccountId || t.destinationAccountId === selectedAccountId);
   }, [transactions, selectedAccountId]);
 
-  const selectedAccount = useMemo(() => {
-    return accounts.find(a => a.id === selectedAccountId);
-  }, [accounts, selectedAccountId]);
-
   const runningBalanceTransactions = useMemo(() => {
     const account = accounts.find(a => a.id === selectedAccountId);
     let balance = account?.initialBalance || 0;
@@ -91,7 +87,6 @@ export function Audit() {
       .filter(t => isEffectivelyPaid(t))
       .map(t => {
       const isDestination = t.destinationAccountId === selectedAccountId;
-      const isSource = t.accountId === selectedAccountId;
       
       let change = 0;
       if (t.type === 'transferencia') {

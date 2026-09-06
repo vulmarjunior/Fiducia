@@ -9,7 +9,7 @@ import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { logActivity } from '../services/activityLogService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { Tags, Plus, Trash2, Edit, Download, Layers, HelpCircle, GripVertical } from 'lucide-react';
+import { Tags, Plus, Trash2, Edit, Download, Layers, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { CATEGORY_ICONS, getCategoryIcon, suggestIcon, DEFAULT_TEMPLATES } from '../lib/categoryIcons';
 import { PageHelp } from '../components/PageHelp';

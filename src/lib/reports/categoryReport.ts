@@ -7,7 +7,7 @@ import type {
   PaymentStatusFilter,
   ReportFilters,
 } from '../../types/reports';
-import { fromCents, getReportDiagnostics, toCents } from './normalize';
+import { fromCents, getReportDiagnostics } from './normalize';
 import { generateBuckets, getMonthBounds } from './periods';
 
 function getInvoiceStatus(

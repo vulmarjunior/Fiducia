@@ -13,11 +13,10 @@ import { useNavigate } from 'react-router-dom';
 import type {
   AccountFlowItem,
   AccountFlowReportResult,
-  NormalizedTransaction,
 } from '../../types/reports';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
-import { Wallet, AlertCircle, CreditCard, ArrowUpRight, ArrowDownRight, Clock, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
+import { Wallet, CreditCard, Clock, ShieldCheck, ShieldAlert, Info } from 'lucide-react';
 
 interface AccountFlowViewProps {
   reportResult: AccountFlowReportResult;

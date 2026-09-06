@@ -17,7 +17,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from '../ui/popover';
 import {
-  Calendar, HelpCircle, Info, Search, X, ChevronDown, CheckSquare, Square,
+  HelpCircle, Info, Search, X, ChevronDown, CheckSquare, Square,
 } from 'lucide-react';
 
 interface CategoryEvolutionChartProps {

@@ -1,6 +1,5 @@
 import { CheckCircle2, Circle, Plus, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Button } from './ui/button';
 
 interface OnboardingChecklistProps {
   accountCount: number;

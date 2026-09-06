@@ -1,4 +1,3 @@
-import { motion } from 'motion/react';
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '../components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from '../components/ui/popover';
-import { Plus, Trash2, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Lock, FileUp, Check, X, AlertCircle, HelpCircle, Tag, Wallet, CheckCircle, AlignLeft, CreditCard, ChevronLeft, ChevronRight, Search, Repeat, MessageSquare, Paperclip, ThumbsUp, ThumbsDown, CheckCircle2, Sparkles, Loader2, FileDown, ArrowUpDown, Undo } from 'lucide-react';
+import { Plus, Trash2, Edit, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Lock, FileUp, X, HelpCircle, Wallet, CheckCircle, AlignLeft, CreditCard, ChevronLeft, ChevronRight, Search, MessageSquare, CheckCircle2, Sparkles, Loader2, FileDown, ArrowUpDown, Undo } from 'lucide-react';
 import { toast } from 'sonner';
 import { parseOfx, OfxTransaction } from '../services/ofxService';
 import { parseCsvOrExcel } from '../services/importService';
@@ -996,12 +995,6 @@ ${sample.map(t =>
       newYear++;
     }
     setSelectedMonth(`${newYear}-${newMonth.toString().padStart(2, '0')}`);
-  };
-
-  const formatMonthYear = (monthStr: string) => {
-    const [year, month] = monthStr.split('-');
-    const date = new Date(Number(year), Number(month) - 1, 1);
-    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
   };
 
   const formatDateHeader = (dateStr: string) => {

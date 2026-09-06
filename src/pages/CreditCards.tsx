@@ -2,17 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, runTransaction, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, List, MoreVertical, Search, Printer, FileText, PlusCircle, RefreshCcw, FileUp, Lock, Layers, Clock, FileSearch, Undo } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, List, MoreVertical, Search, Printer, RefreshCcw, FileUp, Lock, Layers, Clock, FileSearch, Undo } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
-import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, isInvoiceClosed, findSeriesTransactions, getSeriesKey, isEffectivelyPaid } from '../lib/utils';
+import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, isInvoiceClosed, findSeriesTransactions, isEffectivelyPaid } from '../lib/utils';
 import { calculateCreditLimitUsage } from '../utils/creditCardUtils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
@@ -22,7 +22,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
-import { getCategoryIcon } from '../lib/categoryIcons';
 import { getCardBrandDetails } from '../utils/cardBrandUtils';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { extractTextFromPdf, parseInvoiceWithGroq, PdfTransaction } from '../services/pdfInvoiceService';
@@ -164,27 +163,6 @@ export function CreditCards() {
       }
     }
   }, [location.state, cards]);
-
-  const calculateInvoiceTotal = (cardId: string, closingDay: number, dueDay: number) => {
-    const currentPeriod = calculateInvoicePeriod(new Date(), closingDay, dueDay);
-    return transactions
-      .filter(t => (t.accountId === cardId || t.destinationAccountId === cardId) && t.invoicePeriod === currentPeriod)
-      .reduce((acc, t) => {
-        if ((t.type === 'expense' || t.type === 'despesa') && t.accountId === cardId) {
-          return acc + (t.amount || 0);
-        }
-        if ((t.type === 'income' || t.type === 'receita') && t.accountId === cardId) {
-          return acc - (t.amount || 0);
-        }
-        if ((t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === cardId) {
-          return acc - (t.amount || 0);
-        }
-        if ((t.type === 'transfer' || t.type === 'transferencia') && t.accountId === cardId) {
-          return acc + (t.amount || 0);
-        }
-        return acc;
-      }, 0);
-  };
 
   const calculateTotalLimitUsage = (cardId: string) => {
     return calculateCreditLimitUsage(cardId, transactions, invoices);

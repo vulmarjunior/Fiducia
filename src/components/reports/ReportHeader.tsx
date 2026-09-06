@@ -7,12 +7,9 @@ import type { ReportFilters, ReportIntervalType } from '../../types/reports';
 import {
   ChevronLeft,
   ChevronRight,
-  Calendar,
   Filter,
   FileSpreadsheet,
   FileText,
-  RotateCcw,
-  X,
   ChevronsUpDown,
   Clock,
   Shield,

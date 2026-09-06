@@ -3,22 +3,22 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTransactionDialog } from '../contexts/TransactionDialogContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, HelpCircle, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info, Sparkles } from 'lucide-react';
+import { Wallet, CreditCard, Eye, EyeOff, Plus, ArrowUpRight, ArrowDownRight, Calendar, HelpCircle, ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Info, Sparkles } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, ReferenceLine } from 'recharts';
+import { XAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, ReferenceLine } from 'recharts';
 import { getCategoryIcon } from '../lib/categoryIcons';
-import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLocalDate, projectDailyBalance, getBudgetImpact } from '../lib/utils';
+import { calculateInvoicePeriod, getPreviousPeriod, isEffectivelyPaid, parseLocalDate, getBudgetImpact } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 import { useReportingPeriod } from '../contexts/ReportingPeriodContext';
 import { migrateCategoryIds } from '../services/categoryMigration';
 import { OnboardingChecklist } from '../components/OnboardingChecklist';
 import { MetricExplanationDialog } from '../components/MetricExplanationDialog';
-import { getInvoiceFinancialSummary, getInvoicePaymentTransactionIds } from '../lib/invoicePayment';
+import { getInvoiceFinancialSummary } from '../lib/invoicePayment';
 import { buildMonthlyStatement } from '../lib/monthlyStatement';
 import { MonthlyStatementEntries } from '../components/MonthlyStatementEntries';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { calculateCashMargin, CASH_SAFETY_RESERVE_KEY } from '../lib/cashCoverage';
+import { CASH_SAFETY_RESERVE_KEY } from '../lib/cashCoverage';
 import { buildAccountFlowReport } from '../lib/reports/accountFlow';
 import { normalizeTransactions } from '../lib/reports/normalize';
  
@@ -32,7 +32,6 @@ export function Dashboard() {
   const [categories, setCategories] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [recurrenceRules, setRecurrenceRules] = useState<any[]>([]);
   const [showValues, setShowValues] = useState(true);
   const [periodFilter, setPeriodFilter] = useState<'week' | 'month' | 'year'>('month');
   const [extraSectionsOpen, setExtraSectionsOpen] = useState(false);
@@ -102,11 +101,6 @@ export function Dashboard() {
       setInvoices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => handleFirestoreError(error, OperationType.GET, 'invoices'));
 
-    const recurrenceRulesQuery = query(collection(db, 'recurrenceRules'), where('userId', '==', user.uid));
-    const unsubscribeRecurrenceRules = onSnapshot(recurrenceRulesQuery, (snapshot) => {
-      setRecurrenceRules(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'recurrenceRules'));
-
     return () => {
       unsubscribeAccounts();
       unsubscribeCards();
@@ -115,7 +109,6 @@ export function Dashboard() {
       unsubscribeCategories();
       unsubscribeGoals();
       unsubscribeInvoices();
-      unsubscribeRecurrenceRules();
     };
   }, [user, isAuthReady]);
 
@@ -143,22 +136,13 @@ export function Dashboard() {
   const currentMonthStr = selectedMonth;
   const currentDateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
   
-  const currentMonthTransactions = transactions.filter(t => {
-    if (t.creditCardId || t.accountId && creditCards.some(c => c.id === t.accountId)) {
-      return t.invoicePeriod === currentMonthStr;
-    }
-    return t.date.split('T')[0].startsWith(currentMonthStr);
-  });
-
   const monthlyStatement = useMemo(
     () => buildMonthlyStatement(transactions, invoices, creditCards.flatMap(card => card.id ? [card.id] : []), currentMonthStr),
     [transactions, invoices, creditCards, currentMonthStr],
   );
-  const invoicePaymentTransactionIds = getInvoicePaymentTransactionIds(invoices);
   const monthlyIncome = monthlyStatement.incomeTotal;
   const monthlyExpenseTransactions = monthlyStatement.expenseEntries.map(entry => entry.transaction);
   const monthlyExpense = monthlyStatement.expenseTotal;
-  const monthlyBalance = monthlyIncome - monthlyExpense;
 
   // Projeção do mês atual com a mesma metodologia canônica do relatório Entradas × Saídas
   const monthFlowReport = useMemo(() => {
@@ -215,11 +199,6 @@ export function Dashboard() {
     const d = t.date.split('T')[0];
     return !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && isExpenseType(t) && isPendingStatus(t) && d < currentDateStr && d >= thirtyDaysAgo;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  const upcomingExpenses = transactions.filter(t => {
-    const d = t.date.split('T')[0];
-    return !t.creditCardId && !creditCards.some(c => c.id === t.accountId) && isExpenseType(t) && isPendingStatus(t) && d >= currentDateStr && d <= thirtyDaysFromNow;
-  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
 
   // Bug fix: excluir transações de cartão de crédito das listas de receitas pendentes
   const overdueIncomes = transactions.filter(t => {

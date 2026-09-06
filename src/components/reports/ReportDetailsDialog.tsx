@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '../ui/button';
 import { formatCurrency } from '../../lib/utils';
 import { useTransactionDialog } from '../../contexts/TransactionDialogContext';
-import type { Invoice, Transaction } from '../../types';
+import type { Invoice } from '../../types';
 import type { NormalizedTransaction } from '../../types/reports';
 import { CreditCard, Wallet, CheckCircle2, Clock, ArrowLeftRight } from 'lucide-react';
 

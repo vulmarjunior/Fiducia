@@ -17,8 +17,6 @@ export const parseOfx = (ofxString: string): OfxTransaction[] => {
   // Skip the first block as it's the header
   for (let i = 1; i < blocks.length; i++) {
     const trnContent = blocks[i];
-    
-    const trnType = getTagValue(trnContent, 'TRNTYPE');
     const dtPosted = getTagValue(trnContent, 'DTPOSTED');
     const trnAmtStr = getTagValue(trnContent, 'TRNAMT') || '0';
     const trnAmt = parseFloat(trnAmtStr.replace(',', '.'));

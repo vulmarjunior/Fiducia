@@ -107,7 +107,7 @@ export function Simulator() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
-  const [includeSavings, setIncludeSavings] = useState<boolean>(false);
+  const [includeSavings] = useState<boolean>(false);
   const [isCommitModalOpen, setIsCommitModalOpen] = useState<boolean>(false);
   const [isCommitting, setIsCommitting] = useState<boolean>(false);
 

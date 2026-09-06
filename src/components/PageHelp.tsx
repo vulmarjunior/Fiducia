@@ -1,7 +1,6 @@
 import { HelpCircle, X } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from './ui/dialog';
-import { Button } from './ui/button';
 
 interface HelpItem {
   label: string;

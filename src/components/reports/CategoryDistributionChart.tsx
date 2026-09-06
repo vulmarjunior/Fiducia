@@ -15,7 +15,6 @@ import type { Invoice } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { ReportDetailsDialog } from './ReportDetailsDialog';
 import { PieChart as PieIcon, BarChart3, Info, AlertTriangle } from 'lucide-react';
-import { Button } from '../ui/button';
 
 interface CategoryDistributionChartProps {
   reportResult: CategoryReportResult;
@@ -52,7 +51,7 @@ export function CategoryDistributionChart({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [othersEntries, setOthersEntries] = useState<NormalizedTransaction[] | null>(null);
 
-  const { categories, total, hasNegativeCategories, diagnostics, itemsWithoutInvoicePeriodTotal, itemsWithoutInvoicePeriodEntries } = reportResult;
+  const { categories, total, hasNegativeCategories, diagnostics, itemsWithoutInvoicePeriodTotal } = reportResult;
 
   const effectiveChartType = hasNegativeCategories ? 'bar' : chartType;
 

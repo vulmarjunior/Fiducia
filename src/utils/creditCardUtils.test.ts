@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCreditLimitUsage, getInvoicePeriod, getInvoiceStatus } from './creditCardUtils';
+import { calculateCreditLimitUsage, getInvoicePeriod } from './creditCardUtils';
 
 describe('getInvoicePeriod', () => {
   it('Compra antes do corte (deve ficar no mês atual)', () => {

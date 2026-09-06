@@ -242,7 +242,7 @@ export function runSimulationComparison({
   const chartData: SimulationChartPoint[] = simulatedProjection.dailyProjection.map(simDay => {
     const realBal = realDaysMap.get(simDay.date) ?? simDay.startingBalance;
     const simBal = simDay.endingBalance;
-    const [y, m, d] = simDay.date.split('-');
+    const [, m, d] = simDay.date.split('-');
     return {
       date: simDay.date,
       label: `${d}/${m}`,

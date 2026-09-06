@@ -4,14 +4,13 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Select as ShadcnSelect, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 import { parseOFX, ImportedTransaction } from '../lib/ofxParser';
 import Papa from 'papaparse';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Check, X, Link as LinkIcon, Plus, CheckCircle2, AlertCircle, LayoutDashboard, Download, FileText, Sparkles, Loader2 } from 'lucide-react';
+import { X, Link as LinkIcon, Plus, CheckCircle2, AlertCircle, LayoutDashboard, Download, FileText, Sparkles, Loader2 } from 'lucide-react';
 import { calculateInvoicePeriod, resolveAccountName } from '../lib/utils';
 import { PageHelp } from '../components/PageHelp';
 import { callGroq } from '../services/groqService';
@@ -437,7 +436,6 @@ Responda em Português, máximo 3 parágrafos curtos, tom profissional.`;
 
   const pendingImported = importedTransactions.filter(t => t.status === 'pending');
   const matchedImported = importedTransactions.filter(t => t.status === 'matched' || t.status === 'added');
-  const ignoredImported = importedTransactions.filter(t => t.status === 'ignored');
 
   // Filter out system transactions that are already matched in the current session
   const matchedSystemIdsInSession = new Set(importedTransactions.filter(t => t.status === 'matched').map(t => t.matchedWithSystemId));

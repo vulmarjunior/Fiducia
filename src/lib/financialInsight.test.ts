@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildFinancialInsightContext, buildGroqFinancialAnalysisPrompt } from './financialInsight';
 
-const BASE_DATE = '2026-06-23';
-
 describe('buildFinancialInsightContext', () => {
   it('retorna null quando nao ha transacoes', () => {
     const result = buildFinancialInsightContext({

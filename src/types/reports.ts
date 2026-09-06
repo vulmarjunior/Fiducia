@@ -1,4 +1,4 @@
-import type { Account, Category, CreditCard, Invoice, Transaction } from './index';
+import type { Transaction } from './index';
 
 export type ReportTab = 'expenses' | 'income' | 'cashflow' | 'accounts';
 

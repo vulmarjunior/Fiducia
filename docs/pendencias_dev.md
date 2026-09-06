@@ -5,16 +5,16 @@
 
 ## Próxima pauta
 
-**Estado:** Detalhamento de Lançamentos por Período no Simulador (`v0.20.1`) implementado, testado e validado com sucesso. O Simulador agora abre o modal `ReportDetailsDialog` ao clicar em qualquer dia ou mês (na tabela ou no gráfico), exibindo as movimentações detalhadas de caixa (reais e simuladas) que compõem o saldo do período.
+**Estado:** Limpeza de Código, Eliminação de Dead Code e Otimização (`v0.20.2`) concluída e validada. O código está enxuto, sem arquivos residuais, sem imports ociosos e com ganhos de desempenho em listeners e cálculos de renderização.
 
-**Versão de base:** `0.20.1`.
+**Versão de base:** `0.20.2`.
 
-**Referência da última entrega:** `CHANGELOG.md` (`[0.20.1]`).
+**Referência da última entrega:** `CHANGELOG.md` (`[0.20.2]`).
 
 ### Próximo passo sugerido
 
-1. Validação da experiência pelo usuário no navegador ou celular.
-2. Continuidade das demandas do usuário.
+1. Validação final pelo usuário.
+2. Continuidade de novos recursos conforme backlog.
 
 ### Frente Android pausada
 

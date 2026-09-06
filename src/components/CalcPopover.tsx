@@ -25,7 +25,6 @@ function evaluate(expr: string): number | null {
 function parseExpression(s: string): number {
   let pos = 0;
   function skipSpaces() { while (pos < s.length && s[pos] === ' ') pos++; }
-  function peek(): string { skipSpaces(); return s[pos] || ''; }
 
   function parseNumber(): number {
     skipSpaces();

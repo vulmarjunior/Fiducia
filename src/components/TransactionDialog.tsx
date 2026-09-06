@@ -7,7 +7,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { MoneyInput } from './MoneyInput';
 import { CategorySelect } from './CategorySelect';
 import { calculateInvoicePeriod, getNextPeriod, dateToLocalISOString, parseLocalDate, isEffectivelyPaid, isPeriodClosed, getInvoicePaymentIds, resolveCategoryId } from '../lib/utils';

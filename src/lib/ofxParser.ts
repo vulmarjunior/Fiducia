@@ -19,7 +19,6 @@ export function parseOFX(ofxString: string): ImportedTransaction[] {
     const block = match[1];
     
     // Extract fields
-    const trnTypeMatch = block.match(/<TRNTYPE>(.*?)(?:\r?\n|<)/);
     const dtPostedMatch = block.match(/<DTPOSTED>(.*?)(?:\r?\n|<)/);
     const trnAmtMatch = block.match(/<TRNAMT>(.*?)(?:\r?\n|<)/);
     const fitIdMatch = block.match(/<FITID>(.*?)(?:\r?\n|<)/);

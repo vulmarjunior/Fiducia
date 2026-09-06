@@ -62,7 +62,6 @@ const COLORS = ['#22c55e', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4'
 
 const isExpense = (t: any) => t.type === 'despesa' || t.type === 'expense';
 const isIncome = (t: any) => t.type === 'receita' || t.type === 'income';
-const isPending = (t: any) => t.status === 'pendente' || t.status === 'pending';
 
 const isCardTx = (t: any, cardId: string) =>
   (t.creditCardId === cardId || t.accountId === cardId || t.destinationAccountId === cardId);
@@ -108,10 +107,6 @@ const getInvoiceStatusFromDates = (
 const getDueDate = (period: string, dueDay: number): string => {
   const [year, month] = period.split('-').map(Number);
   return `${year}-${String(month).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
-};
-
-const isFuturePeriod = (period: string, todayStr: string): boolean => {
-  return period > todayStr;
 };
 
 const computeInvoiceAmount = (

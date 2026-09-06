@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import type { Account, Category, CreditCard } from '../../types';
 import type { PaymentStatusFilter, ReportFilters, ReportTab } from '../../types/reports';
-import { Search, CheckSquare, Square, Filter, X, Calendar } from 'lucide-react';
+import { Search, CheckSquare, Square, Filter } from 'lucide-react';
 import { getMonthBounds } from '../../lib/reports/periods';
 
 interface ReportFilterDrawerProps {

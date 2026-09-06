@@ -11,7 +11,7 @@ import {
 import {
   TrendingUp, TrendingDown, Target, Sparkles, Loader2, Brain,
   ArrowUpRight, ArrowDownRight, ChevronDown, ChevronRight,
-  CreditCard, BarChart2, Calendar, FileDown, ReceiptText, Wallet,
+  CreditCard, BarChart2, FileDown, Wallet,
   AlertCircle,
 } from 'lucide-react';
 import { generateCategoryPDF, generateTrendPDF, generateProjectionPDF, generateInvoiceAnalysisPDF } from '../lib/pdfTemplates';
@@ -34,7 +34,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { buildConsumptionAnalysis } from '../lib/consumptionAnalysis';
 import { buildMonthlyStatementCsv } from '../lib/monthlyStatementCsv';
 
-import type { ReportFilters, ReportTab, CategoryReportResult } from '../types/reports';
+import type { ReportFilters, CategoryReportResult } from '../types/reports';
 import { normalizeTransactions } from '../lib/reports/normalize';
 import { buildCategoryReport } from '../lib/reports/categoryReport';
 import { buildAccountFlowReport } from '../lib/reports/accountFlow';
@@ -156,8 +156,8 @@ export function Reports() {
   }, [location.state, setSelectedMonth]);
 
   // Aba 1 — Fluxo de Caixa (dados usados pela aba IA)
-  const [cashflowPeriod, setCashflowPeriod] = useState<'month' | '3months' | '6months' | '12months'>('month');
-  const [showPending, setShowPending] = useState(false);
+  const [cashflowPeriod] = useState<'month' | '3months' | '6months' | '12months'>('month');
+  const [showPending] = useState(false);
 
   // Aba 2 — Categorias
   const [catPeriod, setCatPeriod] = useState<'month' | '3months' | '6months' | '12months'>('month');
@@ -265,7 +265,6 @@ export function Reports() {
   const now = new Date();
   const todayStr = toDateStr(now);
   const currentMonthStr = toMonthStr(now);
-  const totalBalance = accounts.reduce((s, a) => s + (a.balance || 0), 0);
 
   // ─── CÁLCULOS DOS RELATÓRIOS ESSENCIAIS ──────────────────────────────────
   const normalizedTransactions = useMemo(() => {
@@ -393,15 +392,6 @@ export function Reports() {
     });
   }, [transactions, invoices, creditCards, cashFlowMonths, showPending]);
 
-  const cashTotals = useMemo(() => {
-    const totalR = cashFlowData.reduce((s, m) => s + m.Receitas, 0);
-    const totalD = cashFlowData.reduce((s, m) => s + m.Despesas, 0);
-    const last = cashFlowData[cashFlowData.length - 1] || { Receitas: 0, Despesas: 0 };
-    const savings = last.Receitas - last.Despesas;
-    const rate = last.Receitas > 0 ? (savings / last.Receitas * 100) : 0;
-    return { totalR, totalD, savings, rate };
-  }, [cashFlowData]);
-
   // ─── ABA 2: CATEGORIAS ───────────────────────────────────────────────────
   const catDateRange = useMemo(() => {
     const count = catPeriod === 'month' ? 1 : catPeriod === '3months' ? 3 : catPeriod === '6months' ? 6 : 12;
@@ -499,8 +489,6 @@ export function Reports() {
     end.setDate(end.getDate() + days - 1);
     return end;
   }, [projPeriod, projCustomEnd]);
-
-  const projEndMonthStr = toMonthStr(projEndDate);
 
   const cashCoverageProjection = useMemo(() => buildCashCoverageProjection({
     accounts,

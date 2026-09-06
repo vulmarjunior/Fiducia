@@ -1,4 +1,4 @@
-import { createPdf, addTable, getAutoTable, savePdf } from '../services/pdfExportService';
+import { createPdf, getAutoTable, savePdf } from '../services/pdfExportService';
 import {
   fmtMoneyPDF, fmtDatePDF, fmtDateShort, fmtMonthYear, generateFilename,
   MARGIN_LEFT, MARGIN_RIGHT, PAGE_WIDTH, CONTENT_WIDTH,
@@ -33,18 +33,6 @@ function resolveAccountName(accountId: string | undefined, accounts: any[], cred
   const card = creditCards.find(c => c.id === accountId);
   if (card) return card.name;
   return accountId;
-}
-
-function isExpense(t: any): boolean {
-  return t.type === 'despesa' || t.type === 'expense';
-}
-
-function isIncome(t: any): boolean {
-  return t.type === 'receita' || t.type === 'income';
-}
-
-function isTransfer(t: any): boolean {
-  return t.type === 'transferencia' || t.type === 'transfer';
 }
 
 function isPaid(t: any): boolean {
