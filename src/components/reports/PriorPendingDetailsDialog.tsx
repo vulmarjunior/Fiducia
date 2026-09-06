@@ -1,9 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { doc, runTransaction } from 'firebase/firestore';
+import { toast } from 'sonner';
+import { ArrowLeftRight, CreditCard, Trash2, Wallet } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { formatCurrency } from '../../lib/utils';
 import { useTransactionDialog } from '../../contexts/TransactionDialogContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { db, handleFirestoreError, OperationType } from '../../firebase';
+import { logActivity } from '../../services/activityLogService';
 import type { NormalizedTransaction, UnallocatedInvoiceObligation } from '../../types/reports';
-import { ArrowLeftRight, CreditCard, Wallet } from 'lucide-react';
 
 interface PriorPendingDetailsDialogProps {
   open: boolean;
@@ -21,9 +26,46 @@ export function PriorPendingDetailsDialog({
   entityNames,
 }: PriorPendingDetailsDialogProps) {
   const { open: openTransactionDialog } = useTransactionDialog();
+  const { user } = useAuth();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const bankTotal = bankEntries.reduce((sum, entry) => sum + entry.amountCents, 0);
   const invoiceTotal = invoiceObligations.reduce((sum, item) => sum + item.remainingAmountCents, 0);
   const resolveName = (id?: string) => (id ? entityNames?.[id] || id : undefined);
+
+  const handleDeleteSourceEntry = async (entry: NormalizedTransaction) => {
+    const transactionId = entry.raw?.id;
+    if (!transactionId || !user || deletingId) return;
+
+    const confirmed = window.confirm(
+      `Excluir definitivamente o lançamento "${entry.description || 'Sem descrição'}" de ${entry.date.split('-').reverse().join('/')} no valor de ${formatCurrency(entry.amountCents / 100)}?\n\nUse esta ação apenas quando o registro estiver órfão ou incorreto.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(transactionId);
+      const transactionRef = doc(db, 'transactions', transactionId);
+      await runTransaction(db, async firestoreTransaction => {
+        const snapshot = await firestoreTransaction.get(transactionRef);
+        if (!snapshot.exists()) throw new Error('Lançamento não encontrado');
+        if (snapshot.data().userId !== user.uid) throw new Error('Lançamento não pertence ao usuário autenticado');
+        firestoreTransaction.delete(transactionRef);
+      });
+
+      logActivity({
+        userId: user.uid,
+        action: 'delete',
+        entityType: 'transaction',
+        entityId: transactionId,
+        description: `Lançamento órfão removido pela auditoria: ${entry.description || 'Sem descrição'} (${formatCurrency(entry.amountCents / 100)})`,
+      }).catch(() => {});
+      toast.success('Lançamento excluído. O diagnóstico será recalculado automaticamente.');
+    } catch (error) {
+      toast.error('Não foi possível excluir o lançamento');
+      handleFirestoreError(error, OperationType.DELETE, 'transactions');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -142,22 +184,36 @@ export function PriorPendingDetailsDialog({
                               <span>Soma: {formatCurrency(sourceTotal / 100)}</span>
                             </div>
                             {sourceEntries.map(entry => (
-                              <button
+                              <div
                                 key={entry.id}
-                                type="button"
-                                onClick={() => entry.raw?.id && openTransactionDialog({ editId: entry.raw.id })}
-                                className="w-full rounded-md border border-border bg-background/50 px-2.5 py-2 text-left hover:bg-muted/50 transition-colors flex items-center justify-between gap-3"
+                                className="w-full rounded-md border border-border bg-background/50 px-2.5 py-2 flex items-center justify-between gap-3"
                               >
-                                <div className="min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => entry.raw?.id && openTransactionDialog({ editId: entry.raw.id })}
+                                  className="min-w-0 flex-1 text-left hover:opacity-80 transition-opacity"
+                                >
                                   <div className="text-xs font-medium text-foreground truncate">{entry.description || 'Sem descrição'}</div>
                                   <div className="text-[10px] text-muted-foreground">
                                     {entry.date.split('-').reverse().join('/')} · período da fatura {entry.invoicePeriod || entry.month}
                                   </div>
+                                </button>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <strong className={`font-mono text-xs ${entry.isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                    {entry.isCredit ? '+' : '-'}{formatCurrency(entry.amountCents / 100)}
+                                  </strong>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleDeleteSourceEntry(entry)}
+                                    disabled={deletingId === entry.raw?.id}
+                                    aria-label={`Excluir ${entry.description || 'lançamento'}`}
+                                    title="Excluir registro órfão/incorreto"
+                                    className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
-                                <strong className={`font-mono text-xs shrink-0 ${entry.isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                  {entry.isCredit ? '+' : '-'}{formatCurrency(entry.amountCents / 100)}
-                                </strong>
-                              </button>
+                              </div>
                             ))}
                           </div>
                         ) : (
