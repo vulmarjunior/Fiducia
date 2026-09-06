@@ -75,3 +75,16 @@ export interface SimulationSummary {
   simulatedFinalBalance: number;
   finalBalanceDelta: number;
 }
+
+export interface SimulationScenario {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  items: SimulatedItem[];
+  horizon?: SimulationHorizon;
+  intervalType?: SimulationIntervalType;
+  createdAt: string;
+  updatedAt?: string;
+}
+

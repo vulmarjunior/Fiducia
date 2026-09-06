@@ -254,6 +254,17 @@ service cloud.firestore {
              data.description is string && data.description.size() < 500 &&
              isValidDate(data.createdAt);
     }
+    function isValidSimulationScenario(data) {
+      return hasRequiredFields(['userId', 'name', 'items', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.items is list &&
+             isValidDate(data.createdAt) &&
+             (!('updatedAt' in data) || isValidDate(data.updatedAt)) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             (!('horizon' in data) || data.horizon is string) &&
+             (!('intervalType' in data) || data.intervalType is string);
+    }
 
     // ===============================================================
     // Rules
@@ -360,6 +371,12 @@ service cloud.firestore {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidActivityLog(request.resource.data) && uidUnchanged();
       allow update: if false;
+      allow delete: if isDocOwner();
+    }
+    match /simulationScenarios/{scenarioId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidSimulationScenario(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidSimulationScenario(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if isDocOwner();
     }
   }

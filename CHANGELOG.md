@@ -3,6 +3,18 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.20.0] — 2026-09-05 — Cenários Salvos e Sincronizados no Firestore
+
+**Resultado:** Implementado o gerenciador completo de **Cenários Salvos** no Firestore para o Simulador de Caixa (`/simulator`). O usuário agora pode salvar múltiplos cenários com nomes personalizados (ex: *"Reforma da Casa"*, *"Troca de Carro"*, *"Viagem de Férias"*), alternar instantaneamente entre eles por um seletor e sincronizá-los em tempo real entre diferentes dispositivos, navegadores e instâncias (celular, tablet e computador). Inclui opções para salvar alterações no cenário ativo, salvar como novo cenário, criar novo em branco e excluir cenários com confirmação.
+
+**Alterações técnicas:**
+- `firestore.rules` — adicionadas regras de segurança e validação para a coleção `simulationScenarios`, com isolamento por usuário (`userId == request.auth.uid`), validação de nome, lista de itens e datas.
+- `src/types/simulator.ts` — interface de tipos `SimulationScenario`.
+- `src/components/simulator/SaveScenarioDialog.tsx` — novo componente de modal para salvar ou duplicar cenários com nome e descrição opcional.
+- `src/pages/Simulator.tsx` — barra de gestão de cenários no Firestore via `onSnapshot`, seletor de cenários, ações de salvar, salvar como novo, novo em branco e exclusão com `ConfirmDialog`.
+
+---
+
 ## [0.19.1] — 2026-09-05 — Navegação Temporal e Visualização Diária no Simulador
 
 **Resultado:** Adicionada navegação temporal dinâmica (setas `<` e `>` para avançar e retroceder mês a mês e ano a ano) no Simulador de Decisões de Caixa (`/simulator`), permitindo planejar cenários para qualquer competência futura ou passada. Incluído também o seletor de granularidade **Diário | Mensal**, permitindo alternar entre o fluxo detalhado dia a dia do mês (com visualização das oscilações diárias de saldo) e o consolidado mensal.

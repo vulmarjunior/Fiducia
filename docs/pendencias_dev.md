@@ -5,15 +5,15 @@
 
 ## Próxima pauta
 
-**Estado:** Navegação Temporal e Visualização Diária no Simulador (`v0.19.1`) implementada, testada e validada com sucesso. O Simulador agora permite avançar e retroceder no tempo mês a mês e ano a ano pelas setas `<` e `>`, além de permitir alternar entre a visão **Diária** (dia a dia com detecção de oscilação de saldo) e **Mensal**.
+**Estado:** Cenários Salvos e Sincronizados no Firestore (`v0.20.0`) implementado, testado e validado com sucesso. O Simulador agora permite salvar, alternar, renomear, carregar e excluir múltiplos cenários no Firebase Firestore com isolamento por usuário, garantindo persistência e sincronização entre diferentes instâncias e dispositivos.
 
-**Versão de base:** `0.19.1`.
+**Versão de base:** `0.20.0`.
 
-**Referência da última entrega:** `CHANGELOG.md` (`[0.19.1]`).
+**Referência da última entrega:** `CHANGELOG.md` (`[0.20.0]`).
 
 ### Próximo passo sugerido
 
-1. Validação da experiência pelo usuário no navegador.
+1. Validação da experiência pelo usuário no navegador ou celular.
 2. Continuidade das demandas do usuário.
 
 ### Frente Android pausada

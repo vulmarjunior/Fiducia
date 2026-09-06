@@ -1,16 +1,37 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+} from 'firebase/firestore';
 import { CreditCard, Account, Category, Transaction, Invoice } from '../types';
-import { SimulatedItem, SimulationHorizon, SimulationIntervalType } from '../types/simulator';
+import {
+  SimulatedItem,
+  SimulationHorizon,
+  SimulationIntervalType,
+  SimulationScenario,
+} from '../types/simulator';
 import { CASH_SAFETY_RESERVE_KEY } from '../lib/cashCoverage';
-import { runMonthlySimulationComparison, generateSimulatedTransactions, getHorizonDates } from '../lib/simulatorEngine';
+import {
+  runMonthlySimulationComparison,
+  generateSimulatedTransactions,
+  getHorizonDates,
+} from '../lib/simulatorEngine';
+import { cleanUndefinedFields } from '../utils/cleanUndefined';
 import { SimulationItemForm } from '../components/simulator/SimulationItemForm';
 import { SimulationCardComparison } from '../components/simulator/SimulationCardComparison';
 import { SimulationChart } from '../components/simulator/SimulationChart';
 import { SimulationMonthTable } from '../components/simulator/SimulationMonthTable';
 import { SimulationItemList } from '../components/simulator/SimulationItemList';
+import { SaveScenarioDialog } from '../components/simulator/SaveScenarioDialog';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PageHelp } from '../components/PageHelp';
 import { Button } from '../components/ui/button';
 import {
@@ -29,6 +50,11 @@ import {
   ChevronRight,
   RotateCcw,
   Calendar,
+  FolderOpen,
+  Save,
+  BookmarkPlus,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -58,6 +84,8 @@ export function Simulator() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [scenarios, setScenarios] = useState<SimulationScenario[]>([]);
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Estados da Simulação
@@ -81,9 +109,14 @@ export function Simulator() {
   const [isCommitModalOpen, setIsCommitModalOpen] = useState<boolean>(false);
   const [isCommitting, setIsCommitting] = useState<boolean>(false);
 
+  // Modais de Cenário
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState<boolean>(false);
+  const [isSavingScenario, setIsSavingScenario] = useState<boolean>(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
+
   const safetyReserve = Math.max(0, Number(localStorage.getItem(CASH_SAFETY_RESERVE_KEY)) || 0);
 
-  // Sincroniza hipóteses no localStorage
+  // Sincroniza hipóteses no localStorage (para o rascunho atual)
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(simulatedItems));
@@ -124,14 +157,120 @@ export function Simulator() {
       setLoading(false);
     }, (err) => handleFirestoreError(err, OperationType.GET, 'categories'));
 
+    // Cenários de Simulação no Firestore (sincronizados entre dispositivos)
+    const qScenarios = query(collection(db, 'simulationScenarios'), where('userId', '==', user.uid));
+    const unsubScenarios = onSnapshot(qScenarios, (s) => {
+      setScenarios(s.docs.map(d => ({ id: d.id, ...d.data() } as SimulationScenario)));
+    }, (err) => handleFirestoreError(err, OperationType.GET, 'simulationScenarios'));
+
     return () => {
       unsubAccounts();
       unsubCards();
       unsubTransactions();
       unsubInvoices();
       unsubCategories();
+      unsubScenarios();
     };
   }, [user, isAuthReady]);
+
+  // Cenário ativo atual
+  const activeScenario = useMemo(() => {
+    if (!activeScenarioId) return null;
+    return scenarios.find(s => s.id === activeScenarioId) || null;
+  }, [scenarios, activeScenarioId]);
+
+  // Selecionar cenário
+  const handleSelectScenario = (scenarioId: string | null) => {
+    setActiveScenarioId(scenarioId);
+    if (!scenarioId) {
+      toast.info('Modo rascunho selecionado.');
+      return;
+    }
+    const target = scenarios.find(s => s.id === scenarioId);
+    if (target) {
+      setSimulatedItems(target.items || []);
+      if (target.horizon) setHorizon(target.horizon);
+      if (target.intervalType) setIntervalType(target.intervalType);
+      toast.success(`Cenário "${target.name}" carregado!`);
+    }
+  };
+
+  // Salvar cenário ativo (ou abrir modal se não tiver ID ativo)
+  const handleSaveCurrentScenario = async () => {
+    if (!user) return;
+    if (!activeScenarioId || !activeScenario) {
+      setIsSaveModalOpen(true);
+      return;
+    }
+
+    setIsSavingScenario(true);
+    try {
+      const docRef = doc(db, 'simulationScenarios', activeScenarioId);
+      await updateDoc(docRef, {
+        items: cleanUndefinedFields(simulatedItems),
+        horizon,
+        intervalType,
+        updatedAt: new Date().toISOString(),
+      });
+      toast.success(`Cenário "${activeScenario.name}" atualizado no Firestore!`);
+    } catch (err) {
+      console.error('Erro ao atualizar cenário', err);
+      toast.error('Erro ao atualizar cenário no Firestore.');
+    } finally {
+      setIsSavingScenario(false);
+    }
+  };
+
+  // Salvar novo cenário com nome no Firestore
+  const handleSaveAsNew = async (name: string, description: string) => {
+    if (!user) return;
+
+    setIsSavingScenario(true);
+    try {
+      const payload = {
+        userId: user.uid,
+        name: name.trim(),
+        description: description.trim() || '',
+        items: cleanUndefinedFields(simulatedItems),
+        horizon,
+        intervalType,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const docRef = await addDoc(collection(db, 'simulationScenarios'), payload);
+      setActiveScenarioId(docRef.id);
+      setIsSaveModalOpen(false);
+      toast.success(`Cenário "${name}" salvo no Firestore!`);
+    } catch (err) {
+      console.error('Erro ao salvar cenário', err);
+      toast.error('Erro ao gravar cenário no Firestore.');
+    } finally {
+      setIsSavingScenario(false);
+    }
+  };
+
+  // Iniciar novo cenário em branco
+  const handleNewBlankScenario = () => {
+    setActiveScenarioId(null);
+    setSimulatedItems([]);
+    toast.info('Novo cenário em branco iniciado.');
+  };
+
+  // Excluir cenário ativo do Firestore
+  const handleDeleteScenario = async () => {
+    if (!user || !activeScenarioId) return;
+
+    try {
+      await deleteDoc(doc(db, 'simulationScenarios', activeScenarioId));
+      setActiveScenarioId(null);
+      setIsDeleteDialogOpen(false);
+      toast.success('Cenário excluído do Firestore.');
+    } catch (err) {
+      console.error('Erro ao excluir cenário', err);
+      toast.error('Erro ao excluir cenário.');
+    }
+  };
 
   // Navegação temporal mês a mês / ano a ano
   const handlePrev = () => {
@@ -297,6 +436,10 @@ export function Simulator() {
               description="Um ambiente seguro de testes baseado no relatório de Entradas × Saídas para prever o impacto de decisões financeiras antes de assumir novos compromissos."
               items={[
                 {
+                  label: 'Sincronização entre Instâncias',
+                  desc: 'Você pode salvar cenários com nome no banco de dados. Eles ficam disponíveis no seu celular, notebook ou qualquer navegador.',
+                },
+                {
                   label: 'Navegação Mês a Mês e Ano a Ano',
                   desc: 'Navegue pelas setas para avaliar competências futuras (ex: próximos meses ou anos seguintes) com total clareza.',
                 },
@@ -316,7 +459,7 @@ export function Simulator() {
             />
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Simule compras parceladas, despesas extras ou receitas e acompanhe o impacto dia a dia ou mês a mês no fluxo de caixa
+            Simule compras parceladas, despesas extras ou receitas e salve múltiplos cenários sincronizados na sua conta
           </p>
         </div>
 
@@ -330,6 +473,92 @@ export function Simulator() {
             <span>Efetivar ({activeSimulatedCount})</span>
           </Button>
         )}
+      </div>
+
+      {/* BARRA DE GESTÃO DE CENÁRIOS SALVOS (FIRESTORE) */}
+      <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap flex-1">
+          <div className="flex items-center gap-1.5">
+            <div className="w-7 h-7 rounded-lg bg-fiducia-blue/10 text-fiducia-blue flex items-center justify-center">
+              <FolderOpen className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Cenário:
+            </span>
+          </div>
+
+          {/* Seletor de Cenários */}
+          <div className="min-w-[200px] max-w-xs">
+            <select
+              value={activeScenarioId || ''}
+              onChange={(e) => handleSelectScenario(e.target.value || null)}
+              className="w-full h-8 px-2.5 rounded-lg border border-border bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-fiducia-blue cursor-pointer"
+            >
+              <option value="">Rascunho atual (não salvo)</option>
+              {scenarios.map((sc) => (
+                <option key={sc.id} value={sc.id}>
+                  {sc.name} ({sc.items?.length || 0} hipótese{sc.items?.length !== 1 ? 's' : ''})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {activeScenario && (
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">
+              Sincronizado na nuvem
+            </span>
+          )}
+        </div>
+
+        {/* Ações de Cenário */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveCurrentScenario}
+            disabled={isSavingScenario}
+            className="h-8 px-2.5 text-xs font-semibold gap-1.5"
+            title="Salvar alterações no cenário ativo"
+          >
+            <Save className="w-3.5 h-3.5 text-fiducia-blue" />
+            <span>{activeScenarioId ? 'Salvar Cenário' : 'Salvar no Banco'}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSaveModalOpen(true)}
+            disabled={isSavingScenario}
+            className="h-8 px-2.5 text-xs font-semibold gap-1.5"
+            title="Salvar como um novo cenário separado"
+          >
+            <BookmarkPlus className="w-3.5 h-3.5" />
+            <span>Salvar como Novo</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleNewBlankScenario}
+            className="h-8 px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground gap-1"
+            title="Começar um novo cenário em branco"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Novo em Branco</span>
+          </Button>
+
+          {activeScenarioId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsDeleteDialogOpen(true)}
+              className="h-8 px-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+              title="Excluir este cenário do banco de dados"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* BARRA DE CONTROLES: NAVEGAÇÃO TEMPORAL, HORIZONTE E DIÁRIO/MENSAL */}
@@ -479,6 +708,27 @@ export function Simulator() {
           </div>
         </>
       )}
+
+      {/* MODAL DE SALVAR CENÁRIO NO FIRESTORE */}
+      <SaveScenarioDialog
+        isOpen={isSaveModalOpen}
+        onOpenChange={setIsSaveModalOpen}
+        defaultName={activeScenario ? `${activeScenario.name} (Cópia)` : ''}
+        isSaving={isSavingScenario}
+        onSave={handleSaveAsNew}
+      />
+
+      {/* CONFIRMAÇÃO DE EXCLUSÃO DE CENÁRIO */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        title="Excluir Cenário de Simulação"
+        message={`Tem certeza que deseja excluir o cenário "${activeScenario?.name}"? Esta ação removerá o cenário do banco de dados.`}
+        confirmText="Excluir Cenário"
+        cancelText="Cancelar"
+        onConfirm={handleDeleteScenario}
+        onCancel={() => setIsDeleteDialogOpen(false)}
+        isDestructive={true}
+      />
 
       {/* DIÁLOGO DE CONFIRMAÇÃO PARA EFETIVAR NO FIRESTORE */}
       <Dialog open={isCommitModalOpen} onOpenChange={setIsCommitModalOpen}>
