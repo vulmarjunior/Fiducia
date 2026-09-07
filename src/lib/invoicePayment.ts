@@ -38,8 +38,9 @@ export function getInvoicePaymentTransactionIds(invoices: any[]): Set<string> {
 }
 
 export function getInvoiceFinancialSummary(invoice: any, calculatedTotal = 0): InvoiceFinancialSummary {
+  const isAberta = !invoice || invoice.status === 'aberta';
   const totalCents = Math.max(0, toCents(
-    typeof invoice?.totalAmount === 'number' && invoice.totalAmount > 0 ? invoice.totalAmount : calculatedTotal,
+    !isAberta && typeof invoice?.totalAmount === 'number' && invoice.totalAmount > 0 ? invoice.totalAmount : calculatedTotal,
   ));
   const persistedPaidCents = Math.min(totalCents, Math.max(0, toCents(invoice?.paidAmount || 0)));
   const paidCents = invoice?.status === 'paga' && totalCents > 0 ? totalCents : persistedPaidCents;

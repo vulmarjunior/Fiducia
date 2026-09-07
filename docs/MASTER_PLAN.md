@@ -1,4 +1,4 @@
-# Fiducia — Plano Mestre
+# Fiducia — Plano Mestre (v0.20.3)
 
 > Fonte única de verdade estratégica.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode

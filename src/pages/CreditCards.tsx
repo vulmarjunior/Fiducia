@@ -243,8 +243,25 @@ export function CreditCards() {
 
     const existingInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === currentPeriod);
     const previousPeriod = getPreviousPeriod(currentPeriod);
-    const calculatedInvoiceTotal = calculatePeriodBalance(selectedCardForInvoice.id, previousPeriod)
-      + calculatePeriodBalance(selectedCardForInvoice.id, currentPeriod);
+    const previousInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === previousPeriod);
+    const previousSummary = getInvoiceFinancialSummary(previousInvoice, calculatePeriodBalance(selectedCardForInvoice.id, previousPeriod));
+    const previousBalance = previousSummary.remainingAmount;
+
+    const periodTransactions = transactions.filter(t => 
+      (t.accountId === selectedCardForInvoice.id || t.destinationAccountId === selectedCardForInvoice.id) && 
+      t.invoicePeriod === currentPeriod
+    );
+    const periodExpenses = periodTransactions
+      .filter(t => t.type === 'expense' || t.type === 'despesa')
+      .reduce((acc, t) => acc + t.amount, 0);
+    const legacyPeriodPayments = periodTransactions
+      .filter(t => (t.type === 'transfer' || t.type === 'transferencia') && t.destinationAccountId === selectedCardForInvoice.id)
+      .reduce((acc, t) => acc + t.amount, 0);
+    const periodIncomes = periodTransactions
+      .filter(t => (t.type === 'income' || t.type === 'receita') && t.accountId === selectedCardForInvoice.id)
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const calculatedInvoiceTotal = previousBalance + periodExpenses - legacyPeriodPayments - periodIncomes;
     const canonicalInvoiceTotal = existingInvoice?.totalAmount > 0 ? existingInvoice.totalAmount : calculatedInvoiceTotal;
 
     if (existingInvoice?.paidAmount && existingInvoice?.totalAmount) {
@@ -1203,6 +1220,7 @@ export function CreditCards() {
                     paymentTransactionIds: [],
                     paymentTransactionId: null,
                     paidAmount: 0,
+                    totalAmount: 0,
                   });
                   logActivity({ userId: user.uid, action: 'update', entityType: 'transaction', entityId: invoice.id, description: `Fatura reaberta: ${selectedCardForInvoice.name} - ${invoice.period}` }).catch(() => {});
                   toast.success('Fatura reaberta com sucesso');

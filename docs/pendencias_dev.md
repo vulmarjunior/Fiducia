@@ -5,19 +5,19 @@
 
 ## Próxima pauta
 
-**Estado:** Limpeza de Código, Eliminação de Dead Code e Otimização (`v0.20.2`) concluída e validada. O código está enxuto, sem arquivos residuais, sem imports ociosos e com ganhos de desempenho em listeners e cálculos de renderização.
+**Estado:** Correção do cálculo do saldo de fatura (`v0.20.3`) concluída e validada.
 
-**Versão de base:** `0.20.2`.
+**Versão de base:** `0.20.3`.
 
-**Referência da última entrega:** `CHANGELOG.md` (`[0.20.2]`).
+**Referência da última entrega:** `CHANGELOG.md` (`[0.20.3]`).
 
 ### Próximo passo sugerido
 
-1. Validação final pelo usuário.
+1. Validação final pelo usuário do cenário da fatura.
 2. Continuidade de novos recursos conforme backlog.
 
 ### Frente Android pausada
 
 O diagnóstico e o handoff anteriores continuam preservados integralmente em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`. A frente permanece congelada para estudos futuros, sem alterações de código, parser, integração Firebase ou publicação do APK.
 
-> **LLM:** deepseek-v4-pro | **Agente:** opencode
+> **LLM:** Gemini 3.1 Pro (High) | **Agente:** Antigravity

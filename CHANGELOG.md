@@ -3,6 +3,16 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.20.3] — 2026-09-07 — Correção do Valor Original e Saldo Remanescente da Fatura
+
+**Resultado:** Corrigido o erro que inflava artificialmente o "Valor Original" de faturas de cartão de crédito no momento do registro de pagamentos. O sistema passa a calcular e deduzir corretamente os saldos de faturas anteriores que já foram pagas, além de forçar o cálculo 100% dinâmico (tempo real) sempre que uma fatura é reaberta (status "aberta"), ignorando quaisquer falhas pontuais de gravação do passado.
+
+**Alterações técnicas:**
+- `src/pages/CreditCards.tsx` — `handlePayInvoice` ajustado para utilizar a lógica consolidada do painel de leitura, invocando `getInvoiceFinancialSummary` para capturar adequadamente o `remainingAmount` real da fatura anterior em vez de usar cálculos brutos do mês de origem que ignoravam o status "paga". A limpeza de `totalAmount: 0` foi introduzida no `handleReopenInvoice` para invalidar caches corrompidos.
+- `src/lib/invoicePayment.ts` — `getInvoiceFinancialSummary` recebeu nova regra de resiliência, forçando fallback obrigatório para `calculatedTotal` caso a fatura avaliada esteja com status 'aberta', protegendo o ciclo de recálculo independente do que está salvo no banco.
+
+---
+
 ## [0.20.2] — 2026-09-05 — Limpeza de Código, Eliminação de Dead Code e Otimização
 
 **Resultado:** Realizada varredura completa de limpeza de código no repositório. Foram removidos arquivos temporários e órfãos na raiz (`0`, `check.mjs`, logs do Vite), primitivas de componentes não utilizadas (`avatar.tsx`, `table.tsx`), cálculos ociosos no `Dashboard` (como inscrição ociosa de `recurrenceRules` no Firestore e variáveis não consumidas), funções mortas e dezenas de imports não utilizados em páginas, componentes e bibliotecas. O bundle de produção foi enxugado com segurança, sem qualquer impacto em funcionalidades em uso.
