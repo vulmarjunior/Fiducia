@@ -1296,18 +1296,6 @@ export function CreditCards() {
                             <RefreshCcw className="h-3 w-3" /> REABRIR FATURA
                           </Button>
                         )}
-                        {invoice && (
-                          <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={async () => {
-                            try {
-                              await updateDoc(doc(db, 'invoices', invoice.id), { totalAmount: calculatedInvoiceTotal });
-                              toast.success('Total da fatura corrigido com sucesso no banco de dados!');
-                            } catch (err) {
-                              toast.error('Erro ao corrigir fatura');
-                            }
-                          }}>
-                            <RefreshCcw className="h-3 w-3" /> FORÇAR CORREÇÃO DE VALOR
-                          </Button>
-                        )}
                       </div>
                       <div className="flex items-center bg-secondary/50 dark:bg-secondary/80 rounded-lg border p-0.5">
                         <Button
