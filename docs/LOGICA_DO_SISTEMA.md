@@ -147,3 +147,12 @@ O cliente nunca acessa a Groq diretamente e não recebe `GROQ_API_KEY`. `callGro
 - A categorização em lote usa `writeBatch`, limita a operação a 450 documentos, ignora períodos fechados e exige categoria compatível com o tipo dos lançamentos.
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
+
+
+## Pagamentos e totais de fatura (v0.20.7)
+
+A validação de pagamento usa calculateInvoicePayment em centavos inteiros dentro de runTransaction, após reler a fatura. Não comparar decimais monetários por subtração direta antes dessa validação. A leitura e o pagamento usam getInvoiceFinancialSummary e o vínculo canônico transactionBelongsToCard.
+
+Em faturas abertas, um total recalculado explicitamente fornecido prevalece, inclusive zero. Sem recálculo disponível, o total documental é preservado para que relatórios não apaguem obrigações sem compras correspondentes. Faturas fechadas ou parciais preservam o total positivo salvo. A reabertura já invalida o total salvo com zero.
+
+> **LLM:** deepseek-v4-pro | **Agente:** opencode

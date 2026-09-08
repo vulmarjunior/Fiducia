@@ -129,11 +129,12 @@ export function buildInvoiceObligations(
     let sourceKind: 'invoice_document' | 'card_transactions' = inv ? 'invoice_document' : 'card_transactions';
 
     if (inv) {
-      const summary = getInvoiceFinancialSummary(inv);
+      const summary = getInvoiceFinancialSummary(inv, sourceEntries.length > 0 ? purchasesCents / 100 : undefined);
       totalCents = toCents(summary.totalAmount);
       paidCents = toCents(summary.paidAmount);
       remainingCents = toCents(summary.remainingAmount);
       invoiceStatus = summary.status;
+      if (inv.status === 'aberta' && sourceEntries.length > 0) sourceKind = 'card_transactions';
 
       if (totalCents === 0) {
         totalCents = Math.max(0, purchasesCents);

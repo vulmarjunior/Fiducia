@@ -1,6 +1,3 @@
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { readFileSync } from 'fs';
 
 // Inicializar firebase-admin
 // Como não tenho a key, não posso rodar isso diretamente aqui sem o path do service account.

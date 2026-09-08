@@ -71,6 +71,14 @@ describe('invoiceEvents - conformidade com auditoria', () => {
     expect(res.obligations[0].remainingAmountCents).toBe(100000);
   });
 
+  it('recalcula fatura aberta pelas compras e desconta pagamento já registrado', () => {
+    const inv: Invoice = { id: 'inv-1', userId: 'u1', cardId: 'card-1', period: '2026-08', status: 'aberta', totalAmount: 9999, paidAmount: 100 };
+    const purchase: Transaction = { id: 'purchase', userId: 'u1', type: 'expense', status: 'paid', amount: 300, date: '2026-08-10', description: 'Compra', creditCardId: 'card-1', invoicePeriod: '2026-08', createdAt: '' };
+    const normalized = normalizeTransactions([purchase], [], [card], [inv]);
+    const res = buildInvoiceObligations([inv], [card], normalized, '2026-08');
+    expect(res.obligations[0]).toMatchObject({ totalAmountCents: 30000, paidAmountCents: 10000, remainingAmountCents: 20000, sourceKind: 'card_transactions' });
+  });
+
   it('faturas em intervalos que atravessam multiplos meses incluem todas as faturas com vencimento no intervalo', () => {
     const cardJulyAugust: CreditCard = {
       id: 'card-1',

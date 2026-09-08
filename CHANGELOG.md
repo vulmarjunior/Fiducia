@@ -3,6 +3,22 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.20.7] — 2026-09-08 — Quitação de fatura e consistência de validações
+
+**Resultado:** A quitação de R$ 6.803,88 após pagamento de R$ 6.000,00 em uma fatura de R$ 12.803,88 usa validação em centavos dentro da transação atômica, eliminando o bloqueio por precisão decimal. O pagamento usa o vínculo canônico de cartão e o mesmo resumo financeiro da tela.
+
+**Relatórios:** Faturas abertas preservam o total documental quando não há recálculo disponível; quando fornecido, inclusive zero, o total recalculado prevalece.
+
+**Manutenção:** Removidos imports ociosos do diagnóstico em scratch; versões do pacote, lockfile e aplicação alinhadas; orientações e plano atualizados. Validações e limites registrados em docs/archive/sessions/2026-09-08-correcao-pagamento-fatura.md.
+
+## [0.20.6] — 2026-09-07 — Registro retrospectivo
+
+Correções de total original e saldo de fatura (54d8aa2), seguidas da inclusão e remoção de botão manual (959fe3d, 4fdca5b). O registro anterior [0.20.3] abaixo descreve essa correção com numeração documental divergente e é preservado como histórico.
+
+## [0.20.5] — 2026-09-06 — Registro retrospectivo
+
+Melhoria do tooltip de fluxo de caixa no Dashboard (fde0b3f, 464fa9d). Sincronização automática da versão incorporada via PR #13 (a96f0d2).
+
 ## [0.20.3] — 2026-09-07 — Correção do Valor Original e Saldo Remanescente da Fatura
 
 **Resultado:** Corrigido o erro que inflava artificialmente o "Valor Original" de faturas de cartão de crédito no momento do registro de pagamentos. O sistema passa a calcular e deduzir corretamente os saldos de faturas anteriores que já foram pagas, além de forçar o cálculo 100% dinâmico (tempo real) sempre que uma fatura é reaberta (status "aberta"), ignorando quaisquer falhas pontuais de gravação do passado.

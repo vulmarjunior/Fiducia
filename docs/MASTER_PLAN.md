@@ -1,4 +1,4 @@
-# Fiducia — Plano Mestre (v0.20.3)
+# Fiducia — Plano Mestre (v0.20.7)
 
 > Fonte única de verdade estratégica.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.20.2` |
+| **Versão atual** | `0.20.7` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-09-05 (Limpeza de Código e Eliminação de Dead Code v0.20.2) |
-| **Último deploy** | v0.15.5 em produção (v0.20.2 pronta para deploy) |
+| **Última alteração em código** | 2026-09-08 (Correções de pagamento e relatórios v0.20.7) |
+| **Último deploy** | Estado atual de produção não verificado; último registro documental: v0.15.5. v0.20.7 local, sem deploy nesta sessão. |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -52,7 +52,7 @@ npm run build      # vite build
 
 | Área | Estado | Observação |
 |------|--------|------------|
-| Dashboard | ✅ Funcional | KPIs, fluxo e Margem de Caixa em 90 dias via motor único; sem chamada automática de IA |
+| Dashboard | ✅ Funcional | KPIs, fluxo e saldo previsto no fim do mês via motor único; sem chamada automática de IA |
 | Transações | ✅ Funcional | CRUD com runTransaction, parcelamento, recorrência, quick confirm |
 | Contas | ✅ Funcional | Diagnóstico de saldo, ajuste por reconciliação, reset |
 | Cartões de Crédito | ✅ Funcional | Faturas, grupos visuais, parcelamento, comprometimento futuro, PDF import |
@@ -67,17 +67,17 @@ npm run build      # vite build
 | PWA | ✅ Instalável | iOS meta tags, update com toast; cache antigo pode exigir recarga forçada após deploy |
 | Android | ⏸️ Pendente | Protótipo diagnóstico compilado; importador de notificações pausado para estudos mais aprofundados |
 | Dark Mode | ✅ Funcional | next-themes com Tokens Shadcn |
-| Testes | ✅ Automatizados | 139 testes locais + 3 cenários com Firebase Emulator no CI |
+| Testes | ✅ Automatizados | Suíte local e 3 cenários com Firebase Emulator no CI; resultados atuais no arquivo da sessão |
 
 ---
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Validação visual final dos relatórios essenciais v0.16.4 e conferência dos limites dos cartões antes do deploy em produção.
+**Foco atual:** Estabilização de pagamentos de fatura e obrigações nos relatórios na v0.20.7; validação final do cenário pelo usuário antes de publicação.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 
-**Próximo passo sugerido:** Usuário validar os relatórios localmente e fornecer autorização explícita antes de qualquer deploy em produção.
+**Próximo passo sugerido:** Usuário validar a quitação após pagamento parcial e os relatórios localmente e fornecer autorização explícita antes de qualquer deploy em produção.
 
 ---
 
@@ -87,6 +87,8 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-09-08 | v0.20.7 — Pagamento em centavos e consistência dos relatórios | Correção / Faturas |
+| 2026-09-05 | v0.20.0–0.20.2 — Cenários salvos, detalhamento e limpeza | Simulador / Manutenção |
 | 2026-09-05 | v0.18.0 — Simulador de Decisões de Caixa e Sandbox Financeiro | Simulação / Projeção / UX / Decisão |
 | 2026-09-04 | v0.17.0 — Navegação visível e períodos dos relatórios | Relatórios / UX / Atalhos |
 | 2026-09-03 | v0.16.1 — Harmonização de escalas dos eixos Y e barra de ações rápidas | Relatórios / Gráficos / Reservas |
@@ -232,7 +234,7 @@ Pendências para sessão futura:
 - Ampliar testes de interface em navegador
 - Monitorar os fluxos Groq sob demanda
 - Importador de notificações Android (C6/Itaú): congelado em estado pendente para estudos mais aprofundados
-- Fechar as quatro pendências da segunda vistoria em `docs/archive/sessions/2026-09-02-segunda-auditoria-relatorios.md` e cumprir integralmente `docs/plano-relatorios-essenciais.md`
+- Validar visualmente os relatórios já concluídos conforme `docs/plano-relatorios-essenciais.md`
 
 Fora do escopo atual:
 - Central de Importação Fase 3 — e-mail, Open Finance e perfis avançados; sem previsão de retomada.

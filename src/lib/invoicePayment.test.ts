@@ -23,6 +23,14 @@ describe('getInvoicePaymentTransactionIds', () => {
 });
 
 describe('calculateInvoicePayment', () => {
+  it('quita os 6803,88 restantes após pagamento de 6000 sem bloqueio por precisão', () => {
+    const invoice = { totalAmount: 12803.88, paidAmount: 6000, status: 'parcial' };
+    const summary = getInvoiceFinancialSummary(invoice);
+    expect(calculateInvoicePayment(summary.totalAmount, invoice.paidAmount, summary.remainingAmount))
+      .toMatchObject({ paidAmount: 12803.88, remainingAmount: 0, status: 'paga' });
+    expect(() => calculateInvoicePayment(summary.totalAmount, invoice.paidAmount, 6803.89))
+      .toThrow('excede o saldo remanescente');
+  });
   it('registra pagamento total', () => {
     expect(calculateInvoicePayment(500, 0, 500)).toMatchObject({ paidAmount: 500, remainingAmount: 0, status: 'paga' });
   });
@@ -43,6 +51,15 @@ describe('calculateInvoicePayment', () => {
   });
 });
 describe('getInvoiceFinancialSummary', () => {
+  it('preserva o documento aberto quando nenhum recálculo foi fornecido', () => {
+    expect(getInvoiceFinancialSummary({ status: 'aberta', totalAmount: 357.97 }))
+      .toMatchObject({ totalAmount: 357.97, remainingAmount: 357.97 });
+  });
+  it('recalcula fatura aberta inclusive quando o total calculado é zero', () => {
+    const invoice = { status: 'aberta', totalAmount: 1000, paidAmount: 100 };
+    expect(getInvoiceFinancialSummary(invoice, 250)).toMatchObject({ totalAmount: 250, remainingAmount: 150 });
+    expect(getInvoiceFinancialSummary(invoice, 0)).toMatchObject({ totalAmount: 0, remainingAmount: 0 });
+  });
   it('usa o total persistido e calcula o remanescente parcial', () => {
     expect(getInvoiceFinancialSummary({ totalAmount: 1000, paidAmount: 400, status: 'parcial' })).toEqual({
       totalAmount: 1000, paidAmount: 400, remainingAmount: 600, paymentProgress: 40, status: 'parcial',

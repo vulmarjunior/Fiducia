@@ -248,7 +248,7 @@ export function CreditCards() {
     const previousBalance = previousSummary.remainingAmount;
 
     const periodTransactions = transactions.filter(t => 
-      (t.accountId === selectedCardForInvoice.id || t.destinationAccountId === selectedCardForInvoice.id) && 
+      transactionBelongsToCard(t, selectedCardForInvoice.id) &&
       t.invoicePeriod === currentPeriod
     );
     const periodExpenses = periodTransactions
@@ -262,15 +262,6 @@ export function CreditCards() {
       .reduce((acc, t) => acc + t.amount, 0);
 
     const calculatedInvoiceTotal = previousBalance + periodExpenses - legacyPeriodPayments - periodIncomes;
-    const canonicalInvoiceTotal = existingInvoice?.totalAmount > 0 ? existingInvoice.totalAmount : calculatedInvoiceTotal;
-
-    if (existingInvoice?.paidAmount && existingInvoice?.totalAmount) {
-      const remaining = existingInvoice.totalAmount - existingInvoice.paidAmount;
-      if (paymentData.amount > remaining) {
-        toast.error(`Valor do pagamento não pode exceder o saldo remanescente de R$ ${remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`);
-        return;
-      }
-    }
 
     const existingNextInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === nextPeriod);
 
@@ -301,9 +292,7 @@ export function CreditCards() {
         const existingIds: string[] = Array.isArray(invData?.paymentTransactionIds)
           ? [...invData.paymentTransactionIds]
           : (typeof invData?.paymentTransactionId === 'string' ? [invData.paymentTransactionId] : []);
-        const persistedTotal = typeof invData?.totalAmount === 'number' && invData.totalAmount > 0
-          ? invData.totalAmount
-          : canonicalInvoiceTotal;
+        const persistedTotal = getInvoiceFinancialSummary(invData, calculatedInvoiceTotal).totalAmount;
         const priorPaid = typeof invData?.paidAmount === 'number' ? invData.paidAmount : 0;
         const paymentState = calculateInvoicePayment(persistedTotal, priorPaid, paymentData.amount);
 

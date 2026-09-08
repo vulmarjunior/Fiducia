@@ -37,10 +37,10 @@ export function getInvoicePaymentTransactionIds(invoices: any[]): Set<string> {
   return ids;
 }
 
-export function getInvoiceFinancialSummary(invoice: any, calculatedTotal = 0): InvoiceFinancialSummary {
+export function getInvoiceFinancialSummary(invoice: any, calculatedTotal?: number): InvoiceFinancialSummary {
   const isAberta = !invoice || invoice.status === 'aberta';
   const totalCents = Math.max(0, toCents(
-    !isAberta && typeof invoice?.totalAmount === 'number' && invoice.totalAmount > 0 ? invoice.totalAmount : calculatedTotal,
+    (!isAberta || calculatedTotal === undefined) && typeof invoice?.totalAmount === 'number' && invoice.totalAmount > 0 ? invoice.totalAmount : (calculatedTotal ?? 0),
   ));
   const persistedPaidCents = Math.min(totalCents, Math.max(0, toCents(invoice?.paidAmount || 0)));
   const paidCents = invoice?.status === 'paga' && totalCents > 0 ? totalCents : persistedPaidCents;

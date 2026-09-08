@@ -116,9 +116,11 @@ src/
 │   ├── Categories.tsx
 │   ├── Tags.tsx
 │   ├── ActivityLog.tsx
+│   ├── ImportCenter.tsx
+│   ├── Simulator.tsx
 │   └── Settings.tsx
 ├── services/
-│   ├── importService.ts  # CSV/Excel parsing (xlsx)
+│   ├── importService.ts  # CSV/XLSX parsing (read-excel-file; XLS legado não suportado)
 │   ├── ofxService.ts
 │   ├── pdfInvoiceService.ts # Extração de PDF e Groq parsing
 │   ├── groqService.ts
@@ -152,6 +154,8 @@ src/
 | `/categories` | Categories | Categorias |
 | `/tags` | Tags | Rótulos |
 | `/activity` | ActivityLog | Histórico de operações |
+| `/simulator` | Simulator | Simulação de caixa e cenários salvos |
+| `/importar`, `/importar/compartilhar`, `/importar/:id` | ImportCenter | Central de importação |
 | `/settings` | Settings | Configurações |
 
 ## Firestore — Coleções
@@ -173,6 +177,7 @@ Cada coleção tem `userId` para isolamento por usuário.
 | `recurrenceRules` | `recurrenceRules/{id}` | Regras de recorrência |
 | `installments` | `installments/{id}` | Contratos de parcelamento |
 | `activityLogs` | `activityLogs/{id}` | Log de operações |
+| `simulationScenarios` | `simulationScenarios/{id}` | Cenários salvos do simulador |
 | `reconciliationHistory` | `reconciliationHistory/{id}` | Histórico de conciliações |
 
 ## Convenções de Código
@@ -213,5 +218,5 @@ npm run test       # Vitest
 
 - **Repositório**: https://github.com/vulmarjunior/Fiducia
 - **App publicado**: https://fiducianew.vercel.app/
-- **IA Insights**: Groq API (relatórios analíticos, extração de fatura PDF via `llama-3.3-70b-versatile`)
+- **IA Insights**: Groq API (relatórios analíticos, extração de fatura PDF via `openai/gpt-oss-120b`)
 - **Dados sensíveis**: `.env.local` contém `GEMINI_API_KEY` e `GROQ_API_KEY`
