@@ -640,3 +640,10 @@
 - **Sintoma**: Tela branca/erro de render ao abrir o diagnóstico de contas.
 - **Prevenção**: Adicionar verificação de segurança/guard clauses (ex: `if (!diagnoseData) return null`) antes de renderizar elementos que dependem de suas propriedades.
 
+### Guardas de período fechado em cartão devem usar `invoicePeriod`, não a data
+- **Data**: 2026-10-12
+- **Problema**: `handleDeleteTx` e `handleMoveInvoice` (`CreditCards.tsx`) chamavam `isPeriodClosed(tx.date, ...)` sem `tx.invoicePeriod`. Um lançamento movido manualmente para outra fatura (fechamento bancário antecipado) aparece na fatura aberta (lista filtra por `invoicePeriod`), mas a validação derivava o período da data pela regra padrão do cartão e bloqueava exclusão/movimentação pela fatura errada.
+- **Sintoma**: "Não é possível excluir um lançamento de um mês fechado" mesmo com o lançamento em fatura aberta; sem rota alternativa (cartões é a única tela de exclusão de lançamento de cartão).
+- **Prevenção**: Todo guarda de mutação de lançamento de cartão deve passar `tx.invoicePeriod` (fallback automático para a data quando ausente). `invoicePeriod` é a fonte de verdade da alocação; `date` é apenas fallback legado. `getClosedInvoiceBlock()` em `lib/utils.ts` centraliza a checagem e fornece cartão/período para mensagens precisas.
+- **Armadilha correlata**: "Recalcular Faturas Antigas" (`handleRecalculateInvoices`) sobrescreve `invoicePeriod` pela regra da data e pode desfazer movimentos manuais.
+

@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { buildCashCoverageProjection } from './cashCoverage';
 
-export const APP_VERSION = '0.20.7';
+export const APP_VERSION = '0.20.8';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -91,6 +91,33 @@ export function isEffectivelyPaid(t: any): boolean {
   return t.status === 'pago' || t.status === 'realizado' || t.status === 'paid';
 }
 
+export interface ClosedInvoiceBlock {
+  cardId?: string;
+  cardName?: string;
+  period: string;
+}
+
+export function getClosedInvoiceBlock(
+  dateString: string,
+  accountId: string,
+  creditCards: any[],
+  invoices: any[],
+  closedPeriods: any[],
+  invoicePeriod?: string
+): ClosedInvoiceBlock | null {
+  const card = creditCards.find((c: any) => c.id === accountId);
+  if (card) {
+    const periodToCheck = invoicePeriod || calculateInvoicePeriod(dateString, card.closingDay, card.dueDay);
+    const invoice = invoices.find((i: any) => i.cardId === accountId && i.period === periodToCheck);
+    return invoice && isInvoiceClosed(invoice.status)
+      ? { cardId: card.id, cardName: card.name, period: periodToCheck }
+      : null;
+  }
+  const period = dateString.substring(0, 7);
+  const isClosed = closedPeriods.some((cp: any) => (cp.period === period || cp.month === period) && cp.accountId === accountId);
+  return isClosed ? { period } : null;
+}
+
 export function isPeriodClosed(
   dateString: string,
   accountId: string,
@@ -99,14 +126,7 @@ export function isPeriodClosed(
   closedPeriods: any[],
   invoicePeriod?: string
 ): boolean {
-  const card = creditCards.find((c: any) => c.id === accountId);
-  if (card) {
-    const periodToCheck = invoicePeriod || calculateInvoicePeriod(dateString, card.closingDay, card.dueDay);
-    const invoice = invoices.find((i: any) => i.cardId === accountId && i.period === periodToCheck);
-    return invoice ? isInvoiceClosed(invoice.status) : false;
-  }
-  const period = dateString.substring(0, 7);
-  return closedPeriods.some((cp: any) => (cp.period === period || cp.month === period) && cp.accountId === accountId);
+  return getClosedInvoiceBlock(dateString, accountId, creditCards, invoices, closedPeriods, invoicePeriod) !== null;
 }
 
 export function getInvoicePaymentIds(invoice: any): string[] {

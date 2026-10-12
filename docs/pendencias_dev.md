@@ -2,17 +2,21 @@
 
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
-**Versão de base:** 0.20.7.
+**Versão de base:** 0.20.8.
 
-Sessão concluída: [correção de pagamento de fatura](archive/sessions/2026-09-08-correcao-pagamento-fatura.md). Resultados e validações preservados nesse registro.
+Sessão concluída: [correção de exclusão de lançamento em fatura movida](archive/sessions/2026-10-12-correcao-exclusao-fatura-movida.md). Resultados e validações preservados nesse registro.
 
-## Revisão final
+## Revisão final (herdada)
 
 Pendências: créditos canônicos no pagamento e reavaliação do fallback documental da v0.20.7, que pode reintroduzir obrigações inválidas. O achado anterior sobre aumentar uso de limite foi retificado após esclarecimento do usuário. Ver [revisão](archive/sessions/2026-09-08-revisao-final-v0207.md).
 
+## Risco registrado
+
+"Recalcular Faturas Antigas" (`CreditCards.tsx`) reescreve `invoicePeriod` pela regra da data e pode desfazer movimentos manuais de fatura — decidir tratamento em sessão futura (ver MASTER_PLAN — Riscos).
+
 ## Próximo passo
 
-Validação visual autenticada da quitação após pagamento parcial e dos relatórios pelo usuário. Publicação depende de autorização explícita.
+Validação do usuário: excluir o lançamento preso após a v0.20.8, quitação após pagamento parcial e relatórios. Publicação depende de autorização explícita.
 
 ## Frente Android pausada
 

@@ -12,7 +12,7 @@ import { Badge } from '../components/ui/badge';
 import { CreditCard, Plus, Trash2, Edit, Eye, Calendar, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, List, MoreVertical, Search, Printer, RefreshCcw, FileUp, Lock, Layers, Clock, FileSearch, Undo } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyInput } from '../components/MoneyInput';
-import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, isInvoiceClosed, findSeriesTransactions, isEffectivelyPaid } from '../lib/utils';
+import { calculateInvoicePeriod, getNextPeriod, resolveAccountName, parseLocalDate, dateToLocalISOString, getPreviousPeriod, isPeriodClosed, isInvoiceClosed, findSeriesTransactions, isEffectivelyPaid, getClosedInvoiceBlock } from '../lib/utils';
 import { calculateCreditLimitUsage, transactionBelongsToCard } from '../utils/creditCardUtils';
 import { logActivity } from '../services/activityLogService';
 import { PageHelp } from '../components/PageHelp';
@@ -363,10 +363,16 @@ export function CreditCards() {
     }
   };
 
+  const formatInvoiceBlockLabel = (block: { cardName?: string; period: string }) => {
+    const periodLabel = block.period.split('-').reverse().join('/');
+    return block.cardName ? `${block.cardName} · ${periodLabel}` : periodLabel;
+  };
+
   const handleMoveInvoice = async (tx: any, direction: 'prev' | 'next') => {
     const cardId = tx.creditCardId || tx.accountId;
-    if (isPeriodClosed(tx.date, cardId, cards, invoices, closedPeriods)) {
-      toast.error('Não é possível editar um lançamento de um mês fechado.');
+    const currentBlock = getClosedInvoiceBlock(tx.date, cardId, cards, invoices, closedPeriods, tx.invoicePeriod);
+    if (currentBlock) {
+      toast.error(`Não é possível mover: a fatura ${formatInvoiceBlockLabel(currentBlock)} está fechada. Reabra a fatura antes de mover este lançamento.`);
       return;
     }
 
@@ -391,8 +397,9 @@ export function CreditCards() {
 
       const newInvoicePeriod = `${year}-${month.toString().padStart(2, '0')}`;
 
-      if (isPeriodClosed(tx.date, cardId, cards, invoices, closedPeriods, newInvoicePeriod)) {
-        toast.error('Não é possível mover um lançamento para uma fatura fechada.');
+      const destinationBlock = getClosedInvoiceBlock(tx.date, cardId, cards, invoices, closedPeriods, newInvoicePeriod);
+      if (destinationBlock) {
+        toast.error(`Não é possível mover um lançamento para a fatura ${formatInvoiceBlockLabel(destinationBlock)}: ela está fechada.`);
         return;
       }
 
@@ -447,8 +454,9 @@ export function CreditCards() {
     const transactionsToDelete = findSeriesTransactions(t, transactions, deleteScope);
 
     for (const tx of transactionsToDelete) {
-      if (isPeriodClosed(tx.date, tx.creditCardId || tx.accountId, cards, invoices, closedPeriods)) {
-        toast.error(`Não é possível excluir um lançamento de um mês fechado.`);
+      const block = getClosedInvoiceBlock(tx.date, tx.creditCardId || tx.accountId, cards, invoices, closedPeriods, tx.invoicePeriod);
+      if (block) {
+        toast.error(`Não é possível excluir: a fatura ${formatInvoiceBlockLabel(block)} está fechada. Reabra a fatura antes de excluir este lançamento.`);
         return;
       }
     }

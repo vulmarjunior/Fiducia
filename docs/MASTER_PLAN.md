@@ -1,4 +1,4 @@
-# Fiducia — Plano Mestre (v0.20.7)
+# Fiducia — Plano Mestre (v0.20.8)
 
 > Fonte única de verdade estratégica.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.20.7` |
+| **Versão atual** | `0.20.8` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-09-08 (Correções de pagamento e relatórios v0.20.7) |
-| **Último deploy** | Estado atual de produção não verificado; último registro documental: v0.15.5. v0.20.7 local, sem deploy nesta sessão. |
+| **Última alteração em código** | 2026-10-12 (Correção de exclusão e movimentação de lançamento de cartão v0.20.8) |
+| **Último deploy** | Estado atual de produção não verificado; último registro documental: v0.15.5. v0.20.8 local, sem deploy nesta sessão. |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -73,11 +73,11 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Estabilização de pagamentos de fatura e obrigações nos relatórios na v0.20.7; validação final do cenário pelo usuário antes de publicação.
+**Foco atual:** Correção v0.20.8 — exclusão e movimentação de lançamento de cartão movido entre faturas passam a respeitar a fatura real (`invoicePeriod`); validação final do cenário pelo usuário antes de publicação.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 
-**Próximo passo sugerido:** Usuário validar a quitação após pagamento parcial e os relatórios localmente e fornecer autorização explícita antes de qualquer deploy em produção.
+**Próximo passo sugerido:** Usuário validar a exclusão do lançamento preso (v0.20.8), a quitação após pagamento parcial e os relatórios localmente e fornecer autorização explícita antes de qualquer deploy em produção.
 
 ---
 
@@ -87,6 +87,7 @@ Abaixo, as entregas significativas identificadas no código e Git. Detalhes comp
 
 | Data | Entrega | Impacto |
 |------|---------|---------|
+| 2026-10-12 | v0.20.8 — Exclusão de lançamento movido entre faturas | Correção / Faturas / Guardas |
 | 2026-09-08 | v0.20.7 — Pagamento em centavos e consistência dos relatórios | Correção / Faturas |
 | 2026-09-05 | v0.20.0–0.20.2 — Cenários salvos, detalhamento e limpeza | Simulador / Manutenção |
 | 2026-09-05 | v0.18.0 — Simulador de Decisões de Caixa e Sandbox Financeiro | Simulação / Projeção / UX / Decisão |
@@ -162,6 +163,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 
 | Risco | Severidade | Descrição |
 |-------|-----------|-----------|
+| Recalcular Faturas Antigas | Média | `handleRecalculateInvoices` em `CreditCards.tsx` reescreve `invoicePeriod` de todos os lançamentos pela regra da data, podendo desfazer movimentos manuais de fatura (mesma classe do defeito corrigido em v0.20.8) |
 | Consistência de faturas | Média | Dois achados na revisão v0.20.7; evidências e escopo em `docs/archive/sessions/2026-09-08-revisao-final-v0207.md` |
 | Testes dependentes de emulador | Baixa | Suíte configurada no CI com Java 21; execução local exige Java instalado |
 | Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard; referências a contas inexistentes corrigidas em 2026-09-03 (10 transações) e prevenidas pela obrigatoriedade de conta em lançamentos |
@@ -210,6 +212,7 @@ Estas decisões estão detalhadas em `dev-log.md` (seção "Decisões de Arquite
 | `docs/archive/sessions/2026-09-03-fechamento-plano-relatorios.md` | Fechamento integral do plano de relatórios essenciais | ✅ Sessão concluída |
 | `docs/archive/sessions/2026-09-03-refinamentos-ux-e-protecao-transacoes.md` | Refinamentos de UX (evolução, faturas no caixa, investimentos), Dashboard e proteção de lançamentos | ✅ Sessão concluída |
 | `docs/archive/sessions/2026-09-03-correcoes-grafico-caixa-e-remocao-fluxo-antigo.md` | Correções no gráfico de Entradas × Saídas (faturas/pendências) e remoção do Fluxo de Caixa antigo | ✅ Sessão concluída |
+| `docs/archive/sessions/2026-10-12-correcao-exclusao-fatura-movida.md` | Correção da exclusão/movimentação de lançamento movido entre faturas (v0.20.8) | ✅ Sessão concluída |
 | `docs/plano-migracao-firebase-supabase.md` | Plano de contingência para eventual migração do banco | 📋 Proposta não autorizada |
 | `docs/ARQUITETURA_ANDROID.md` | Arquitetura, privacidade, build e roteiro do APK diagnóstico | 🧪 Aguarda validação em aparelho real |
 | `docs/archive/sessions/` | Arquivo de sessões concluídas | ✅ Ativo |

@@ -3,6 +3,15 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.20.8] — 2026-10-12 — Exclusão de lançamento movido entre faturas
+
+**Resultado:** Lançamentos de cartão movidos manualmente para outra fatura ("Mover p/ Anterior/Seguinte") deixam de ser bloqueados indevidamente na exclusão e na movimentação. O guarda de período fechado passou a considerar a fatura real do lançamento (`invoicePeriod`) em vez de derivar o período da data pela regra padrão do cartão — cenário típico de fechamento antecipado do banco. As mensagens de bloqueio agora identificam cartão e fatura (ex.: `C6 · 10/2026`).
+
+**Alterações técnicas:**
+- `src/lib/utils.ts` — novo `getClosedInvoiceBlock()`, que retorna cartão/período bloqueadores para mensagens precisas; `isPeriodClosed()` passa a delegar para ele (mesma semântica, sem duplicação).
+- `src/pages/CreditCards.tsx` — `handleDeleteTx` e `handleMoveInvoice` passam `tx.invoicePeriod` aos guardas (fallback automático para a data quando ausente, preservando legados); mensagens de bloqueio detalhadas com ação de reabertura.
+- `src/lib/utils.test.ts` — 9 testes de regressão cobrindo lançamento movido para fatura aberta com data em fatura fechada, `invoicePeriod` explícito em fatura fechada/paga/parcial e fallback legado.
+
 ## [0.20.7] — 2026-09-08 — Quitação de fatura e consistência de validações
 
 **Resultado:** A quitação de R$ 6.803,88 após pagamento de R$ 6.000,00 em uma fatura de R$ 12.803,88 usa validação em centavos dentro da transação atômica, eliminando o bloqueio por precisão decimal. O pagamento usa o vínculo canônico de cartão e o mesmo resumo financeiro da tela.
