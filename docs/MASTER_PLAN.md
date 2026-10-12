@@ -162,6 +162,7 @@ As pendências abaixo foram extraídas de `docs/plano-de-melhorias.md` e do `dev
 
 | Risco | Severidade | Descrição |
 |-------|-----------|-----------|
+| Consistência de faturas | Média | Dois achados na revisão v0.20.7; evidências e escopo em `docs/archive/sessions/2026-09-08-revisao-final-v0207.md` |
 | Testes dependentes de emulador | Baixa | Suíte configurada no CI com Java 21; execução local exige Java instalado |
 | Dados legados com IDs string | Baixa | Migration auto-heal implementada em v0.7.0 — resolve runtime + scan no Dashboard; referências a contas inexistentes corrigidas em 2026-09-03 (10 transações) e prevenidas pela obrigatoriedade de conta em lançamentos |
 | Relatórios v0.16.0 — aceite de produto | Baixa | Plano fechado em 2026-09-03 (cálculos, experiência, exportações e testes); falta apenas a validação visual final antes do deploy |
