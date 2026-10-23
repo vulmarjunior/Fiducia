@@ -1,0 +1,45 @@
+schema_version: 2
+
+project:
+  name: Fiducia
+  slug: fiducia
+  category: pessoal
+  lifecycle: production
+  repository: https://github.com/vulmarjunior/Fiducia
+  default_branch: main
+  protocol_profile: core
+
+sources:
+  tasks:
+    type: file
+    path: docs/pendencias_dev.md
+  master_plan: docs/MASTER_PLAN.md
+  session_routine: docs/operacao/ROTINA_SESSAO.md
+  changelog: CHANGELOG.md
+  architecture: docs/LOGICA_DO_SISTEMA.md
+  decisions: null
+
+deployment:
+  state: production
+  provider: vercel
+  url: https://fiducianew.vercel.app/
+  account_alias: null
+  verified_at: "2026-10-23"
+
+database:
+  state: production
+  provider: firebase
+  project_alias: fiducia
+  account_alias: null
+  environment: production
+  verified_at: "2026-10-23"
+
+memory:
+  enabled: false
+  workspace: null
+  project: null
+
+oikos:
+  protocol_version: "0.2"
+  adopted_at: "2026-10-23"
+  last_audit_at: "2026-10-23"

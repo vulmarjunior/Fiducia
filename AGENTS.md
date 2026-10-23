@@ -3,6 +3,7 @@
 > Documento de referência rápida sobre o projeto. Complementa o `dev-log.md` (descobertas técnicas) e o `docs/LOGICA_DO_SISTEMA.md` (arquitetura detalhada).
 > **Importante**: Pastas `fontes/fiducia1/` e `fontes/fidúcia2/` são versões antigas descartadas. Ignorar para desenvolvimento.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
+> **Protocolo OIKOS:** perfil `core`; manifesto `.oikos/project.yaml`; rotina `docs/operacao/ROTINA_SESSAO.md`; gatilhos `fiducia on/off`.
 
 ---
 
