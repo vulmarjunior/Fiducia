@@ -4,20 +4,18 @@
 
 **Versão de base:** 0.20.8.
 
-Sessão concluída: [correção de exclusão de lançamento em fatura movida](archive/sessions/2026-10-12-correcao-exclusao-fatura-movida.md). Resultados e validações preservados nesse registro.
+## Pauta ativa
 
-## Revisão final (herdada)
+Nenhuma pendência ativa em 31/10/2026.
 
-Pendências: créditos canônicos no pagamento e reavaliação do fallback documental da v0.20.7, que pode reintroduzir obrigações inválidas. O achado anterior sobre aumentar uso de limite foi retificado após esclarecimento do usuário. Ver [revisão](archive/sessions/2026-09-08-revisao-final-v0207.md).
+- **v0.20.8 publicada em produção** na Vercel; `APP_VERSION` 0.20.8 confirmada no bundle publicado.
+- **Validação do responsável concluída:** exclusão do lançamento preso, quitação após pagamento parcial e relatórios conferidos.
+- Sessão de 12/10 encerrada e preservada em [correção de exclusão de lançamento em fatura movida](archive/sessions/2026-10-12-correcao-exclusao-fatura-movida.md).
 
-## Risco registrado
+## Riscos e registros herdados
 
-"Recalcular Faturas Antigas" (`CreditCards.tsx`) reescreve `invoicePeriod` pela regra da data e pode desfazer movimentos manuais de fatura — decidir tratamento em sessão futura (ver MASTER_PLAN — Riscos).
+Não são pauta ativa; verificar pertinência antes de reabrir.
 
-## Próximo passo
-
-Validação do usuário: excluir o lançamento preso após a v0.20.8, quitação após pagamento parcial e relatórios. Publicação depende de autorização explícita.
-
-## Frente Android pausada
-
-Permanece congelada; referência: [handoff](archive/sessions/2026-09-02-android-pausado-handoff.md).
+- **Revisão final (herdada):** créditos canônicos no pagamento e reavaliação do fallback documental da v0.20.7, que pode reintroduzir obrigações inválidas. O achado anterior sobre aumentar uso de limite foi retificado após esclarecimento do usuário. Ver [revisão](archive/sessions/2026-09-08-revisao-final-v0207.md).
+- **Recalcular Faturas Antigas:** `CreditCards.tsx` reescreve `invoicePeriod` pela regra da data e pode desfazer movimentos manuais de fatura — decidir tratamento em sessão futura (ver MASTER_PLAN — Riscos).
+- **Frente Android pausada:** congelada; referência: [handoff](archive/sessions/2026-09-02-android-pausado-handoff.md).

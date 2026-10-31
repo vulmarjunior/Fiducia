@@ -14,7 +14,7 @@
 | **Versão atual** | `0.20.8` |
 | **Modelo de versionamento** | SemVer |
 | **Última alteração em código** | 2026-10-12 (Correção de exclusão e movimentação de lançamento de cartão v0.20.8) |
-| **Último deploy** | Estado atual de produção não verificado; último registro documental: v0.15.5. v0.20.8 local, sem deploy nesta sessão. |
+| **Último deploy** | `v0.20.8` em produção na Vercel; `APP_VERSION` 0.20.8 confirmada no bundle publicado em 31/10/2026 (data do deploy não registrada). |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -73,11 +73,11 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Correção v0.20.8 — exclusão e movimentação de lançamento de cartão movido entre faturas passam a respeitar a fatura real (`invoicePeriod`); validação final do cenário pelo usuário antes de publicação.
+**Foco atual:** Nenhuma pendência ativa declarada em 31/10/2026. A v0.20.8 está publicada em produção e a validação do responsável foi concluída. A próxima demanda será definida com o responsável.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 
-**Próximo passo sugerido:** Usuário validar a exclusão do lançamento preso (v0.20.8), a quitação após pagamento parcial e os relatórios localmente e fornecer autorização explícita antes de qualquer deploy em produção.
+**Próximo passo sugerido:** Nenhum pendente da v0.20.8; analisar a próxima demanda do sistema com o responsável.
 
 ---
 

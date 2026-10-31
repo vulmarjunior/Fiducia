@@ -29,5 +29,5 @@ Reprodução determinística: cartão fecha dia 30, vence dia 10; compra em 2026
 
 ## Pendências e riscos
 
-- Validação do usuário: excluir o lançamento preso em produção local e confirmar o fluxo de mover/excluir após fatura aberta.
+- **Validação concluída em 31/10/2026:** exclusão do lançamento preso e fluxo de mover/excluir após fatura aberta conferidos pelo responsável; v0.20.8 publicada em produção.
 - Risco registrado no MASTER_PLAN: "Recalcular Faturas Antigas" (`handleRecalculateInvoices`) reescreve `invoicePeriod` pela regra da data e pode desfazer movimentos manuais — mesma classe de defeito, tratamento não incluído neste escopo.
