@@ -73,11 +73,11 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Crédito/estorno e saldo credor na fatura. E1 (saldo assinado e carry) e E2 (ação Crédito/Ajuste) publicados na v0.21.0; faltam homologação manual e E3 (estorno de parcela/compra). Plano em `docs/planos/PLANO_CREDITO_ESTORNO_SALDO_CREDOR.md`.
+**Foco atual:** Crédito/estorno e saldo credor na fatura. E1 (saldo assinado e carry) e E2 (ação Crédito/Ajuste) publicados na v0.21.2; falta homologar o crédito de R$ 280,42 e o carry entre faturas. Importador de fatura: plano proposto, retomar em sessão futura. Plano em `docs/planos/PLANO_CREDITO_ESTORNO_SALDO_CREDOR.md`.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 
-**Próximo passo sugerido:** Homologar E1/E2 com a fatura de novembro/2026; implementar E3.
+**Próximo passo sugerido:** Homologar o crédito de R$ 280,42 na fatura de novembro/2026 e a sequência nov −210,30 / dez −140,20 / jan −70,10 / fev 0,00; depois E3/E4. Retomar o importador pela E1–E5 do plano.
 
 ---
 

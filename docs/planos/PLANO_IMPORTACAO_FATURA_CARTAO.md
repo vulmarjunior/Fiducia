@@ -1,7 +1,7 @@
 # Importação e conciliação de fatura de cartão — PRD e plano de execução
 
 > **Projeto:** fiducia
-> **Status:** proposto
+> **Status:** proposto — pausado em 31/10/2026; retomar em sessão futura
 > **Homologação:** pendente
 > **Aprovado por:** pendente
 > **Planejado por:** OIKOS
@@ -185,8 +185,9 @@ homologação). Entrega sem evidência não sobe de status.
 | Data | Aderência | Observação |
 |---|---|---|
 | 2026-10-31 | plano proposto | Diagnóstico levantado a partir do arquivo real e do código da v0.20.8; nenhuma alteração de código feita |
-| 2026-10-31 | teste manual | Após limpeza do XLSX, o leitor reconheceu as linhas; o matching marcou muitos lançamentos já existentes como “Faltando”, confirmando E4/E5 como prioridade |
-| 2026-10-31 | lacuna de interface | Não há opção visível de crédito avulso na fatura; só “Estornar” uma despesa. O modelo aceita receita (a fatura subtrai), mas o modal esconde as abas de tipo quando a conta é cartão |
-| 2026-10-31 | lacuna de modelo | A fatura não carrega saldo credor: `getInvoiceFinancialSummary` corta o total em zero. Crédito maior que a fatura é perdido e não abate a fatura seguinte; “Estornar” também não aparece em parcelas (`!t.parentId`) |
+| 2026-10-31 | teste manual (XLSX Itaú) | 140 linhas, cabeçalho real na linha 14, 119 dados, datas 07/11/2025–28/10/2026, 29 parcelas em coluna própria, 4 negativos (2 Pagamentos Pix −10.425,15), total declarado R$ 12.608,99 e soma de todas as linhas R$ 2.183,84 (12.608,99 − 10.425,15). Sem limpeza: “Nenhuma linha”; após limpeza: leitura ok, mas muitos lançamentos existentes aparecem como “Faltando” (janela de período/cartão e matching). PDF segue frágil. |
+| 2026-10-31 | lacuna de interface | Resolvida na v0.21.0: ação “Crédito/Ajuste” na fatura e Receita aceita em cartão. |
+| 2026-10-31 | lacuna de modelo | Resolvida na v0.21.0: saldo credor assinado e carregado entre faturas; “Estornar” de parcela segue pendente (E3 do plano de crédito). |
+| 2026-10-31 | pausa | Sessão pausada a pedido do responsável; retomar pela E1–E5 deste plano. |
 
 > **LLM:** deepseek-v4.1-flash | **Agente:** opencode

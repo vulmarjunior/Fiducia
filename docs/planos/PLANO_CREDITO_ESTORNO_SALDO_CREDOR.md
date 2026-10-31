@@ -103,8 +103,8 @@ seguinte e permitir lançar crédito/estorno pela interface, sem contorno manual
 
 | ID | Entrega | Critério de aceite (verificável) | Status | Evidência |
 |---|---|---|---|---|
-| E1 | Modelo de saldo assinado + carry + guards de status/pagamento | Teste do caso real: nov −210,30; dez −140,20; jan −70,10; fev 0,00; pagamento bloqueado em nov | publicado | v0.21.1 na Vercel; `invoicePayment.test.ts` e suíte completa verdes |
-| E2 | Ação “Crédito/Ajuste” na fatura | Criar R$ 280,42 em nov/2026 pela interface, sem contorno; aparece em “Créditos e Estornos” e reduz o total | publicado | v0.21.1; chunk `CreditCards` com “Crédito/Ajuste” e categoria de receita; lint/test/build verdes |
+| E1 | Modelo de saldo assinado + carry + guards de status/pagamento | Teste do caso real: nov −210,30; dez −140,20; jan −70,10; fev 0,00; pagamento bloqueado em nov | publicado | v0.21.2 na Vercel; `invoicePayment.test.ts` e suíte completa verdes |
+| E2 | Ação “Crédito/Ajuste” na fatura | Criar R$ 280,42 em nov/2026 pela interface, sem contorno; aparece em “Créditos e Estornos” e reduz o total | publicado | v0.21.2; chunk `CreditCards` com “Crédito/Ajuste” e categoria de receita; lint/test/build verdes |
 | E3 | Estorno de parcela e de compra inteira | Parcela 1/4 permite “estornar esta parcela” e “estornar compra”; compra inteira cria o crédito de 280,42 | planejado | |
 | E4 | Varredura e regressão | Dashboard, Relatórios, Cartões e limite sem quebra; suíte verde; faturas antigas intactas | planejado | |
 | E5 | Documentação e homologação | MASTER_PLAN, CHANGELOG e pendencias_dev atualizados; aceite do usuário | planejado | |
@@ -136,6 +136,7 @@ seguinte e permitir lançar crédito/estorno pela interface, sem contorno manual
 | 2026-10-31 | E1/E2 | Publicação da v0.21.0 na Vercel | deploy `76dZry6rdfrDjZd5Z2vRmpeB7di7`; bundle 0.21.0 e chunk `CreditCards` com “Crédito/Ajuste” verificados | homologação manual pendente |
 | 2026-10-31 | E2 (correção) | Categoria do crédito passa a filtrar receita; v0.21.1 publicada | deploy `7465234708`; bundle 0.21.1 verificado | homologação manual pendente |
 | 2026-10-31 | E2 (layout) | Cabeçalho fixo, botões com quebra de linha e corpo rolável no modal da fatura; v0.21.2 publicada | deploy `7465393000`; bundle 0.21.2 verificado | homologação manual pendente |
+| 2026-10-31 | pausa | Sessão pausada a pedido do responsável; retomar pela homologação do crédito e E3/E4 | registro em `docs/archive/sessions/2026-10-31-credito-saldo-credor-fatura.md` | — |
 
 ## 9. Verificações do OIKOS (append-only)
 
@@ -146,5 +147,6 @@ seguinte e permitir lançar crédito/estorno pela interface, sem contorno manual
 | 2026-10-31 | E1/E2 publicados | v0.21.0 na Vercel; bundle 0.21.0 e chunk de Cartões com a ação verificados; homologação manual pendente |
 | 2026-10-31 | E2 corrigido | Categoria de receita no crédito; v0.21.1 na Vercel; homologação manual pendente |
 | 2026-10-31 | E2 layout | Ações e rolagem do modal da fatura; v0.21.2 na Vercel; homologação manual pendente |
+| 2026-10-31 | pausa | Sessão encerrada para retomada posterior; homologação do crédito e E3/E4 pendentes |
 
 > **LLM:** deepseek-v4.1-flash | **Agente:** opencode
