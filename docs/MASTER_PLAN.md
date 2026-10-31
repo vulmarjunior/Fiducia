@@ -73,11 +73,11 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Nenhuma pendência ativa declarada em 31/10/2026. A v0.20.8 está publicada em produção e a validação do responsável foi concluída. A próxima demanda será definida com o responsável.
+**Foco atual:** Crédito/estorno e saldo credor na fatura. E1 (saldo assinado e carry) e E2 (ação Crédito/Ajuste) implementados em branch; faltam homologação e E3 (estorno de parcela/compra). Plano em `docs/planos/PLANO_CREDITO_ESTORNO_SALDO_CREDOR.md`.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 
-**Próximo passo sugerido:** Nenhum pendente da v0.20.8; analisar a próxima demanda do sistema com o responsável.
+**Próximo passo sugerido:** Homologar E1/E2 com a fatura de novembro/2026; implementar E3.
 
 ---
 
