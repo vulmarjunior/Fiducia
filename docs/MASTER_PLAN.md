@@ -14,7 +14,7 @@
 | **Versão atual** | `0.21.0` |
 | **Modelo de versionamento** | SemVer |
 | **Última alteração em código** | 2026-10-31 (Crédito, estorno e saldo credor na fatura v0.21.0) |
-| **Último deploy** | `v0.20.8` em produção na Vercel; `v0.21.0` em publicação em 31/10/2026. |
+| **Último deploy** | `v0.21.0` em produção na Vercel em 31/10/2026; `APP_VERSION` 0.21.0 confirmada no bundle e o chunk de Cartões contém a ação Crédito/Ajuste. |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
@@ -73,7 +73,7 @@ npm run build      # vite build
 
 ## 4. Objetivo Vigente
 
-**Foco atual:** Crédito/estorno e saldo credor na fatura. E1 (saldo assinado e carry) e E2 (ação Crédito/Ajuste) implementados em branch; faltam homologação e E3 (estorno de parcela/compra). Plano em `docs/planos/PLANO_CREDITO_ESTORNO_SALDO_CREDOR.md`.
+**Foco atual:** Crédito/estorno e saldo credor na fatura. E1 (saldo assinado e carry) e E2 (ação Crédito/Ajuste) publicados na v0.21.0; faltam homologação manual e E3 (estorno de parcela/compra). Plano em `docs/planos/PLANO_CREDITO_ESTORNO_SALDO_CREDOR.md`.
 
 **Frente pausada:** O importador de notificações Android permanece **Pendente**, congelado para estudos mais aprofundados. Nenhuma integração com Firebase ou alteração ativa deve ser realizada nesta frente. Registro preservado em `docs/archive/sessions/2026-09-02-android-pausado-handoff.md`.
 

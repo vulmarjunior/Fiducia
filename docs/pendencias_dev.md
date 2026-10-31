@@ -6,10 +6,10 @@
 
 ## Pauta ativa
 
-- **Crédito/estorno e saldo credor na fatura** — em execução; plano em [planos/PLANO_CREDITO_ESTORNO_SALDO_CREDOR.md](planos/PLANO_CREDITO_ESTORNO_SALDO_CREDOR.md). E1 e E2 implementados em branch; faltam homologação e E3.
+- **Crédito/estorno e saldo credor na fatura** — em execução; plano em [planos/PLANO_CREDITO_ESTORNO_SALDO_CREDOR.md](planos/PLANO_CREDITO_ESTORNO_SALDO_CREDOR.md). E1 e E2 publicados na v0.21.0; faltam homologação manual e E3.
 - **Importação de fatura de cartão** — plano proposto em [planos/PLANO_IMPORTACAO_FATURA_CARTAO.md](planos/PLANO_IMPORTACAO_FATURA_CARTAO.md).
 
-- **v0.20.8 publicada em produção** na Vercel; `APP_VERSION` 0.20.8 confirmada no bundle publicado.
+- **v0.21.0 publicada em produção** na Vercel em 31/10/2026; `APP_VERSION` 0.21.0 confirmada no bundle publicado.
 - **Validação do responsável concluída:** exclusão do lançamento preso, quitação após pagamento parcial e relatórios conferidos.
 - Sessão de 12/10 encerrada e preservada em [correção de exclusão de lançamento em fatura movida](archive/sessions/2026-10-12-correcao-exclusao-fatura-movida.md).
 

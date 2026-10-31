@@ -103,8 +103,8 @@ seguinte e permitir lançar crédito/estorno pela interface, sem contorno manual
 
 | ID | Entrega | Critério de aceite (verificável) | Status | Evidência |
 |---|---|---|---|---|
-| E1 | Modelo de saldo assinado + carry + guards de status/pagamento | Teste do caso real: nov −210,30; dez −140,20; jan −70,10; fev 0,00; pagamento bloqueado em nov | implementado | branch `fix/saldo-credor-fatura`; `invoicePayment.test.ts` e suíte completa verdes |
-| E2 | Ação “Crédito/Ajuste” na fatura | Criar R$ 280,42 em nov/2026 pela interface, sem contorno; aparece em “Créditos e Estornos” e reduz o total | implementado | botão na fatura + `presetType/presetMonth` no `TransactionDialog`; lint/test/build verdes |
+| E1 | Modelo de saldo assinado + carry + guards de status/pagamento | Teste do caso real: nov −210,30; dez −140,20; jan −70,10; fev 0,00; pagamento bloqueado em nov | publicado | v0.21.0 na Vercel; `invoicePayment.test.ts` e suíte completa verdes |
+| E2 | Ação “Crédito/Ajuste” na fatura | Criar R$ 280,42 em nov/2026 pela interface, sem contorno; aparece em “Créditos e Estornos” e reduz o total | publicado | v0.21.0; chunk `CreditCards` publicado com “Crédito/Ajuste”; lint/test/build verdes |
 | E3 | Estorno de parcela e de compra inteira | Parcela 1/4 permite “estornar esta parcela” e “estornar compra”; compra inteira cria o crédito de 280,42 | planejado | |
 | E4 | Varredura e regressão | Dashboard, Relatórios, Cartões e limite sem quebra; suíte verde; faturas antigas intactas | planejado | |
 | E5 | Documentação e homologação | MASTER_PLAN, CHANGELOG e pendencias_dev atualizados; aceite do usuário | planejado | |
@@ -133,6 +133,7 @@ seguinte e permitir lançar crédito/estorno pela interface, sem contorno manual
 |---|---|---|---|---|
 | 2026-10-31 | E1 | Total assinado e saldo credor carregado em `invoicePayment.ts`, `CreditCards.tsx`, `Transactions.tsx` e `creditCardUtils.ts`; faturas com total ≤ 0 não são pagáveis nem marcadas como pagas | branch `fix/saldo-credor-fatura`; lint, 208 testes e build verdes | nenhum |
 | 2026-10-31 | E2 | Botão “Crédito/Ajuste” na fatura; modal aceita Receita em cartão, preserva o período visualizado e mostra o título/aviso de crédito | branch `fix/saldo-credor-fatura`; lint, testes e build verdes | E3 ainda pendente |
+| 2026-10-31 | E1/E2 | Publicação da v0.21.0 na Vercel | deploy `76dZry6rdfrDjZd5Z2vRmpeB7di7`; bundle 0.21.0 e chunk `CreditCards` com “Crédito/Ajuste” verificados | homologação manual pendente |
 
 ## 9. Verificações do OIKOS (append-only)
 
@@ -140,5 +141,6 @@ seguinte e permitir lançar crédito/estorno pela interface, sem contorno manual
 |---|---|---|
 | 2026-10-31 | plano proposto | Diagnóstico a partir do caso real de cancelamento de compra parcelada; nenhuma alteração de código feita |
 | 2026-10-31 | E1/E2 implementados | Saldo assinado, carry, guards e ação de crédito na fatura; suíte completa verde |
+| 2026-10-31 | E1/E2 publicados | v0.21.0 na Vercel; bundle 0.21.0 e chunk de Cartões com a ação verificados; homologação manual pendente |
 
 > **LLM:** deepseek-v4.1-flash | **Agente:** opencode
