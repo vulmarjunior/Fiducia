@@ -14,7 +14,7 @@
 | **Versão atual** | `0.21.1` |
 | **Modelo de versionamento** | SemVer |
 | **Última alteração em código** | 2026-10-31 (Categoria de receita no crédito da fatura v0.21.1) |
-| **Último deploy** | `v0.21.0` em produção na Vercel; `v0.21.1` em publicação em 31/10/2026. |
+| **Último deploy** | `v0.21.1` em produção na Vercel em 31/10/2026; `APP_VERSION` 0.21.1 confirmada no bundle (deploy `7465234708`). |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
