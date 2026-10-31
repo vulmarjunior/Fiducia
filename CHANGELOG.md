@@ -3,6 +3,22 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.21.0] — 2026-10-31 — Crédito, estorno e saldo credor na fatura
+
+**Resultado:** A fatura de cartão passa a aceitar saldo credor. Um cancelamento integral de compra parcelada creditado pelo banco em uma única linha — mantendo o cronograma de cobrança — é representado por **um único crédito**, e o saldo credor abate automaticamente as faturas seguintes. Faturas com saldo credor não podem ser pagas nem são marcadas como “pagas”. A tela da fatura ganhou a ação **Crédito/Ajuste**, com cartão e período pré-selecionados.
+
+**Caso de referência:** compra de R$ 280,42 em 4 parcelas (1 × 70,12 + 3 × 70,10), crédito de R$ 280,42 em novembro/2026. Resultado: nov −210,30; dez −140,20; jan −70,10; fev 0,00.
+
+**Alterações técnicas:**
+- `src/lib/invoicePayment.ts` — total assinado, `creditAmount` e `balanceAmount`; pagamento bloqueado para total negativo.
+- `src/pages/CreditCards.tsx` — saldo anterior assinado, carry entre faturas, total/selo “Saldo Credor”, ação “Crédito/Ajuste”, fechamento grava o total real e pagamento bloqueado.
+- `src/pages/Transactions.tsx` — sincronização de status não marca fatura negativa como paga.
+- `src/components/TransactionDialog.tsx` — aceita Receita em cartão, preserva o período da fatura visualizada e exibe título/aviso de crédito.
+- `src/utils/creditCardUtils.ts` — limite comprometido considera o saldo credor carregado.
+- Testes: 208 passaram, 3 ignorados; `tsc`, `vitest` e `build` verdes.
+
+**Pendente:** estorno de parcela/compra inteira (E3) e varredura de projeções de Dashboard/Relatórios (E4). Plano em `docs/planos/PLANO_CREDITO_ESTORNO_SALDO_CREDOR.md`.
+
 ## [0.20.8] — 2026-10-12 — Exclusão de lançamento movido entre faturas
 
 **Resultado:** Lançamentos de cartão movidos manualmente para outra fatura ("Mover p/ Anterior/Seguinte") deixam de ser bloqueados indevidamente na exclusão e na movimentação. O guarda de período fechado passou a considerar a fatura real do lançamento (`invoicePeriod`) em vez de derivar o período da data pela regra padrão do cartão — cenário típico de fechamento antecipado do banco. As mensagens de bloqueio agora identificam cartão e fatura (ex.: `C6 · 10/2026`).

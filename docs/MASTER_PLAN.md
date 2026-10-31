@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.20.8` |
+| **Versão atual** | `0.21.0` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-10-12 (Correção de exclusão e movimentação de lançamento de cartão v0.20.8) |
-| **Último deploy** | `v0.20.8` em produção na Vercel; `APP_VERSION` 0.20.8 confirmada no bundle publicado em 31/10/2026 (data do deploy não registrada). |
+| **Última alteração em código** | 2026-10-31 (Crédito, estorno e saldo credor na fatura v0.21.0) |
+| **Último deploy** | `v0.20.8` em produção na Vercel; `v0.21.0` em publicação em 31/10/2026. |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 
