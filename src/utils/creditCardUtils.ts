@@ -75,10 +75,10 @@ export function calculateCreditLimitUsage(
     if (invoice.cardId === cardId && typeof invoice.period === 'string' && invoice.period) periods.add(invoice.period);
   }
 
-  let usage = 0;
-  for (const period of periods) {
+  let balance = 0;
+  for (const period of [...periods].sort()) {
     const periodTransactions = cardTransactions.filter((tx: any) => tx.invoicePeriod === period);
-    const calculatedTotal = periodTransactions.reduce((total: number, tx: any) => {
+    const periodTotal = periodTransactions.reduce((total: number, tx: any) => {
       const amount = Number(tx.amount) || 0;
       if (tx.type === 'expense' || tx.type === 'despesa') return total + amount;
       if (tx.type === 'income' || tx.type === 'receita') return total - amount;
@@ -86,11 +86,8 @@ export function calculateCreditLimitUsage(
       return total;
     }, 0);
     const invoice = invoices.find((item: any) => item.cardId === cardId && item.period === period);
-    const remaining = invoice
-      ? getInvoiceFinancialSummary(invoice, calculatedTotal).remainingAmount
-      : Math.max(0, calculatedTotal);
-    usage += Math.max(0, remaining);
+    balance = getInvoiceFinancialSummary(invoice, balance + periodTotal).balanceAmount;
   }
 
-  return Math.max(0, Math.round(usage * 100) / 100);
+  return Math.max(0, Math.round(balance * 100) / 100);
 }

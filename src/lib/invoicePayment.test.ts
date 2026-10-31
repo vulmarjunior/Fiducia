@@ -62,7 +62,7 @@ describe('getInvoiceFinancialSummary', () => {
   });
   it('usa o total persistido e calcula o remanescente parcial', () => {
     expect(getInvoiceFinancialSummary({ totalAmount: 1000, paidAmount: 400, status: 'parcial' })).toEqual({
-      totalAmount: 1000, paidAmount: 400, remainingAmount: 600, paymentProgress: 40, status: 'parcial',
+      totalAmount: 1000, paidAmount: 400, remainingAmount: 600, creditAmount: 0, balanceAmount: 600, paymentProgress: 40, status: 'parcial',
     });
   });
   it('usa o total calculado quando a invoice ainda não foi persistida', () => {
@@ -73,7 +73,7 @@ describe('getInvoiceFinancialSummary', () => {
   });
   it('trata fatura legada paga sem paidAmount como totalmente quitada', () => {
     expect(getInvoiceFinancialSummary({ totalAmount: 8452.63, status: 'paga' })).toEqual({
-      totalAmount: 8452.63, paidAmount: 8452.63, remainingAmount: 0, paymentProgress: 100, status: 'paga',
+      totalAmount: 8452.63, paidAmount: 8452.63, remainingAmount: 0, creditAmount: 0, balanceAmount: 0, paymentProgress: 100, status: 'paga',
     });
   });
   it('remove de contas a pagar uma fatura atual quitada por pagamentos vinculados', () => {
@@ -101,5 +101,49 @@ describe('getInvoiceFinancialSummary', () => {
     const current = getInvoiceFinancialSummary(null, previous.remainingAmount + 3375.18);
 
     expect(current).toMatchObject({ totalAmount: 3375.18, remainingAmount: 3375.18, status: 'aberta' });
+  });
+  it('representa saldo credor quando o total calculado é negativo', () => {
+    expect(getInvoiceFinancialSummary(null, -210.3)).toMatchObject({
+      totalAmount: -210.3,
+      paidAmount: 0,
+      remainingAmount: 0,
+      creditAmount: 210.3,
+      balanceAmount: -210.3,
+      paymentProgress: 0,
+      status: 'aberta',
+    });
+  });
+  it('preserva saldo credor persistido em fatura fechada', () => {
+    expect(getInvoiceFinancialSummary({ status: 'fechada', totalAmount: -70.1 })).toMatchObject({
+      totalAmount: -70.1,
+      creditAmount: 70.1,
+      balanceAmount: -70.1,
+      status: 'fechada',
+    });
+  });
+  it('carrega o saldo credor entre faturas até consumir o crédito', () => {
+    const nov = getInvoiceFinancialSummary(null, 70.12 - 280.42);
+    const dez = getInvoiceFinancialSummary(null, nov.balanceAmount + 70.1);
+    const jan = getInvoiceFinancialSummary(null, dez.balanceAmount + 70.1);
+    const fev = getInvoiceFinancialSummary(null, jan.balanceAmount + 70.1);
+
+    expect([nov.balanceAmount, dez.balanceAmount, jan.balanceAmount, fev.balanceAmount])
+      .toEqual([-210.3, -140.2, -70.1, 0]);
+    expect([nov.creditAmount, dez.creditAmount, jan.creditAmount, fev.creditAmount])
+      .toEqual([210.3, 140.2, 70.1, 0]);
+  });
+  it('normaliza fatura negativa marcada como paga para fechada', () => {
+    expect(getInvoiceFinancialSummary({ status: 'paga', totalAmount: -50 })).toMatchObject({
+      totalAmount: -50,
+      status: 'fechada',
+      creditAmount: 50,
+    });
+  });
+});
+
+describe('calculateInvoicePayment com saldo credor', () => {
+  it('recusa pagamento de fatura com total negativo', () => {
+    expect(() => calculateInvoicePayment(-210.3, 0, 10))
+      .toThrow('saldo credor');
   });
 });

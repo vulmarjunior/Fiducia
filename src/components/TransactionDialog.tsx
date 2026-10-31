@@ -147,7 +147,7 @@ export function TransactionDialog() {
       accountId: options?.presetAccountId || '',
       destinationAccountId: '',
       status: today <= currentDateStr ? 'pago' : 'pendente',
-      invoicePeriod: '',
+      invoicePeriod: options?.presetMonth || '',
       ccRecurrenceType: 'avulso',
       installmentsCount: '2',
       frequency: 'mensal',
@@ -165,7 +165,7 @@ export function TransactionDialog() {
     setShowTags(false);
     setEditScope('only');
     keepOpenRef.current = false;
-  }, [options?.presetAccountId, options?.presetType]);
+  }, [options?.presetAccountId, options?.presetType, options?.presetMonth]);
 
   const populateEdit = useCallback((tx: any) => {
     const normalizedAccountId = tx.accountId || tx.creditCardId || '';
@@ -215,6 +215,8 @@ export function TransactionDialog() {
 
   useEffect(() => {
     if (!formData.accountId || !dataReady) return;
+    const keepPresetPeriod = Boolean(options?.presetMonth) && formData.accountId === options?.presetAccountId && !editingId;
+    if (keepPresetPeriod) return;
     const c = creditCards.find((cc: any) => cc.id === formData.accountId);
     if (c) {
       const period = calculateInvoicePeriod(formData.date, c.closingDay, c.dueDay);
@@ -232,7 +234,7 @@ export function TransactionDialog() {
         status: formData.date <= currentDateStr ? 'pago' : 'pendente'
       }));
     }
-  }, [formData.accountId, formData.date, creditCards, dataReady, editingId]);
+  }, [formData.accountId, formData.date, creditCards, dataReady, editingId, options?.presetMonth, options?.presetAccountId]);
 
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1347,8 +1349,8 @@ export function TransactionDialog() {
       <DialogContent className="w-[95vw] sm:max-w-[480px] p-0 overflow-hidden rounded-2xl border-none shadow-2xl bg-background dark:bg-surface max-h-[95vh] flex flex-col">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="text-xl font-bold text-foreground">
-            {editingId ? 'Editar ' : 'Nova '}
-            {isCreditCard ? 'despesa no cartão' : formData.type === 'receita' ? 'receita' : formData.type === 'despesa' ? 'despesa' : 'transferência'}
+            {editingId ? 'Editar ' : formData.type === 'receita' ? 'Novo ' : 'Nova '}
+            {isCreditCard ? (formData.type === 'receita' ? 'crédito no cartão' : 'despesa no cartão') : formData.type === 'receita' ? 'receita' : formData.type === 'despesa' ? 'despesa' : 'transferência'}
           </DialogTitle>
           <DialogDescription className="sr-only">
             Formulário para adicionar ou editar um lançamento financeiro.
@@ -1366,8 +1368,8 @@ export function TransactionDialog() {
             </Tabs>
           )}
           {isCreditCard && (
-            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center py-2 bg-red-50 dark:bg-red-950/20 rounded-xl text-red-600 dark:text-red-400">
-              Despesa no Cartão de Crédito — status sempre realizado
+            <div className={`text-[11px] font-bold uppercase tracking-wider text-center py-2 rounded-xl ${formData.type === 'receita' ? 'bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400' : 'bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400'}`}>
+              {formData.type === 'receita' ? 'Crédito no Cartão de Crédito — status sempre realizado' : 'Despesa no Cartão de Crédito — status sempre realizado'}
             </div>
           )}
 
@@ -1402,11 +1404,12 @@ export function TransactionDialog() {
                   onChange={(e) => {
                     const newDate = e.target.value;
                     const c = creditCards.find((cc: any) => cc.id === formData.accountId);
+                    const keepPresetPeriod = Boolean(options?.presetMonth) && formData.accountId === options?.presetAccountId;
                     if (c) {
                       setFormData({
                         ...formData,
                         date: newDate,
-                        invoicePeriod: calculateInvoicePeriod(newDate, c.closingDay, c.dueDay),
+                        invoicePeriod: keepPresetPeriod ? formData.invoicePeriod : calculateInvoicePeriod(newDate, c.closingDay, c.dueDay),
                         status: 'pago'
                       });
                     } else {
@@ -1591,7 +1594,7 @@ export function TransactionDialog() {
             </div>
 
             {/* Recurrence section */}
-            {(showRecurrence || isCreditCard) && (
+            {(showRecurrence || isCreditCard) && formData.type !== 'receita' && (
               <motion.div initial={false} animate={{ height: 'auto', opacity: 1 }} className="overflow-hidden space-y-4">
                 <div className="p-4 bg-muted rounded-2xl space-y-4">
                   {isCreditCard ? (

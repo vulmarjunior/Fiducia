@@ -291,11 +291,13 @@ export function Transactions() {
             const invoiceTotal = invoice.totalAmount || 0;
 
             let newStatus = invoice.status;
-            if (totalPaid >= invoiceTotal && invoiceTotal > 0) {
+            if (invoiceTotal <= 0) {
+              if (newStatus === 'paga' || newStatus === 'parcial') newStatus = 'fechada';
+            } else if (totalPaid >= invoiceTotal) {
               newStatus = 'paga';
-            } else if (totalPaid > 0 && totalPaid < invoiceTotal) {
+            } else if (totalPaid > 0) {
               newStatus = 'parcial';
-            } else if (paymentTxs.length > 0 && totalPaid === 0 && (invoice.status === 'paga' || invoice.status === 'parcial')) {
+            } else if (paymentTxs.length > 0 && (invoice.status === 'paga' || invoice.status === 'parcial')) {
               newStatus = 'fechada';
             }
 

@@ -71,4 +71,18 @@ describe('calculateCreditLimitUsage', () => {
     const transactions = [{ id: 'modern', creditCardId: 'c6', type: 'expense', amount: 357.97, invoicePeriod: '2025-12' }];
     expect(calculateCreditLimitUsage('c6', transactions, [])).toBe(357.97);
   });
+
+  it('abate o saldo credor das faturas seguintes e só volta a comprometer o limite depois de consumido', () => {
+    const transactions = [
+      { id: 'nov-p', creditCardId: 'itau', accountId: 'itau', type: 'expense', amount: 70.12, invoicePeriod: '2026-11' },
+      { id: 'nov-c', creditCardId: 'itau', accountId: 'itau', type: 'income', amount: 280.42, invoicePeriod: '2026-11' },
+      { id: 'dez', creditCardId: 'itau', accountId: 'itau', type: 'expense', amount: 70.1, invoicePeriod: '2026-12' },
+      { id: 'jan', creditCardId: 'itau', accountId: 'itau', type: 'expense', amount: 70.1, invoicePeriod: '2027-01' },
+      { id: 'fev', creditCardId: 'itau', accountId: 'itau', type: 'expense', amount: 70.1, invoicePeriod: '2027-02' },
+    ];
+    expect(calculateCreditLimitUsage('itau', transactions, [])).toBe(0);
+
+    const comNovaCompra = [...transactions, { id: 'mar', creditCardId: 'itau', accountId: 'itau', type: 'expense', amount: 50, invoicePeriod: '2027-03' }];
+    expect(calculateCreditLimitUsage('itau', comNovaCompra, [])).toBe(50);
+  });
 });

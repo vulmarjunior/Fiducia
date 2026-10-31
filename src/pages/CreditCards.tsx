@@ -245,7 +245,7 @@ export function CreditCards() {
     const previousPeriod = getPreviousPeriod(currentPeriod);
     const previousInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === previousPeriod);
     const previousSummary = getInvoiceFinancialSummary(previousInvoice, calculatePeriodBalance(selectedCardForInvoice.id, previousPeriod));
-    const previousBalance = previousSummary.remainingAmount;
+    const previousBalance = previousSummary.balanceAmount;
 
     const periodTransactions = transactions.filter(t => 
       transactionBelongsToCard(t, selectedCardForInvoice.id) &&
@@ -262,6 +262,11 @@ export function CreditCards() {
       .reduce((acc, t) => acc + t.amount, 0);
 
     const calculatedInvoiceTotal = previousBalance + periodExpenses - legacyPeriodPayments - periodIncomes;
+    const paymentSummary = getInvoiceFinancialSummary(existingInvoice, calculatedInvoiceTotal);
+    if (paymentSummary.totalAmount <= 0) {
+      toast.error('A fatura está com saldo credor; não há valor a pagar.');
+      return;
+    }
 
     const existingNextInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === nextPeriod);
 
@@ -893,9 +898,10 @@ export function CreditCards() {
           const previousInvoice = invoices.find(i => i.cardId === card.id && i.period === previousPeriod);
           const currentInvoice = invoices.find(i => i.cardId === card.id && i.period === currentPeriod);
           const previousSummary = getInvoiceFinancialSummary(previousInvoice, calculatePeriodBalance(card.id, previousPeriod));
-          const calculatedCurrentTotal = previousSummary.remainingAmount + calculatePeriodBalance(card.id, currentPeriod);
+          const calculatedCurrentTotal = previousSummary.balanceAmount + calculatePeriodBalance(card.id, currentPeriod);
           const currentSummary = getInvoiceFinancialSummary(currentInvoice, calculatedCurrentTotal);
           const netOutstanding = currentSummary.remainingAmount;
+          const hasCredit = previousSummary.remainingAmount <= 0.01 && currentSummary.creditAmount > 0.01;
           const highlightedSummary = previousSummary.remainingAmount > 0.01 ? previousSummary : currentSummary;
           
           let displayAmount: number;
@@ -914,8 +920,8 @@ export function CreditCards() {
               displayLabel = previousSummary.status === 'parcial' ? "Restante em atraso" : "Fatura Atrasada";
             }
           } else {
-            displayAmount = currentSummary.remainingAmount;
-            displayLabel = currentSummary.status === 'parcial' ? "Restante da fatura" : currentSummary.status === 'paga' ? "Fatura paga" : "Fatura Atual (Aberta)";
+            displayAmount = hasCredit ? currentSummary.creditAmount : currentSummary.remainingAmount;
+            displayLabel = hasCredit ? "Saldo credor" : currentSummary.status === 'parcial' ? "Restante da fatura" : currentSummary.status === 'paga' ? "Fatura paga" : "Fatura Atual (Aberta)";
             displayPeriod = currentPeriod;
           }
 
@@ -949,7 +955,7 @@ export function CreditCards() {
               <CardContent className="pb-4">
                 <div className="space-y-4">
                   <div>
-                    <div className={`text-2xl font-bold font-mono ${isOverdue || displayAmount > 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
+                    <div className={`text-2xl font-bold font-mono ${isOverdue || (!hasCredit && displayAmount > 0) ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
                       R$ {displayAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
@@ -1069,6 +1075,18 @@ export function CreditCards() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-9 sm:h-8 gap-2 w-full sm:w-auto justify-center border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+                  onClick={() => {
+                    const period = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
+                    openTxDialog({ presetAccountId: selectedCardForInvoice?.id, presetMonth: period, presetType: 'receita' });
+                  }}
+                >
+                  <Undo className="h-4 w-4" />
+                  <span className="hidden sm:inline">Crédito/Ajuste</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="h-9 sm:h-8 gap-2 w-full sm:w-auto justify-center border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950/40"
                   onClick={() => setIsInvoiceReconciliationOpen(true)}
                 >
@@ -1138,7 +1156,7 @@ export function CreditCards() {
               const previousPeriod = getPreviousPeriod(currentPeriod);
               const previousInvoice = invoices.find(i => i.cardId === selectedCardForInvoice.id && i.period === previousPeriod);
               const previousSummary = getInvoiceFinancialSummary(previousInvoice, calculatePeriodBalance(selectedCardForInvoice.id, previousPeriod));
-              const previousBalance = previousSummary.remainingAmount;
+              const previousBalance = previousSummary.balanceAmount;
               
               const filteredTransactions = transactions.filter(t => {
                 const matchesCard = transactionBelongsToCard(t, selectedCardForInvoice.id);
@@ -1175,6 +1193,8 @@ export function CreditCards() {
               const totalInvoice = invoiceSummary.totalAmount;
               const paidSoFar = invoiceSummary.paidAmount;
               const remainingAmount = invoiceSummary.remainingAmount;
+              const creditAmount = invoiceSummary.creditAmount;
+              const isCredit = creditAmount > 0.01;
               const periodPayments = Math.max(paidSoFar, legacyPeriodPayments);
               const paymentIds = new Set<string>(invoice?.paymentTransactionIds || (invoice?.paymentTransactionId ? [invoice.paymentTransactionId] : []));
               const paymentHistory = transactions.filter(t => paymentIds.has(t.id) && isEffectivelyPaid(t));
@@ -1193,7 +1213,7 @@ export function CreditCards() {
                       cardId: selectedCardForInvoice.id,
                       period: currentPeriod,
                       status: 'fechada',
-                      totalAmount: Math.max(0, totalInvoice),
+                      totalAmount: totalInvoice,
                       closedAt: new Date().toISOString(),
                     });
                   }
@@ -1233,7 +1253,7 @@ export function CreditCards() {
                     <div className="bg-card border p-4 rounded-xl shadow-sm">
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Saldo Anterior</p>
                       <p className={`text-lg font-black ${previousBalance > 0 ? 'text-fiducia-red' : 'text-fiducia-green'}`}>
-                        R$ {Math.max(0, previousBalance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {previousBalance < 0 ? '- ' : ''}R$ {Math.abs(previousBalance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <div className="bg-card border p-4 rounded-xl shadow-sm">
@@ -1255,15 +1275,15 @@ export function CreditCards() {
                       </p>
                     </div>
                     <div className="bg-fiducia-blue/5 border border-fiducia-blue/20 p-4 rounded-xl shadow-sm">
-                      <p className="text-[10px] font-black text-fiducia-blue/70 uppercase tracking-widest mb-1">Valor Original</p>
+                      <p className="text-[10px] font-black text-fiducia-blue/70 uppercase tracking-widest mb-1">Total da Fatura</p>
                       <p className="text-lg font-black text-fiducia-blue">
-                        R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {totalInvoice < 0 ? '- ' : ''}R$ {Math.abs(totalInvoice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
-                    <div className={`border p-4 rounded-xl shadow-sm ${remainingAmount > 0 ? 'bg-fiducia-amber/5 border-fiducia-amber/20' : 'bg-fiducia-green/5 border-fiducia-green/20'}`}>
-                      <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${remainingAmount > 0 ? 'text-fiducia-amber' : 'text-fiducia-green'}`}>Falta Pagar</p>
-                      <p className={`text-lg font-black ${remainingAmount > 0 ? 'text-fiducia-amber' : 'text-fiducia-green'}`}>
-                        R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <div className={`border p-4 rounded-xl shadow-sm ${!isCredit && remainingAmount > 0 ? 'bg-fiducia-amber/5 border-fiducia-amber/20' : 'bg-fiducia-green/5 border-fiducia-green/20'}`}>
+                      <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${!isCredit && remainingAmount > 0 ? 'text-fiducia-amber' : 'text-fiducia-green'}`}>{isCredit ? 'Saldo Credor' : 'Falta Pagar'}</p>
+                      <p className={`text-lg font-black ${!isCredit && remainingAmount > 0 ? 'text-fiducia-amber' : 'text-fiducia-green'}`}>
+                        R$ {(isCredit ? creditAmount : remainingAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
@@ -1274,7 +1294,9 @@ export function CreditCards() {
                         <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                           <List className="w-3.5 h-3.5" /> Lançamentos
                         </h4>
-                        {isPaid ? (
+                        {isCredit ? (
+                          <Badge className="bg-fiducia-green/10 text-fiducia-green border-fiducia-green/20 hover:bg-fiducia-green/20">Saldo Credor</Badge>
+                        ) : isPaid ? (
                           <Badge className="bg-fiducia-green/10 text-fiducia-green border-fiducia-green/20 hover:bg-fiducia-green/20">Fatura Paga</Badge>
                         ) : isPartial ? (
                           <Badge className="bg-fiducia-amber/10 text-fiducia-amber border-fiducia-amber/20 hover:bg-fiducia-amber/20">Pagamento Parcial</Badge>
@@ -1283,7 +1305,7 @@ export function CreditCards() {
                         ) : (
                           <Badge className="bg-fiducia-blue/10 text-fiducia-blue border-fiducia-blue/20 hover:bg-fiducia-blue/20">Fatura Aberta</Badge>
                         )}
-                        {(!invoice || invoice.status === 'aberta') && totalInvoice > 0 && (
+                        {(!invoice || invoice.status === 'aberta') && totalInvoice !== 0 && (
                           <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleCloseInvoice}>
                             <Lock className="h-3 w-3" /> FECHAR FATURA
                           </Button>
@@ -1717,8 +1739,8 @@ export function CreditCards() {
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 lg:text-right">
                       <div className="min-w-0">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{isPaid ? 'Fatura quitada' : 'Saldo remanescente'}</p>
-                        <p className={`text-xl font-black font-mono ${isPaid ? 'text-fiducia-green' : 'text-fiducia-amber'}`}>R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{isCredit ? 'Saldo credor' : isPaid ? 'Fatura quitada' : 'Saldo remanescente'}</p>
+                        <p className={`text-xl font-black font-mono ${isCredit || isPaid ? 'text-fiducia-green' : 'text-fiducia-amber'}`}>R$ {(isCredit ? creditAmount : remainingAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         {paidSoFar > 0 && <p className="text-[10px] text-muted-foreground">R$ {paidSoFar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} já pagos</p>}
                       </div>
                       {totalInvoice > 0 && !isPaid && (

@@ -13,6 +13,10 @@ export interface InvoiceFinancialSummary {
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;
+  /** Saldo credor da fatura (quando o total é negativo). */
+  creditAmount: number;
+  /** Saldo assinado: positivo a pagar, negativo credor. */
+  balanceAmount: number;
   paymentProgress: number;
   status: 'aberta' | 'fechada' | 'parcial' | 'paga';
 }
@@ -39,22 +43,29 @@ export function getInvoicePaymentTransactionIds(invoices: any[]): Set<string> {
 
 export function getInvoiceFinancialSummary(invoice: any, calculatedTotal?: number): InvoiceFinancialSummary {
   const isAberta = !invoice || invoice.status === 'aberta';
-  const totalCents = Math.max(0, toCents(
-    (!isAberta || calculatedTotal === undefined) && typeof invoice?.totalAmount === 'number' && invoice.totalAmount > 0 ? invoice.totalAmount : (calculatedTotal ?? 0),
-  ));
-  const persistedPaidCents = Math.min(totalCents, Math.max(0, toCents(invoice?.paidAmount || 0)));
-  const paidCents = invoice?.status === 'paga' && totalCents > 0 ? totalCents : persistedPaidCents;
-  const remainingCents = Math.max(0, totalCents - paidCents);
-  const status = remainingCents === 0 && totalCents > 0
-    ? 'paga'
-    : paidCents > 0
-      ? 'parcial'
-      : (invoice?.status || 'aberta');
+  const storedTotal = typeof invoice?.totalAmount === 'number' ? invoice.totalAmount : undefined;
+  const useStored = storedTotal !== undefined && storedTotal !== 0 && (!isAberta || calculatedTotal === undefined);
+  const totalCents = toCents(useStored ? storedTotal : (calculatedTotal ?? storedTotal ?? 0));
+
+  let paidCents = Math.max(0, toCents(invoice?.paidAmount || 0));
+  if (invoice?.status === 'paga' && totalCents > 0) paidCents = totalCents;
+  if (totalCents > 0) paidCents = Math.min(totalCents, paidCents);
+  else paidCents = 0;
+
+  const balanceCents = totalCents - paidCents;
+  const remainingCents = Math.max(0, balanceCents);
+  const creditCents = Math.max(0, -balanceCents);
+  const baseStatus = invoice?.status ?? 'aberta';
+  const status = totalCents > 0
+    ? (remainingCents === 0 ? 'paga' : paidCents > 0 ? 'parcial' : baseStatus)
+    : (baseStatus === 'paga' || baseStatus === 'parcial' ? 'fechada' : baseStatus);
 
   return {
     totalAmount: fromCents(totalCents),
     paidAmount: fromCents(paidCents),
     remainingAmount: fromCents(remainingCents),
+    creditAmount: fromCents(creditCents),
+    balanceAmount: fromCents(balanceCents),
     paymentProgress: totalCents > 0 ? (paidCents / totalCents) * 100 : 0,
     status,
   };
@@ -65,7 +76,9 @@ export function calculateInvoicePayment(totalAmount: number, priorPaidAmount: nu
   const priorPaidCents = toCents(priorPaidAmount);
   const paymentCents = toCents(paymentAmount);
 
-  if (!Number.isFinite(totalAmount) || totalCents <= 0) throw new Error('A fatura não possui um total válido para pagamento.');
+  if (!Number.isFinite(totalAmount)) throw new Error('A fatura não possui um total válido para pagamento.');
+  if (totalCents < 0) throw new Error('A fatura está com saldo credor; não há valor a pagar.');
+  if (totalCents === 0) throw new Error('A fatura não possui um total válido para pagamento.');
   if (!Number.isFinite(priorPaidAmount) || priorPaidCents < 0) throw new Error('O valor já pago da fatura é inválido.');
   if (!Number.isFinite(paymentAmount) || paymentCents <= 0) throw new Error('Informe um valor de pagamento maior que zero.');
 
