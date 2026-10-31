@@ -135,6 +135,7 @@ seguinte e permitir lançar crédito/estorno pela interface, sem contorno manual
 | 2026-10-31 | E2 | Botão “Crédito/Ajuste” na fatura; modal aceita Receita em cartão, preserva o período visualizado e mostra o título/aviso de crédito | branch `fix/saldo-credor-fatura`; lint, testes e build verdes | E3 ainda pendente |
 | 2026-10-31 | E1/E2 | Publicação da v0.21.0 na Vercel | deploy `76dZry6rdfrDjZd5Z2vRmpeB7di7`; bundle 0.21.0 e chunk `CreditCards` com “Crédito/Ajuste” verificados | homologação manual pendente |
 | 2026-10-31 | E2 (correção) | Categoria do crédito passa a filtrar receita; v0.21.1 publicada | deploy `7465234708`; bundle 0.21.1 verificado | homologação manual pendente |
+| 2026-10-31 | E2 (layout) | Cabeçalho fixo, botões com quebra de linha e corpo rolável no modal da fatura; v0.21.2 publicada | deploy `7465393000`; bundle 0.21.2 verificado | homologação manual pendente |
 
 ## 9. Verificações do OIKOS (append-only)
 
@@ -144,5 +145,6 @@ seguinte e permitir lançar crédito/estorno pela interface, sem contorno manual
 | 2026-10-31 | E1/E2 implementados | Saldo assinado, carry, guards e ação de crédito na fatura; suíte completa verde |
 | 2026-10-31 | E1/E2 publicados | v0.21.0 na Vercel; bundle 0.21.0 e chunk de Cartões com a ação verificados; homologação manual pendente |
 | 2026-10-31 | E2 corrigido | Categoria de receita no crédito; v0.21.1 na Vercel; homologação manual pendente |
+| 2026-10-31 | E2 layout | Ações e rolagem do modal da fatura; v0.21.2 na Vercel; homologação manual pendente |
 
 > **LLM:** deepseek-v4.1-flash | **Agente:** opencode
