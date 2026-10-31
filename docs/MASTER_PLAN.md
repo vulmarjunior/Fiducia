@@ -11,10 +11,10 @@
 |-------|-------|
 | **Nome** | Fiducia |
 | **Descrição** | Gestão financeira pessoal — contas, cartões, orçamentos, conciliação e relatórios |
-| **Versão atual** | `0.21.0` |
+| **Versão atual** | `0.21.1` |
 | **Modelo de versionamento** | SemVer |
-| **Última alteração em código** | 2026-10-31 (Crédito, estorno e saldo credor na fatura v0.21.0) |
-| **Último deploy** | `v0.21.0` em produção na Vercel em 31/10/2026; `APP_VERSION` 0.21.0 confirmada no bundle e o chunk de Cartões contém a ação Crédito/Ajuste. |
+| **Última alteração em código** | 2026-10-31 (Categoria de receita no crédito da fatura v0.21.1) |
+| **Último deploy** | `v0.21.0` em produção na Vercel; `v0.21.1` em publicação em 31/10/2026. |
 | **App publicado** | https://fiducianew.vercel.app/ |
 | **Repositório** | https://github.com/vulmarjunior/Fiducia |
 

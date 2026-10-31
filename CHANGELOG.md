@@ -3,6 +3,12 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.21.1] — 2026-10-31 — Categoria de receita no crédito da fatura
+
+**Resultado:** O modal de Crédito/Ajuste passa a listar **categorias de receita**, não de despesa. O filtro de categoria acompanha o tipo do lançamento quando a conta é cartão; despesas continuam vendo categorias de despesa.
+
+**Alteração técnica:** `src/components/TransactionDialog.tsx` — `typeFilter` dinâmico: `receita` para crédito e `despesa` para despesa.
+
 ## [0.21.0] — 2026-10-31 — Crédito, estorno e saldo credor na fatura
 
 **Resultado:** A fatura de cartão passa a aceitar saldo credor. Um cancelamento integral de compra parcelada creditado pelo banco em uma única linha — mantendo o cronograma de cobrança — é representado por **um único crédito**, e o saldo credor abate automaticamente as faturas seguintes. Faturas com saldo credor não podem ser pagas nem são marcadas como “pagas”. A tela da fatura ganhou a ação **Crédito/Ajuste**, com cartão e período pré-selecionados.

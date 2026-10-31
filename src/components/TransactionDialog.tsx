@@ -1559,7 +1559,7 @@ export function TransactionDialog() {
                             categories={categories}
                             value={formData.categoryId}
                             onChange={(val) => setFormData({ ...formData, categoryId: val })}
-                            typeFilter="despesa"
+                            typeFilter={formData.type === 'receita' ? 'receita' : 'despesa'}
                           placeholder="Buscar..."
                         />
                       </div>
