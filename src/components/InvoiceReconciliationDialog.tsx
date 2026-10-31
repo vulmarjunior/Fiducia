@@ -321,7 +321,7 @@ export function InvoiceReconciliationDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
           {step === 'idle' && (
             <div className="border border-dashed rounded-2xl p-10 text-center bg-muted/20">
               <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />

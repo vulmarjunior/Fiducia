@@ -150,7 +150,7 @@ export function PdfImportReviewDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {/* Loading */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-20 gap-4">

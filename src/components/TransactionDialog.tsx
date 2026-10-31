@@ -1347,7 +1347,7 @@ export function TransactionDialog() {
       if (!open) { close(); if (!keepOpenRef.current) resetForm(); }
     }}>
       <DialogContent className="w-[95vw] sm:max-w-[480px] p-0 overflow-hidden rounded-2xl border-none shadow-2xl bg-background dark:bg-surface max-h-[95vh] flex flex-col">
-        <DialogHeader className="p-6 pb-0">
+        <DialogHeader className="p-6 pb-0 shrink-0">
           <DialogTitle className="text-xl font-bold text-foreground">
             {editingId ? 'Editar ' : formData.type === 'receita' ? 'Novo ' : 'Nova '}
             {isCreditCard ? (formData.type === 'receita' ? 'crédito no cartão' : 'despesa no cartão') : formData.type === 'receita' ? 'receita' : formData.type === 'despesa' ? 'despesa' : 'transferência'}
@@ -1357,7 +1357,7 @@ export function TransactionDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 space-y-6">
           {!isCreditCard && (
             <Tabs value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })} className="w-full">
               <TabsList className="grid w-full grid-cols-3 bg-muted p-1 rounded-xl h-11">

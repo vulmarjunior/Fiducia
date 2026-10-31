@@ -3,6 +3,14 @@
 > Histórico permanente de releases, organizado por versão e data.
 > **LLM:** deepseek-v4-pro | **Agente:** opencode
 
+## [0.21.2] — 2026-10-31 — Layout do modal da fatura
+
+**Resultado:** O modal da fatura mantém os botões de ação visíveis e a área de conteúdo rolável; a ação final não fica mais fora da área de visão com o novo botão Crédito/Ajuste. O cabeçalho fica fixo, os botões quebram linha quando não cabem e o corpo do modal rola dentro da altura máxima.
+
+**Alterações técnicas:**
+- `src/pages/CreditCards.tsx` — cabeçalho `shrink-0`, grupo de ações com `flex-wrap` e corpo com `min-h-0`.
+- `src/components/TransactionDialog.tsx`, `PdfImportReviewDialog.tsx` e `InvoiceReconciliationDialog.tsx` — corpo com `min-h-0` para o rodapé/ação final permanecer acessível.
+
 ## [0.21.1] — 2026-10-31 — Categoria de receita no crédito da fatura
 
 **Resultado:** O modal de Crédito/Ajuste passa a listar **categorias de receita**, não de despesa. O filtro de categoria acompanha o tipo do lançamento quando a conta é cartão; despesas continuam vendo categorias de despesa.

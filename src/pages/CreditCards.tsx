@@ -1053,8 +1053,8 @@ export function CreditCards() {
         }
       }}>
         <DialogContent className="w-[96vw] sm:max-w-[920px] max-h-[92vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-4 sm:p-6 pb-3 border-b">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <DialogHeader className="p-4 sm:p-6 pb-3 border-b shrink-0">
+            <div className="flex flex-col xl:flex-row xl:items-center xl:flex-wrap justify-between gap-4">
               <div>
                 <DialogTitle className="flex items-center gap-2 text-xl">
                   <CreditCard className="w-5 h-5 text-fiducia-blue" />
@@ -1064,7 +1064,7 @@ export function CreditCards() {
                   Detalhamento de lançamentos e pagamentos
                 </DialogDescription>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 xl:justify-end">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 xl:justify-end">
                 <Button variant="outline" size="sm" className="h-9 sm:h-8 gap-2 w-full sm:w-auto justify-center" onClick={() => {
                   const period = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
                   openTxDialog({ presetAccountId: selectedCardForInvoice?.id, presetMonth: period });
@@ -1150,7 +1150,7 @@ export function CreditCards() {
           </div>
         </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
             {selectedCardForInvoice && (() => {
               const currentPeriod = `${selectedInvoiceMonth.getFullYear()}-${(selectedInvoiceMonth.getMonth() + 1).toString().padStart(2, '0')}`;
               const previousPeriod = getPreviousPeriod(currentPeriod);
